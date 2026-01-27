@@ -16,6 +16,12 @@ class User(db.Model):
 
     role = db.relationship('UserRole', back_populates='users')
     
+class UserRole(db.Model):
+    __tablename__ = 'user_roles'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+
+    users = db.relationship('User', back_populates='role')
     
     
 
