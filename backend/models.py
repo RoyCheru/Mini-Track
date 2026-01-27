@@ -37,6 +37,21 @@ class Vehicle(db.Model):
     user = db.relationship('User', back_populates='vehicles')
     route = db.relationship('Route', back_populates='vehicles')
     
+class Booking(db.Model):
+    __tablename__ = 'bookings'
+    id = db.Column(db.Integer, primary_key=True)
+    vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicles.id'), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('parents.id'), nullable=False)
+    booking_date = db.Column(db.DateTime, nullable=False)
+    start_date = db.Column(db.DateTime, nullable=False)
+    end_date = db.Column(db.DateTime, nullable=False)
+    pickup_location = db.Column(db.String(200), nullable=False)
+    dropoff_location = db.Column(db.String(200), nullable=False)
+    status = db.Column(db.String(50), nullable=False)
+
+    vehicle = db.relationship('Vehicle', back_populates='bookings')
+    parent = db.relationship('Parent', back_populates='bookings')
+    
 
     
     
