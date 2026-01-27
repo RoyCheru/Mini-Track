@@ -15,7 +15,7 @@ class User(db.Model):
     role_id = db.Column(db.Integer, db.ForeignKey('user_roles.id'), nullable=False)
 
     role = db.relationship('UserRole', back_populates='users')
-    bookings = db.relationship('Booking', back_populates='user')
+    
     
     
 
