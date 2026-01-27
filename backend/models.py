@@ -72,6 +72,15 @@ class Parent(db.Model):
 
     bookings = db.relationship('Booking', back_populates='parent')
     
+class SchoolLocation(db.Model):
+    __tablename__ = 'school_locations'
+    id = db.Column(db.Integer, primary_key=True)
+    route_id = db.Column(db.Integer, db.ForeignKey('routes.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    gps_coordinates = db.Column(db.String(50), nullable=False)
+
+    route = db.relationship('Route', back_populates='school_locations')
+    
 
     
     
