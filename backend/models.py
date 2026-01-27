@@ -62,7 +62,15 @@ class Route(db.Model):
     vehicles = db.relationship('Vehicle', back_populates='route')
     school_locations = db.relationship('SchoolLocation', back_populates='route')
     
+class Parent(db.Model):
+    __tablename__ = 'parents'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    contact_number = db.Column(db.String(20), nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    residence = db.Column(db.String(200), nullable=False)
 
+    bookings = db.relationship('Booking', back_populates='parent')
     
 
     
