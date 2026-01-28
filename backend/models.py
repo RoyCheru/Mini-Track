@@ -6,6 +6,11 @@
 # parents
 # school_locations
 
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
+
+db = SQLAlchemy()
+
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -16,6 +21,7 @@ class User(db.Model):
 
     role = db.relationship('UserRole', back_populates='users')
     vehicles = db.relationship('Vehicle', back_populates='user')
+    
     
 class UserRole(db.Model):
     __tablename__ = 'user_roles'
