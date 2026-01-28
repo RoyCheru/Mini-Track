@@ -14,9 +14,9 @@ def create_app():
     migrate = Migrate(app, db)
     api = Api(app)
 
-    if __name__ == '__main__':
-        app.run(port=5555, debug=True)
-
     return app 
 
 app = create_app
+
+if __name__ == '__main__':
+        app.run(port=5555, debug=True)
