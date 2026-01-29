@@ -348,3 +348,47 @@ class BookingDetail(Resource):
         
         response = serialize_booking(booking, include_trips=True)
         return response, 200
+    
+    def patch(self, booking_id):
+        """
+        Update booking (MVP: only allows cancellation)
+        
+        Expected JSON body:
+        {
+            "status": "cancelled"
+        }
+        """
+        booking = Booking.query.get(booking_id)
+        
+        if not booking:
+            return {"error": "Booking not found"}, 404
+        
+        data = request.get_json()
+        
+        if not data or 'status' not in data:
+            return {"error": "status field is required"}, 400
+        
+        # Only allow cancellation for MVP
+        if data['status'] != 'cancelled':
+            return {"error": "Only cancellation is allowed. Set status to 'cancelled'"}, 400
+        
+        # Check if already cancelled
+        if booking.status == 'cancelled':
+            return {"error": "Booking is already cancelled"}, 409
+        
+        # Update booking status
+        booking.status = 'cancelled'
+        
+        # Cancel all future trips (keep past trips as historical record)
+        Trip.query.filter(
+            Trip.booking_id == booking_id,
+            Trip.trip_date >= date.today(),
+            Trip.status == 'scheduled'
+        ).update({'status': 'cancelled'})
+        
+        db.session.commit()
+        
+        response = serialize_booking(booking, include_trips=True)
+        response["message"] = "Booking cancelled successfully"
+        
+        return response, 200
