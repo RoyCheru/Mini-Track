@@ -1,6 +1,6 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, session
 from flask_restful import Resource
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from models import db, User, UserRole
 
@@ -15,10 +15,10 @@ class Login(Resource):
 
         if user and check_password_hash(user.password_hash, password):
             session["user_id"] = user.id
-            return jsonify({"message": "Login successful", "user_id": user.id}), 200
+            return {"message": "Login successful", "user_id": user.id}, 200
         else:
-            return jsonify({"message": "Invalid credentials"}), 401
-        
+            return {"message": "Invalid credentials"}, 401
+
 class Signup(Resource):
     def post(self):
         data = request.get_json()
@@ -26,26 +26,39 @@ class Signup(Resource):
         email = data.get("email")
         phone_number = data.get("phone_number")
         residence = data.get("residence")
-        password_hash = data.get("password_hash")
+        password = data.get("password")
         role_id = data.get("role_id")
 
-        if User.query.filter_by(email=email).first():
-            return jsonify({"message": "Email already exists"}), 400
+        if not name or not email or not password or not role_id:
+            return {"error": "All fields required"}, 400
 
+        if User.query.filter_by(email=email).first():
+            return {"error": "Email already exists"}, 400
+
+        hashed_password = generate_password_hash(password)
+        
         new_user = User(
             name=name,
             email=email,
             phone_number=phone_number,
             residence=residence,
-            password_hash=password_hash,
+            password_hash=hashed_password,
             role_id=role_id
         )
         db.session.add(new_user)
         db.session.commit()
 
-        return jsonify({"message": "User created successfully", "user_id": new_user.id}), 201
+        return{
+            "message": "User created successfully",
+            "user": {
+                "id": new_user.id,
+                "name": new_user.name,
+                "email": new_user.email,
+                "role_id": new_user.role_id
+            }
+        }, 201
     
 class Logout(Resource):
     def post(self):
         session.pop("user_id", None)
-        return jsonify({"message": "Logout successful"}), 200
+        return {"message": "Logout successful"}, 200
