@@ -56,6 +56,9 @@ class Booking(db.Model):
     pickup_location = db.Column(db.String(200), nullable=False)
     dropoff_location = db.Column(db.String(200), nullable=False)
     status = db.Column(db.String(50), nullable=False)
+    seats_booked = db.Column(db.Integer, nullable=False, default=1)
+    service_type = db.Column(db.String(50), nullable=False)
+    days_of_week = db.Column(db.String(100), nullable=True)  # e.g., "Monday,Wednesday,Friday"
 
     vehicle = db.relationship('Vehicle', back_populates='bookings')
     user = db.relationship('User', back_populates='bookings')
@@ -80,7 +83,19 @@ class SchoolLocation(db.Model):
 
     route = db.relationship('Route', back_populates='school_locations')
     
+class Trip(db.Model):
+    __tablename__ = 'trips'
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)
+    service_time = db.Column(db.DateTime, nullable=False)
+    status = db.Column(db.String(50), nullable=False)
+    trip_date = db.Column(db.DateTime, nullable=False)
+    pickup_time = db.Column(db.DateTime, nullable=True)
+    actual_pickup_time = db.Column(db.DateTime, nullable=True)
+    actual_dropoff_time = db.Column(db.DateTime, nullable=True)
+    driver_notes = db.Column(db.String(500), nullable=True)
 
+    booking = db.relationship('Booking')
     
     
 
