@@ -1,39 +1,44 @@
+"use client"
+
 import Link from "next/link"
-import type { ComponentProps } from "react"
+import type React from "react"
+import type { UrlObject } from "url"
 
-type Variant = "primary" | "ghost"
+type Href = string | UrlObject
 
-type ButtonAsButtonProps = ComponentProps<"button"> & {
-  variant?: Variant
-  href?: never
+type CommonProps = {
+  children: React.ReactNode
+  className?: string
 }
 
-type ButtonAsLinkProps = ComponentProps<typeof Link> & {
-  variant?: Variant
-  href: string
-}
-
-type Props = ButtonAsButtonProps | ButtonAsLinkProps
-
-function cx(...classes: Array<string | undefined | false>) {
-  return classes.filter(Boolean).join(" ")
-}
-
-export default function Button(props: Props) {
-  const variant = props.variant ?? "primary"
-
-  const className = cx(
-    "btn",
-    variant === "primary" ? "btn-primary" : "btn-ghost",
-    // allow extra classes
-    "className" in props ? props.className : undefined
-  )
-
-  if ("href" in props) {
-    const { href, ...rest } = props
-    return <Link href={href} {...rest} className={className} />
+type LinkVariantProps = CommonProps &
+  Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
+    href: Href
   }
 
-  const { variant: _v, ...rest } = props
-  return <button {...rest} className={className} />
+type ButtonVariantProps = CommonProps &
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    href?: never
+  }
+
+type ButtonProps = LinkVariantProps | ButtonVariantProps
+
+export default function Button(props: ButtonProps) {
+  const { children, className, ...rest } = props
+
+  if ("href" in props) {
+    const { href, ...linkRest } = rest as Omit<LinkVariantProps, keyof CommonProps>
+
+    return (
+      <Link href={href} className={className} {...linkRest}>
+        {children}
+      </Link>
+    )
+  }
+
+  return (
+    <button className={className} {...(rest as Omit<ButtonVariantProps, keyof CommonProps>)}>
+      {children}
+    </button>
+  )
 }
