@@ -65,3 +65,16 @@ class GetDrivers(Resource):
             } for u in users
         ]
 
+class GetUser(Resource):
+    def get(self, id):
+        user = User.query.get(id)
+        if not user:
+            return {"error": "User not found"}, 404
+
+        return {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "role_id": user.role_id
+        }
