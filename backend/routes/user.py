@@ -47,3 +47,21 @@ class CreateDriver(Resource):
                 "role_id": new_driver.role_id
             }
         }, 201
+        
+class GetDrivers(Resource):
+    def get(self):
+        admin = User.query.get(session.get("user_id"))
+        if not admin or admin.role_id != 1:
+            return {"error": "Unauthorized"}, 403
+
+        users = User.query.all()
+
+        return [
+            {
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "role_id": u.role_id
+            } for u in users
+        ]
+
