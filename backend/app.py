@@ -4,6 +4,8 @@ from models import db
 from flask_migrate import Migrate
 from routes.auth import Login, Signup, Logout
 from routes.user import CreateDriver, GetDrivers, GetUsers, UpdateUser, DeleteUser
+from routes.user_roles import UserRoleList, UserRoleDetail
+
 
 def create_app():
 
@@ -34,6 +36,10 @@ def create_app():
     api.add_resource(GetUsers, '/users')
     api.add_resource(UpdateUser, '/users/<int:user_id>')
     api.add_resource(DeleteUser, '/users/<int:user_id>')
+    
+    api.add_resource(UserRoleList, '/user_roles')
+    api.add_resource(UserRoleDetail, '/user_roles/<int:role_id>')
+
     
     
 
