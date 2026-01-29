@@ -76,3 +76,40 @@ class TripToday(Resource):
         }
         
         return response, 200
+    
+
+class TripPickup(Resource):
+    """
+    Mark trip as picked up (shortcut endpoint for drivers)
+    """
+    
+    def patch(self, trip_id):
+        """
+        Mark child as picked up
+        """
+        trip = Trip.query.get(trip_id)
+        
+        if not trip:
+            return {"error": "Trip not found"}, 404
+        
+        if trip.status == 'completed':
+            return {"error": "Trip is already completed"}, 409
+        
+        if trip.status == 'cancelled':
+            return {"error": "Cannot pickup a cancelled trip"}, 409
+        
+        # Mark as picked up
+        trip.status = 'picked_up'
+        trip.actual_pickup_time = datetime.utcnow()
+        
+        # Add driver notes if provided
+        data = request.get_json()
+        if data and 'driver_notes' in data:
+            trip.driver_notes = data['driver_notes']
+        
+        db.session.commit()
+        
+        response = serialize_trip(trip)
+        response["message"] = "Child marked as picked up"
+        
+        return response, 200
