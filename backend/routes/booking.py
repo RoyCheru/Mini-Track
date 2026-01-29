@@ -176,3 +176,46 @@ def serialize_trip(trip):
         "actual_dropoff_time": trip.actual_dropoff_time.isoformat() if trip.actual_dropoff_time else None,
         "driver_notes": trip.driver_notes,
     }
+
+
+# 2. RESOURCE CLASSES
+
+class BookingList(Resource):
+    """
+    Handle booking list operations
+    GET: List all bookings (filtered by user role)
+    POST: Create new booking
+    """
+    
+    def get(self):
+        """
+        Get all bookings
+        Query params:
+            - user_id: Filter by user (optional, for parents to see their own)
+            - vehicle_id: Filter by vehicle (optional, for drivers)
+            - status: Filter by status (optional)
+        """
+        # Get query parameters
+        user_id = request.args.get('user_id', type=int)
+        vehicle_id = request.args.get('vehicle_id', type=int)
+        status = request.args.get('status')
+        
+        # Build query
+        query = Booking.query
+        
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+        
+        if vehicle_id:
+            query = query.filter_by(vehicle_id=vehicle_id)
+        
+        if status:
+            query = query.filter_by(status=status)
+        
+        bookings = query.all()
+        
+        response = []
+        for booking in bookings:
+            response.append(serialize_booking(booking, include_trips=False))
+        
+        return response, 200
