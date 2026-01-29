@@ -54,6 +54,25 @@ class GetDrivers(Resource):
         if not admin or admin.role_id != 1:
             return {"error": "Unauthorized"}, 403
 
+        drivers = User.query.filter_by(role_id=2).all()
+
+        results = []
+        for d in drivers:
+            results.append({
+                "id": d.id,
+                "name": d.name,
+                "email": d.email,
+                "phone_number": d.phone_number
+            })
+
+        return results
+
+class GetUsers(Resource):
+    def get(self):
+        admin = User.query.get(session.get("user_id"))
+        if not admin or admin.role_id != 1:
+            return {"error": "Unauthorized"}, 403
+
         users = User.query.all()
 
         return [
