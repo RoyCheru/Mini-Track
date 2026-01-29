@@ -35,7 +35,6 @@ class Signup(Resource):
         phone_number = data.get("phone_number")
         residence = data.get("residence")
         password = data.get("password")
-        role_id = data.get("role_id")
 
         if not name or not email or not password or not role_id:
             return {"error": "All fields required"}, 400
@@ -51,7 +50,7 @@ class Signup(Resource):
             phone_number=phone_number,
             residence=residence,
             password_hash=hashed_password,
-            role_id=role_id
+            role_id= 3 # default to parent role
         )
         db.session.add(new_user)
         db.session.commit()
