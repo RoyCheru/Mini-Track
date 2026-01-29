@@ -103,3 +103,22 @@ def validate_date_range(start_date, end_date):
         return False, f"Booking period cannot exceed {max_days} days"
     
     return True, ""
+
+def validate_days_of_week(days_string):
+
+    try:
+        days = [int(d) for d in days_string.split(',')]
+        
+        if not all(1 <= d <= 7 for d in days):
+            return False, "Days must be between 1 (Monday) and 7 (Sunday)"
+        
+        if len(days) != len(set(days)):
+            return False, "Duplicate days not allowed"
+        
+        if len(days) == 0:
+            return False, "At least one day must be specified"
+        
+        return True, ""
+    except Exception as e:
+        return False, "Invalid days format. Use comma-separated numbers (e.g., '1,3,5' for Mon/Wed/Fri)"
+
