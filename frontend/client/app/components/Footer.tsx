@@ -9,18 +9,13 @@ export default function Footer() {
           <div>
             <div className="flex items-center gap-2">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
-                🚐
+            
               </span>
               <span className="text-lg font-extrabold">Mini-Truck</span>
             </div>
             <p className="mt-4 text-sm leading-6 text-slate-300">
               Making school transportation safe, affordable, and accessible for every child in developing countries.
             </p>
-            <div className="mt-4 flex gap-3 text-slate-300">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-800">f</span>
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-800">x</span>
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-800">ig</span>
-            </div>
           </div>
 
           <div>
