@@ -53,3 +53,37 @@ def generate_trips_for_booking(booking):
     db.session.commit()
     
     return len(trips)
+
+def validate_booking_capacity(vehicle_id, start_date, end_date, seats_requested):
+    """
+    Check if vehicle has capacity for the requested booking
+    
+    Returns: (is_valid: bool, available_seats: int, error_message: str)
+    """
+    vehicle = Vehicle.query.get(vehicle_id)
+    if not vehicle:
+        return False, 0, "Vehicle not found"
+    
+    # Find all trips that overlap with this date range
+    overlapping_trips = Trip.query.join(Booking).filter(
+        Booking.vehicle_id == vehicle_id,
+        Trip.trip_date >= start_date,
+        Trip.trip_date <= end_date,
+        Trip.status.in_(['scheduled', 'picked_up'])  # Active trips only
+    ).all()
+    
+    # Group by date and count seats
+    from collections import defaultdict
+    seats_by_date = defaultdict(int)
+    
+    for trip in overlapping_trips:
+        seats_by_date[trip.trip_date] += trip.booking.seats_booked
+    
+    # Check if any date exceeds capacity
+    max_seats_used = max(seats_by_date.values()) if seats_by_date else 0
+    available = vehicle.capacity - max_seats_used
+    
+    if seats_requested <= available:
+        return True, available, ""
+    else:
+        return False, available, f"Not enough seats. Only {available} seats available, but {seats_requested} requested"
