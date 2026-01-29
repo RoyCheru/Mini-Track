@@ -16,6 +16,13 @@ def create_app():
 
     db.init_app(app)
     migrate = Migrate(app, db)
+    CORS(
+        app,
+        supports_credentials=True,
+        origins=["http://localhost:3000"],
+        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type"]
+    )
     api = Api(app)
 
     api.add_resource(Login, '/login')
