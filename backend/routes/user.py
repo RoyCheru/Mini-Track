@@ -106,3 +106,17 @@ class UpdateUser(Resource):
             }
         }
         
+class DeleteUser(Resource):
+    def delete(self, id):
+        admin = User.query.get(session.get("user_id"))
+        if not admin or admin.role_id != 1:
+            return {"error": "Unauthorized"}, 403
+
+        user = User.query.get(id)
+        if not user:
+            return {"error": "User not found"}, 404
+
+        db.session.delete(user)
+        db.session.commit()
+
+        return {"message": "User deleted"}
