@@ -129,3 +129,50 @@ def validate_service_type(service_type):
     if service_type not in valid_types:
         return False, f"Service type must be one of: {', '.join(valid_types)}"
     return True, ""
+
+
+def serialize_booking(booking, include_trips=False):
+    """
+    Serialize booking object to dictionary
+    """
+    result = {
+        "booking_id": booking.id,
+        "user_id": booking.user_id,
+        "user_name": booking.user.name,
+        "vehicle_id": booking.vehicle_id,
+        "vehicle_plate": booking.vehicle.license_plate,
+        "pickup_location": booking.pickup_location,
+        "dropoff_location": booking.dropoff_location,
+        "booking_date": booking.booking_date.isoformat(),
+        "start_date": booking.start_date.isoformat(),
+        "end_date": booking.end_date.isoformat(),
+        "status": booking.status,
+        "seats_booked": booking.seats_booked,
+        "service_type": booking.service_type,
+        "days_of_week": booking.days_of_week,
+    }
+    
+    if include_trips:
+        result["trips"] = [serialize_trip(trip) for trip in booking.trips]
+        result["total_trips"] = len(booking.trips)
+        result["completed_trips"] = len([t for t in booking.trips if t.status == 'completed'])
+        result["upcoming_trips"] = len([t for t in booking.trips if t.status == 'scheduled'])
+    
+    return result
+
+
+def serialize_trip(trip):
+    """
+    Serialize trip object to dictionary
+    """
+    return {
+        "trip_id": trip.id,
+        "booking_id": trip.booking_id,
+        "trip_date": trip.trip_date.isoformat(),
+        "service_time": trip.service_time,
+        "status": trip.status,
+        "pickup_time": trip.pickup_time.isoformat() if trip.pickup_time else None,
+        "actual_pickup_time": trip.actual_pickup_time.isoformat() if trip.actual_pickup_time else None,
+        "actual_dropoff_time": trip.actual_dropoff_time.isoformat() if trip.actual_dropoff_time else None,
+        "driver_notes": trip.driver_notes,
+    }
