@@ -7,7 +7,7 @@ export const ROUTES = {
   routes: "/routes",
   support: "/support",
 
-  login: "/auth/login",
+  signin: "/auth/signin",
   signup: "/auth/signup",
 
   parentDashboard: "/dashboard/parent",
