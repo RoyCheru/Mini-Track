@@ -22,7 +22,7 @@ export default function SignUpPage() {
         
         {/* Header */}
         <div className="p-8 text-center border-b border-gray-100">
-          {/* Image Logo - Replace src with your image path */}
+          {/* Image Logo */}
           <div className="flex justify-center mb-4">
             <div className="w-24 h-24">
              
