@@ -16,12 +16,14 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
+    phone_number = db.Column(db.String(20), unique=True, nullable=True)
+    residence = db.Column(db.String(200), nullable=True) # this can be null for non-parents
     password_hash = db.Column(db.String(128), nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey('user_roles.id'), nullable=False)
 
     role = db.relationship('UserRole', back_populates='users')
     vehicles = db.relationship('Vehicle', back_populates='user')
-    
+    bookings = db.relationship('Booking', back_populates='user') # bookings made by the user
     
 class UserRole(db.Model):
     __tablename__ = 'user_roles'
@@ -47,7 +49,7 @@ class Booking(db.Model):
     __tablename__ = 'bookings'
     id = db.Column(db.Integer, primary_key=True)
     vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicles.id'), nullable=False)
-    parent_id = db.Column(db.Integer, db.ForeignKey('parents.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     booking_date = db.Column(db.DateTime, nullable=False)
     start_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime, nullable=False)
@@ -56,7 +58,7 @@ class Booking(db.Model):
     status = db.Column(db.String(50), nullable=False)
 
     vehicle = db.relationship('Vehicle', back_populates='bookings')
-    parent = db.relationship('Parent', back_populates='bookings')
+    user = db.relationship('User', back_populates='bookings')
     
 class Route(db.Model):
     __tablename__ = 'routes'
@@ -68,15 +70,6 @@ class Route(db.Model):
     vehicles = db.relationship('Vehicle', back_populates='route')
     school_locations = db.relationship('SchoolLocation', back_populates='route')
     
-class Parent(db.Model):
-    __tablename__ = 'parents'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    contact_number = db.Column(db.String(20), nullable=False)
-    email = db.Column(db.String(100), unique=True, nullable=False)
-    residence = db.Column(db.String(200), nullable=False)
-
-    bookings = db.relationship('Booking', back_populates='parent')
     
 class SchoolLocation(db.Model):
     __tablename__ = 'school_locations'
