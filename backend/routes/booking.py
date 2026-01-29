@@ -219,3 +219,113 @@ class BookingList(Resource):
             response.append(serialize_booking(booking, include_trips=False))
         
         return response, 200
+    
+    def post(self):
+        """
+        Create new booking and generate trips
+        
+        Expected JSON body:
+        {
+            "user_id": 1,
+            "vehicle_id": 5,
+            "pickup_location": "Westlands Mall",
+            "dropoff_location": "Brookhouse School",
+            "start_date": "2026-02-01",
+            "end_date": "2026-02-28",
+            "days_of_week": "1,3,5",
+            "service_type": "morning",
+            "seats_booked": 1
+        }
+        """
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = [
+            'user_id', 'vehicle_id', 'pickup_location', 'dropoff_location',
+            'start_date', 'end_date', 'days_of_week', 'service_type', 'seats_booked'
+        ]
+        
+        for field in required_fields:
+            if field not in data:
+                return {"error": f"{field} is required"}, 400
+        
+        # Validate user exists
+        user = User.query.get(data['user_id'])
+        if not user:
+            return {"error": "User not found"}, 404
+        
+        # Validate vehicle exists
+        vehicle = Vehicle.query.get(data['vehicle_id'])
+        if not vehicle:
+            return {"error": "Vehicle not found"}, 404
+        
+        # Parse and validate dates
+        try:
+            start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+            end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return {"error": "Invalid date format. Use YYYY-MM-DD"}, 400
+        
+        # Validate date range
+        is_valid, error_msg = validate_date_range(start_date, end_date)
+        if not is_valid:
+            return {"error": error_msg}, 400
+        
+        # Validate days_of_week
+        is_valid, error_msg = validate_days_of_week(data['days_of_week'])
+        if not is_valid:
+            return {"error": error_msg}, 400
+        
+        # Validate service_type
+        is_valid, error_msg = validate_service_type(data['service_type'])
+        if not is_valid:
+            return {"error": error_msg}, 400
+        
+        # Validate seats_booked
+        seats_booked = data['seats_booked']
+        if not isinstance(seats_booked, int) or seats_booked < 1:
+            return {"error": "seats_booked must be a positive integer"}, 400
+        
+        # Check vehicle capacity
+        is_valid, available_seats, error_msg = validate_booking_capacity(
+            data['vehicle_id'],
+            start_date,
+            end_date,
+            seats_booked
+        )
+        if not is_valid:
+            return {"error": error_msg}, 409  # 409 Conflict
+        
+        # Create booking
+        booking = Booking(
+            user_id=data['user_id'],
+            vehicle_id=data['vehicle_id'],
+            pickup_location=data['pickup_location'],
+            dropoff_location=data['dropoff_location'],
+            booking_date=datetime.utcnow(),
+            start_date=start_date,
+            end_date=end_date,
+            status='active',
+            seats_booked=seats_booked,
+            service_type=data['service_type'],
+            days_of_week=data['days_of_week']
+        )
+        
+        db.session.add(booking)
+        db.session.commit()
+        
+        # Generate trips
+        try:
+            trips_created = generate_trips_for_booking(booking)
+        except Exception as e:
+            # Rollback booking if trip generation fails
+            db.session.delete(booking)
+            db.session.commit()
+            return {"error": f"Failed to generate trips: {str(e)}"}, 500
+        
+        # Return success response
+        response = serialize_booking(booking, include_trips=False)
+        response["trips_created"] = trips_created
+        response["message"] = "Booking created successfully"
+        
+        return response, 201
