@@ -23,7 +23,7 @@ class User(db.Model):
 
     role = db.relationship('UserRole', back_populates='users')
     vehicles = db.relationship('Vehicle', back_populates='user')
-    bookings = db.relationship('Booking', back_populates='user')
+    bookings = db.relationship('Booking', back_populates='user') # bookings made by the user
     
 class UserRole(db.Model):
     __tablename__ = 'user_roles'
