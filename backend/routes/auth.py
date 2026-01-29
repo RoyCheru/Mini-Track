@@ -19,3 +19,28 @@ class Login(Resource):
         else:
             return jsonify({"message": "Invalid credentials"}), 401
         
+class Signup(Resource):
+    def post(self):
+        data = request.get_json()
+        name = data.get("name")
+        email = data.get("email")
+        phone_number = data.get("phone_number")
+        residence = data.get("residence")
+        password_hash = data.get("password_hash")
+        role_id = data.get("role_id")
+
+        if User.query.filter_by(email=email).first():
+            return jsonify({"message": "Email already exists"}), 400
+
+        new_user = User(
+            name=name,
+            email=email,
+            phone_number=phone_number,
+            residence=residence,
+            password_hash=password_hash,
+            role_id=role_id
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({"message": "User created successfully", "user_id": new_user.id}), 201
