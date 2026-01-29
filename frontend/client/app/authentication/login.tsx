@@ -58,7 +58,13 @@ export default function SignInPage() {
           </button>
         </form>
 
-        
+        {/* Sign up */}
+        <p className="text-center text-sm mt-6">
+          Don’t have an account?{" "}
+          <Link href="/auth/signup" className="underline font-medium">
+            Sign up
+          </Link>
+        </p>
       </div>
     </div>
   );
