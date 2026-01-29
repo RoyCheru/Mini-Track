@@ -1,4 +1,3 @@
-// app/signin/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -24,15 +23,15 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-blue-50 via-white to-gray-50">
+    <div className="min-h-screen flex items-start justify-center pt-10 px-4 bg-gradient-to-br from-blue-50 via-white to-gray-50">
       {/* Single Container with Drop Shadow */}
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-100">
         
         {/* Logo and Header */}
-        <div className="p-8 text-center border-b border-gray-100">
+        <div className="p-6 text-center border-b border-gray-100">
           {/* Image Logo */}
-          <div className="flex justify-center mb-4">
-            <div className="relative w-100 h-100">
+          <div className="flex justify-center mb-2">
+            <div className="relative w-[100px] h-[100px]">
             
               <Image
                 src="/images/logominitruck.png" 
@@ -46,7 +45,7 @@ export default function SignInPage() {
       
           <p className="text-gray-500 text-sm mt-1">Kid's Transportation Tracker</p>
           
-          <h2 className="text-xl font-semibold text-gray-900 mt-6">Sign In</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mt-3">Sign In</h2>
           <p className="text-gray-600 text-sm mt-2">
             Enter your email and password below to sign into your account
           </p>

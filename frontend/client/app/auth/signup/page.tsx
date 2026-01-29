@@ -54,7 +54,7 @@ export default function SignUpPage() {
             </div>
           </div>
           
-          <h2 className="text-xl font-semibold text-gray-900 mt-6">Sign In</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mt-6">Sign Up</h2>
           <p className="text-gray-500 text-sm mt-1">Create Your Account</p>
         </div>
 

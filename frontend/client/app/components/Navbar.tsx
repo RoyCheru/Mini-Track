@@ -20,8 +20,8 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link className="btn btn-ghost" href={ROUTES.login}>
-            Login
+          <Link className="btn btn-ghost" href={ROUTES.signin}>
+            Sign In
           </Link>
           <Link className="btn btn-primary" href={ROUTES.signup}>
             Sign Up
