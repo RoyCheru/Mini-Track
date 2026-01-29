@@ -78,3 +78,27 @@ class GetUser(Resource):
             "phone_number": user.phone_number,
             "role_id": user.role_id
         }
+
+class UpdateUser(Resource):
+    def put(self, id):
+        data = request.get_json()
+        user = User.query.get(id)
+        if not user:
+            return {"error": "User not found"}, 404
+        
+        user.name = data.get("name", user.name)
+        user.email = data.get("email", user.email)
+        user.phone_number = data.get("phone_number", user.phone_number)
+
+        db.session.commit()
+
+        return {
+            "message": "User updated successfully",
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "phone_number": user.phone_number,
+                "role_id": user.role_id
+            }
+        }
