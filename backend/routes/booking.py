@@ -87,3 +87,19 @@ def validate_booking_capacity(vehicle_id, start_date, end_date, seats_requested)
         return True, available, ""
     else:
         return False, available, f"Not enough seats. Only {available} seats available, but {seats_requested} requested"
+    
+
+def validate_date_range(start_date, end_date):
+
+    if start_date < date.today():
+        return False, "Start date cannot be in the past"
+    
+    if end_date < start_date:
+        return False, "End date must be after start date"
+    
+    # Max booking period (e.g., 6 months / 180 days)
+    max_days = 180
+    if (end_date - start_date).days > max_days:
+        return False, f"Booking period cannot exceed {max_days} days"
+    
+    return True, ""
