@@ -44,3 +44,8 @@ class Signup(Resource):
         db.session.commit()
 
         return jsonify({"message": "User created successfully", "user_id": new_user.id}), 201
+    
+class Logout(Resource):
+    def post(self):
+        session.pop("user_id", None)
+        return jsonify({"message": "Logout successful"}), 200
