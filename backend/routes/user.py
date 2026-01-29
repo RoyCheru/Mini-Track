@@ -81,6 +81,9 @@ class GetUser(Resource):
 
 class UpdateUser(Resource):
     def put(self, id):
+        current_user_id = session.get("user_id")
+        if current_user_id != id:
+            return {"error": "Not logged in"}, 403
         data = request.get_json()
         user = User.query.get(id)
         if not user:
@@ -102,3 +105,4 @@ class UpdateUser(Resource):
                 "role_id": user.role_id
             }
         }
+        
