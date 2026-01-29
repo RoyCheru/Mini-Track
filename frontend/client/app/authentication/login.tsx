@@ -9,6 +9,9 @@ export default function SignInPage() {
    </h1>
   </div>
 
+   {/* Form */}
+        <form className="space-y-4"></form>
+        
   <div>
   <label className="block text-sm font-medium mb-1">
     Email address
