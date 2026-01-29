@@ -4,7 +4,7 @@ import { ROUTES } from "@/lib/routes"
 
 export default function Hero() {
   return (
-    <section className="bg-gradient-to-b from-brand-50 to-white">
+    <section className="bg-linear-to-b from-brand-50 to-white">
       <div className="container-max grid gap-10 py-14 md:grid-cols-2 md:items-center">
         <div>
           <span className="badge">Safe & Affordable School Transport</span>
@@ -20,7 +20,6 @@ export default function Hero() {
           </p>
 
           <div className="mt-8 flex flex-wrap gap-4">
-            {/* CTA must route correctly */}
             <Link href={ROUTES.signup} className=" btn btn-primary">
               Get Started
             </Link>
@@ -32,39 +31,27 @@ export default function Hero() {
 
         <div className="grid gap-5 md:grid-cols-2">
           <div className="card p-6">
-            <div className="text-2xl">📍</div>
             <h3 className="mt-4 text-xl font-bold">Route Tracking</h3>
             <p className="mt-2 text-slate-600">View all available routes on an interactive map</p>
-            <Link className="mt-4 inline-block text-sm font-semibold text-brand-700" href={ROUTES.routes}>
-              View routes →
-            </Link>
+     
           </div>
 
           <div className="card p-6">
-            <div className="text-2xl">🛡️</div>
             <h3 className="mt-4 text-xl font-bold">Safe Transport</h3>
             <p className="mt-2 text-slate-600">Verified drivers and secure minibuses</p>
-            <Link className="mt-4 inline-block text-sm font-semibold text-brand-700" href={ROUTES.safetyGuidelines}>
-              Safety guidelines →
-            </Link>
+  
           </div>
 
           <div className="card p-6">
-            <div className="text-2xl">🔔</div>
             <h3 className="mt-4 text-xl font-bold">Real-Time Alerts</h3>
             <p className="mt-2 text-slate-600">Get notified on pickup and drop-off</p>
-            <Link className="mt-4 inline-block text-sm font-semibold text-brand-700" href={ROUTES.support}>
-              Notification help →
-            </Link>
+
           </div>
 
           <div className="card p-6">
-            <div className="text-2xl">📅</div>
             <h3 className="mt-4 text-xl font-bold">Easy Booking</h3>
             <p className="mt-2 text-slate-600">Book seats with just a few clicks</p>
-            <Link className="mt-4 inline-block text-sm font-semibold text-brand-700" href={ROUTES.parentDashboard}>
-              Go to dashboard →
-            </Link>
+
           </div>
         </div>
       </div>
