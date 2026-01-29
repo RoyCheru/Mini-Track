@@ -329,3 +329,22 @@ class BookingList(Resource):
         response["message"] = "Booking created successfully"
         
         return response, 201
+    
+class BookingDetail(Resource):
+    """
+    Handle single booking operations
+    GET: Get booking details with trips
+    PATCH: Update booking (cancel only for MVP)
+    """
+    
+    def get(self, booking_id):
+        """
+        Get single booking with all its trips
+        """
+        booking = Booking.query.get(booking_id)
+        
+        if not booking:
+            return {"error": "Booking not found"}, 404
+        
+        response = serialize_booking(booking, include_trips=True)
+        return response, 200
