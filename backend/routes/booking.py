@@ -122,3 +122,10 @@ def validate_days_of_week(days_string):
     except Exception as e:
         return False, "Invalid days format. Use comma-separated numbers (e.g., '1,3,5' for Mon/Wed/Fri)"
 
+
+def validate_service_type(service_type):
+
+    valid_types = ['morning', 'evening', 'both']
+    if service_type not in valid_types:
+        return False, f"Service type must be one of: {', '.join(valid_types)}"
+    return True, ""
