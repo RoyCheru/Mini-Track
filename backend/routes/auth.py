@@ -15,7 +15,15 @@ class Login(Resource):
 
         if user and check_password_hash(user.password_hash, password):
             session["user_id"] = user.id
-            return {"message": "Login successful", "user_id": user.id}, 200
+            return {
+            "message": "Login successful",
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role.name
+            }
+        }
         else:
             return {"message": "Invalid credentials"}, 401
 
