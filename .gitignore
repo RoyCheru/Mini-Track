@@ -1,3 +1,5 @@
 *.db
 instance/
 .envnode_modules
+backend/__pycache__/
+backend/instance/app.db
