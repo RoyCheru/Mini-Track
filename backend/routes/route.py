@@ -73,7 +73,7 @@ class RouteDetail(Resource):
     
     def patch(self, route_id):
         # Update route
-        
+
         route = Route.query.get(route_id)
         
         if not route:
@@ -109,3 +109,30 @@ class RouteDetail(Resource):
         response["message"] = "Route updated successfully"
         
         return response, 200
+    
+    def delete(self, route_id):
+        # Delete route
+    
+        route = Route.query.get(route_id)
+        
+        if not route:
+            return {"error": "Route not found"}, 404
+        
+        # Check if route has vehicles assigned
+        from models import Vehicle
+        vehicles_count = Vehicle.query.filter_by(route_id=route_id).count()
+        
+        if vehicles_count > 0:
+            return {"error": f"Cannot delete route. It has {vehicles_count} vehicle(s) assigned"}, 409
+        
+        # Check if route has school locations
+        from models import SchoolLocation
+        school_locations_count = SchoolLocation.query.filter_by(route_id=route_id).count()
+        
+        if school_locations_count > 0:
+            return {"error": f"Cannot delete route. It has {school_locations_count} school location(s)"}, 409
+        
+        db.session.delete(route)
+        db.session.commit()
+        
+        return {"message": "Route deleted successfully"}, 200
