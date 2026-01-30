@@ -4,7 +4,7 @@ from models import db
 from flask_migrate import Migrate
 from routes.auth import Login, Signup, Logout
 from routes.user import CreateDriver, GetDrivers, GetUsers, UpdateUser, DeleteUser
-from routes.user_roles import UserRoleList, UserRoleDetail
+from routes.user_role import UserRoleList, UserRoleDetail
 
 from routes.booking import BookingList, BookingDetail
 from routes.trip import TripToday, TripPickup, TripDropoff
