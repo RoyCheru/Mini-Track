@@ -11,3 +11,18 @@ def serialize_route(route):
         "starting_point": route.starting_point,
         "ending_point": route.ending_point
     }
+
+class RouteList(Resource):
+
+    def get(self):
+        # Get all routes
+
+        routes = Route.query.all()
+        
+        response = []
+        for route in routes:
+            response.append(serialize_route(route))
+        
+        return response, 200
+    
+    
