@@ -9,6 +9,7 @@ from routes.user_role import UserRoleList, UserRoleDetail
 
 from routes.booking import BookingList, BookingDetail
 from routes.trip import TripToday, TripPickup, TripDropoff
+from routes.school_location import CreateSchoolLocation, GetAllSchoolLocations, GetSchoolLocation, UpdateSchoolLocation, DeleteSchoolLocation
 
 def create_app():
 
@@ -50,6 +51,13 @@ def create_app():
 
     api.add_resource(BookingList, '/bookings')
     api.add_resource(BookingDetail, '/bookings/<int:booking_id>')
+    
+    api.add_resource(CreateSchoolLocation, "/school-locations")
+    api.add_resource(GetAllSchoolLocations, "/school-locations/all")
+    api.add_resource(GetSchoolLocation, "/school-locations/<int:location_id>")
+    api.add_resource(UpdateSchoolLocation, "/school-locations/<int:location_id>")
+    api.add_resource(DeleteSchoolLocation, "/school-locations/<int:location_id>")
+
 
     
     return app 
