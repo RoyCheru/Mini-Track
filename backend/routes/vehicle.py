@@ -13,3 +13,26 @@ def serialize_vehicle(vehicle):
         "model": vehicle.model,
         "capacity": vehicle.capacity
     }
+
+class VehicleList(Resource):
+
+    def get(self):  
+        # get all vehicles
+        route_id = request.args.get('route_id', type=int)
+        user_id = request.args.get('user_id', type=int)
+        
+        query = Vehicle.query
+        
+        if route_id:
+            query = query.filter_by(route_id=route_id)
+        
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+        
+        vehicles = query.all()
+        
+        response = []
+        for vehicle in vehicles:
+            response.append(serialize_vehicle(vehicle))
+        
+        return response, 200
