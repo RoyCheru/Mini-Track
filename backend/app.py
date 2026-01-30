@@ -6,6 +6,8 @@ from routes.auth import Login, Signup, Logout
 from routes.user import CreateDriver, GetDrivers, GetUsers, UpdateUser, DeleteUser
 from routes.user_roles import UserRoleList, UserRoleDetail
 
+from routes.booking import BookingList, BookingDetail
+from routes.trip import TripToday, TripPickup, TripDropoff
 
 def create_app():
 
@@ -40,9 +42,15 @@ def create_app():
     api.add_resource(UserRoleList, '/user_roles')
     api.add_resource(UserRoleDetail, '/user_roles/<int:role_id>')
 
-    
-    
 
+    api.add_resource(TripToday, '/trips/today')
+    api.add_resource(TripPickup, '/trips/<int:trip_id>/pickup')
+    api.add_resource(TripDropoff, '/trips/<int:trip_id>/dropoff')
+
+    api.add_resource(BookingList, '/bookings')
+    api.add_resource(BookingDetail, '/bookings/<int:booking_id>')
+
+    
     return app 
 
 app = create_app()
