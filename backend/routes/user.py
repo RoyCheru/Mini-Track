@@ -9,7 +9,6 @@ class CreateDriver(Resource):
         data = request.get_json()
         admin_id = session.get("user_id")
 
-        # Check if logged-in user is admin
         admin = User.query.get(admin_id)
         if not admin or admin.role_id != 1:  
             return {"error": "Unauthorized"}, 403

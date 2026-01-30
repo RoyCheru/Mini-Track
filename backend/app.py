@@ -4,6 +4,8 @@ from models import db
 from flask_migrate import Migrate
 from routes.auth import Login, Signup, Logout
 from routes.user import CreateDriver, GetDrivers, GetUsers, UpdateUser, DeleteUser
+from routes.user_roles import UserRoleList, UserRoleDetail
+
 from routes.booking import BookingList, BookingDetail
 from routes.trip import TripToday, TripPickup, TripDropoff
 
@@ -13,9 +15,18 @@ def create_app():
 
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    app.secret_key = "super-secret-key"
 
     db.init_app(app)
     migrate = Migrate(app, db)
+    CORS(
+        app,
+        supports_credentials=True,
+        origins=["http://localhost:3000"],
+        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type"]
+    )
     api = Api(app)
 
     api.add_resource(Login, '/login')
@@ -27,6 +38,10 @@ def create_app():
     api.add_resource(GetUsers, '/users')
     api.add_resource(UpdateUser, '/users/<int:user_id>')
     api.add_resource(DeleteUser, '/users/<int:user_id>')
+    
+    api.add_resource(UserRoleList, '/user_roles')
+    api.add_resource(UserRoleDetail, '/user_roles/<int:role_id>')
+
 
     api.add_resource(TripToday, '/trips/today')
     api.add_resource(TripPickup, '/trips/<int:trip_id>/pickup')
