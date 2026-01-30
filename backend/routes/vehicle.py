@@ -84,3 +84,17 @@ class VehicleList(Resource):
         response["message"] = "Vehicle created successfully"
         
         return response, 201
+
+class VehicleDetail(Resource):
+    # Handle single vehicle operations
+
+    def get(self, vehicle_id):
+        # Get single vehicle by ID
+
+        vehicle = Vehicle.query.get(vehicle_id)
+        
+        if not vehicle:
+            return {"error": "Vehicle not found"}, 404
+        
+        response = serialize_vehicle(vehicle)
+        return response, 200  
