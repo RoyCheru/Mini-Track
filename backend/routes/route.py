@@ -27,7 +27,7 @@ class RouteList(Resource):
     
     def post(self):
         # Create new route
-        
+
         data = request.get_json()
         
         # Validate required fields
@@ -56,3 +56,17 @@ class RouteList(Resource):
         response["message"] = "Route created successfully"
         
         return response, 201
+    
+class RouteDetail(Resource):
+    # Handle single route operations
+
+    def get(self, route_id):
+        # Get single route by ID
+
+        route = Route.query.get(route_id)
+        
+        if not route:
+            return {"error": "Route not found"}, 404
+        
+        response = serialize_route(route)
+        return response, 200
