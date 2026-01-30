@@ -154,3 +154,26 @@ class VehicleDetail(Resource):
         response["message"] = "Vehicle updated successfully"
         
         return response, 200
+    
+    def delete(self, vehicle_id):
+        # Delete vehicle
+
+        vehicle = Vehicle.query.get(vehicle_id)
+        
+        if not vehicle:
+            return {"error": "Vehicle not found"}, 404
+        
+        # Check if vehicle has active bookings
+        from models import Booking
+        active_bookings = Booking.query.filter_by(
+            vehicle_id=vehicle_id,
+            status='active'
+        ).count()
+        
+        if active_bookings > 0:
+            return {"error": f"Cannot delete vehicle. It has {active_bookings} active booking(s)"}, 409
+        
+        db.session.delete(vehicle)
+        db.session.commit()
+        
+        return {"message": "Vehicle deleted successfully"}, 20
