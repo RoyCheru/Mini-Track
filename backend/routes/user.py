@@ -9,14 +9,13 @@ class CreateDriver(Resource):
         data = request.get_json()
         admin_id = session.get("user_id")
 
-        # Check if logged-in user is admin
         admin = User.query.get(admin_id)
         if not admin or admin.role_id != 1:  
             return {"error": "Unauthorized"}, 403
 
         name = data.get("name")
         email = data.get("email")
-        password = data.get("password")
+        password = data.get("password") # the driver will later change this
         phone_number = data.get("phone_number")
 
         if not name or not email or not password:
@@ -139,3 +138,41 @@ class DeleteUser(Resource):
         db.session.commit()
 
         return {"message": "User deleted"}
+
+# route for creating admin users
+class CreateAdmin(Resource):
+    def post(self):
+        data = request.get_json()
+        name = data.get("name")
+        email = data.get("email")
+        password = data.get("password")
+        phone_number = data.get("phone_number")
+
+        if not name or not email or not password:
+            return {"error": "All fields required"}, 400
+
+        if User.query.filter_by(email=email).first():
+            return {"error": "Email already exists"}, 400
+
+        hashed_password = generate_password_hash(password)
+
+        new_admin = User(
+            name=name,
+            email=email,
+            password_hash=hashed_password,
+            phone_number=phone_number,
+            role_id=1
+        )
+
+        db.session.add(new_admin)
+        db.session.commit()
+
+        return {
+            "message": "Admin created successfully",
+            "user": {
+                "id": new_admin.id,
+                "name": new_admin.name,
+                "email": new_admin.email,
+                "role_id": new_admin.role_id
+            }
+        }, 201

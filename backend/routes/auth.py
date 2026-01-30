@@ -21,7 +21,6 @@ class Login(Resource):
                 "id": user.id,
                 "name": user.name,
                 "email": user.email,
-                "role": user.role.name
             }
         }
         else:
@@ -36,7 +35,7 @@ class Signup(Resource):
         residence = data.get("residence")
         password = data.get("password")
 
-        if not name or not email or not password or not role_id:
+        if not name or not email or not password:
             return {"error": "All fields required"}, 400
 
         if User.query.filter_by(email=email).first():

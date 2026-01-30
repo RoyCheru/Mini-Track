@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, User, ChevronRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { apiFetch } from "@/lib/api"
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
