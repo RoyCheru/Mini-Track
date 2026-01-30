@@ -1,6 +1,5 @@
-// app/signup/page.tsx
 "use client";
-
+import { apiFetch } from "@/lib/api"
 import { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, User, Phone, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -13,7 +12,51 @@ export default function SignUpPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+
+    const password = formData.get("password");
+    const confirmPassword = formData.get("confirmPassword");
+
+    if (password !== confirmPassword) {
+      alert("Passwords do not match");
+      setIsLoading(false);
+      return;
+    }
+
+    const payload = {
+      name: formData.get("name"),
+      email: formData.get("email"),
+      phone_number: formData.get("phone_number"),
+      password: password,
+    };
+
+    try {
+      const res = await apiFetch("/signup", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Signup failed");
+        return;
+      }
+
+      alert("Account created successfully!");
+
+      // optional redirect
+      window.location.href = "/auth/signin";
+    } catch (error) {
+      console.error(error);
+      alert("Server error");
+    } finally {
+      setIsLoading(false);
+    }
+
     setTimeout(() => setIsLoading(false), 1500);
+
   };
 
   return (
@@ -67,7 +110,7 @@ export default function SignUpPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
               <div className="relative">
                 <User className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
-                <input type="text" placeholder="John Doe" required className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="text" name="name" placeholder="John Doe" required className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
 
@@ -76,7 +119,7 @@ export default function SignUpPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
               <div className="relative">
                 <Phone className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
-                <input type="tel" placeholder="(123) 456-7890" required className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="tel" name="phone_number"placeholder="(123) 456-7890" required className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
 
@@ -85,7 +128,7 @@ export default function SignUpPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
-                <input type="email" placeholder="you@email.com" required className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="email" name="email"placeholder="you@email.com" required className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
 
@@ -94,7 +137,7 @@ export default function SignUpPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
-                <input type={showPassword ? "text" : "password"} placeholder="••••••••" required className="w-full pl-11 pr-12 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type={showPassword ? "text" : "password"} name="password" placeholder="••••••••" required className="w-full pl-11 pr-12 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600">
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -106,7 +149,7 @@ export default function SignUpPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
-                <input type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" required className="w-full pl-11 pr-12 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type={showConfirmPassword ? "text" : "password"} name="confirmPassword" placeholder="••••••••" required className="w-full pl-11 pr-12 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600">
                   {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
