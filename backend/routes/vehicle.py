@@ -98,3 +98,59 @@ class VehicleDetail(Resource):
         
         response = serialize_vehicle(vehicle)
         return response, 200  
+    
+    def patch(self, vehicle_id):
+        # Update vehicle
+
+        vehicle = Vehicle.query.get(vehicle_id)
+        
+        if not vehicle:
+            return {"error": "Vehicle not found"}, 404
+        
+        data = request.get_json()
+        
+        if not data:
+            return {"error": "No data provided"}, 400
+        
+        # Update route_id if provided
+        if 'route_id' in data:
+            route = Route.query.get(data['route_id'])
+            if not route:
+                return {"error": "Route not found"}, 404
+            vehicle.route_id = data['route_id']
+        
+        # Update user_id if provided
+        if 'user_id' in data:
+            user = User.query.get(data['user_id'])
+            if not user:
+                return {"error": "User not found"}, 404
+            vehicle.user_id = data['user_id']
+        
+        # Update license_plate if provided
+        if 'license_plate' in data:
+            # Check if new license plate already exists (but not for this vehicle)
+            existing = Vehicle.query.filter(
+                Vehicle.license_plate == data['license_plate'],
+                Vehicle.id != vehicle_id
+            ).first()
+            if existing:
+                return {"error": "Vehicle with this license plate already exists"}, 409
+            vehicle.license_plate = data['license_plate']
+        
+        # Update model if provided
+        if 'model' in data:
+            vehicle.model = data['model']
+        
+        # Update capacity if provided
+        if 'capacity' in data:
+            capacity = data['capacity']
+            if not isinstance(capacity, int) or capacity < 1:
+                return {"error": "Capacity must be a positive integer"}, 400
+            vehicle.capacity = capacity
+        
+        db.session.commit()
+        
+        response = serialize_vehicle(vehicle)
+        response["message"] = "Vehicle updated successfully"
+        
+        return response, 200
