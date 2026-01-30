@@ -11,6 +11,9 @@ from routes.booking import BookingList, BookingDetail
 from routes.trip import TripToday, TripPickup, TripDropoff
 from routes.school_location import CreateSchoolLocation, GetAllSchoolLocations, GetSchoolLocation, UpdateSchoolLocation, DeleteSchoolLocation
 
+from routes.vehicle import VehicleList, VehicleDetail
+from routes.route import RouteList, RouteDetail
+
 def create_app():
 
     app = Flask(__name__)
@@ -58,6 +61,12 @@ def create_app():
     api.add_resource(GetSchoolLocation, "/school-locations/<int:location_id>")
     api.add_resource(UpdateSchoolLocation, "/school-locations/<int:location_id>")
     api.add_resource(DeleteSchoolLocation, "/school-locations/<int:location_id>")
+    
+    api.add_resource(VehicleList, '/vehicles')
+    api.add_resource(VehicleDetail, '/vehicles/<int:vehicle_id>')
+    
+    api.add_resource(RouteList, '/routes')
+    api.add_resource(RouteDetail, '/routes/<int:route_id>')
 
 
     
