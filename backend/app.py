@@ -4,7 +4,7 @@ from flask_cors import CORS
 from models import db 
 from flask_migrate import Migrate
 from routes.auth import Login, Signup, Logout
-from routes.user import CreateDriver, GetDrivers, GetUsers, UpdateUser, DeleteUser
+from routes.user import CreateDriver, GetDrivers, GetUsers, UpdateUser, DeleteUser, CreateAdmin
 from routes.user_role import UserRoleList, UserRoleDetail
 
 from routes.booking import BookingList, BookingDetail
@@ -40,6 +40,7 @@ def create_app():
     api.add_resource(GetUsers, '/users')
     api.add_resource(UpdateUser, '/users/<int:user_id>')
     api.add_resource(DeleteUser, '/users/<int:user_id>')
+    api.add_resource(CreateAdmin, '/admins')
     
     api.add_resource(UserRoleList, '/user_roles')
     api.add_resource(UserRoleDetail, '/user_roles/<int:role_id>')
