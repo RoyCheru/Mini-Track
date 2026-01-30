@@ -7,7 +7,7 @@
 # school_locations
 
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, date
 
 db = SQLAlchemy()
 
@@ -51,8 +51,8 @@ class Booking(db.Model):
     vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicles.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     booking_date = db.Column(db.DateTime, nullable=False)
-    start_date = db.Column(db.DateTime, nullable=False)
-    end_date = db.Column(db.DateTime, nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
     pickup_location = db.Column(db.String(200), nullable=False)
     dropoff_location = db.Column(db.String(200), nullable=False)
     status = db.Column(db.String(50), nullable=False)
@@ -87,13 +87,13 @@ class Trip(db.Model):
     __tablename__ = 'trips'
     id = db.Column(db.Integer, primary_key=True)
     booking_id = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)
-    service_time = db.Column(db.DateTime, nullable=False)
+    service_time = db.Column(db.String, nullable=False)
     status = db.Column(db.String(50), nullable=False)
-    trip_date = db.Column(db.DateTime, nullable=False)
-    pickup_time = db.Column(db.DateTime, nullable=True)
+    trip_date = db.Column(db.Date, nullable=False)
+    pickup_time = db.Column(db.Time, nullable=True)
     actual_pickup_time = db.Column(db.DateTime, nullable=True)
     actual_dropoff_time = db.Column(db.DateTime, nullable=True)
-    driver_notes = db.Column(db.String(500), nullable=True)
+    driver_notes = db.Column(db.Text, nullable=True)
 
     booking = db.relationship('Booking')
     
