@@ -70,3 +70,42 @@ class RouteDetail(Resource):
         
         response = serialize_route(route)
         return response, 200
+    
+    def patch(self, route_id):
+        # Update route
+        
+        route = Route.query.get(route_id)
+        
+        if not route:
+            return {"error": "Route not found"}, 404
+        
+        data = request.get_json()
+        
+        if not data:
+            return {"error": "No data provided"}, 400
+        
+        # Update name if provided
+        if 'name' in data:
+            # Check if new name already exists (but not for this route)
+            existing = Route.query.filter(
+                Route.name == data['name'],
+                Route.id != route_id
+            ).first()
+            if existing:
+                return {"error": "Route with this name already exists"}, 409
+            route.name = data['name']
+        
+        # Update starting_point if provided
+        if 'starting_point' in data:
+            route.starting_point = data['starting_point']
+        
+        # Update ending_point if provided
+        if 'ending_point' in data:
+            route.ending_point = data['ending_point']
+        
+        db.session.commit()
+        
+        response = serialize_route(route)
+        response["message"] = "Route updated successfully"
+        
+        return response, 200
