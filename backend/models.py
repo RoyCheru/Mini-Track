@@ -62,7 +62,7 @@ class Booking(db.Model):
 
     vehicle = db.relationship('Vehicle', back_populates='bookings')
     user = db.relationship('User', back_populates='bookings')
-    
+    trips = db.relationship('Trip', back_populates='booking', cascade='all, delete-orphan')
 class Route(db.Model):
     __tablename__ = 'routes'
     id = db.Column(db.Integer, primary_key=True)
