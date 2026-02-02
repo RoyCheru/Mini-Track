@@ -15,7 +15,17 @@ export default function SignInPage() {
   const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
   const [selectedRole, setSelectedRole] = useState<{ id: number; name: string } | null>(null);
 
-  const roles = ["Admin", "Driver", "Parent"];
+  // const roles = ["Admin", "Driver", "Parent"];
+
+  useEffect(() => {
+  const fetchRoles = async () => {
+    const res = await apiFetch("/role");
+    const data = await res.json();
+    setRoles(data);
+  };
+
+  fetchRoles();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
