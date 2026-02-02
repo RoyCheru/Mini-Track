@@ -3,6 +3,7 @@ from flask_restful import Api
 from flask_cors import CORS
 from models import db 
 from flask_migrate import Migrate
+from flask_jwt_extended import JWTManager
 from routes.auth import Login, Signup, Logout
 from routes.user import CreateDriver, GetDrivers, GetUsers, UpdateUser, DeleteUser, CreateAdmin
 from routes.user_role import UserRoleList, UserRoleDetail
@@ -22,6 +23,8 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     app.secret_key = "super-secret-key"
+    app.config["JWT_SECRET_KEY"] = "super-secret-key"
+    jwt = JWTManager(app)
 
     db.init_app(app)
     migrate = Migrate(app, db)
