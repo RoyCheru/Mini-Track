@@ -2,16 +2,34 @@ from flask import Flask, request, session
 from flask_restful import Resource
 from werkzeug.security import check_password_hash, generate_password_hash
 from models import db, User, UserRole
+from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
+from functools import wraps
+
+def admin_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+        identity = get_jwt_identity()
+        user_id = identity.get("id")
+        role_id = identity.get("role_id")
+
+        user = User.query.get(user_id)
+        if not user or user.role_id != 1:  
+            return {"error": "Unauthorized"}, 403
+
+        return fn(*args, **kwargs)
+    return wrapper
 
 
 class CreateDriver(Resource):
+    @admin_required
     def post(self):
         data = request.get_json()
-        admin_id = session.get("user_id")
+        # admin_id = session.get("user_id")
 
-        admin = User.query.get(admin_id)
-        if not admin or admin.role_id != 1:  
-            return {"error": "Unauthorized"}, 403
+        # admin = User.query.get(admin_id)
+        # if not admin or admin.role_id != 1:  
+        #     return {"error": "Unauthorized"}, 403
 
         name = data.get("name")
         email = data.get("email")
@@ -48,10 +66,11 @@ class CreateDriver(Resource):
         }, 201
         
 class GetDrivers(Resource):
+    @admin_required
     def get(self):
-        admin = User.query.get(session.get("user_id"))
-        if not admin or admin.role_id != 1:
-            return {"error": "Unauthorized"}, 403
+        # admin = User.query.get(session.get("user_id"))
+        # if not admin or admin.role_id != 1:
+        #     return {"error": "Unauthorized"}, 403
 
         drivers = User.query.filter_by(role_id=2).all()
 
@@ -67,6 +86,7 @@ class GetDrivers(Resource):
         return results
 
 class GetUsers(Resource):
+    @admin_required
     def get(self):
         admin = User.query.get(session.get("user_id"))
         if not admin or admin.role_id != 1:
