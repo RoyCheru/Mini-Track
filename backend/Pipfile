@@ -12,6 +12,7 @@ flask-bcrypt = "*"
 flask-restful = "*"
 sqlalchemy = "*"
 Werkzeug = "*"
+flask-jwt-extended = "*"
 
 [dev-packages]
 
