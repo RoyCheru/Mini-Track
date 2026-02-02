@@ -9,9 +9,20 @@ export const metadata: Metadata = {
   description: "Safe & affordable school transport with route tracking and real-time alerts.",
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en">
+      <head>
+        {/* Leaflet CSS – REQUIRED */}
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        />
+      </head>
       <body className="bg-gradient-to-br from-blue-50 via-white to-slate-50 text-slate-900 antialiased">
         <Navbar />
         <main>{children}</main>

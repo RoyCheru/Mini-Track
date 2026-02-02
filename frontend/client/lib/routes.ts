@@ -11,6 +11,7 @@ export const ROUTES = {
   signup: "/auth/signup",
 
   parentDashboard: "/dashboard/parent",
+  adminDashboard: "/dashboard/admin",
   trackChild: "/dashboard/parent/track-child",
   bookingHistory: "/dashboard/parent/booking-history",
   safetyGuidelines: "/dashboard/parent/safety-guidelines",
