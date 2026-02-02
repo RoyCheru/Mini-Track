@@ -15,15 +15,72 @@ export default function SignInPage() {
   const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
   const [selectedRole, setSelectedRole] = useState<{ id: number; name: string } | null>(null);
 
-  const roles = ["Admin", "Driver", "Parent"];
+  // const roles = ["Admin", "Driver", "Parent"];
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+  const fetchRoles = async () => {
+    const res = await apiFetch("/user_roles");
+    const data = await res.json();
+    setRoles(data);
+  };
+
+  fetchRoles();
+  }, []);
+
+
+   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+
+    const password = formData.get("password");
+    const email = formData.get("email")
+
+
+    const payload = {
+      email: email,
+      password: password,
+      role_id: selectedRole?.id
+    };
+
+    try {
+      const res = await apiFetch("/login", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      console.log(data)
+
+      if (!res.ok) {
+        alert(data.error || "Login failed");
+        return;
+      }
+
+      localStorage.setItem("token", data.access_token);
+      localStorage.setItem("username",data.user.name)
+
+
+      // optional redirect
+      const role_name= data.user.role
+      if (role_name=="Admin"){
+        window.location.href="/dashboard/admin"
+      } else if(role_name=="Parent"){
+        window.location.href="/dashboard/parent"
+      } else {
+        window.location.href = "/dashboard/driver"
+      }
+  
+    } catch (error) {
+      console.error(error);
+      alert("Server error");
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
+
+    setTimeout(() => setIsLoading(false), 1500);
+
   };
 
   return (
@@ -68,6 +125,7 @@ export default function SignInPage() {
                 <Mail className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
                 <input
                   type="email"
+                  name="email"
                   placeholder="you@email.com"
                   required
                   className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -88,7 +146,7 @@ export default function SignInPage() {
                 >
                   <div className="flex items-center gap-3">
                     <User className="w-5 h-5 text-gray-400" />
-                    <span className="text-gray-700">{selectedRole}</span>
+                    <span className="text-gray-700">{selectedRole ? selectedRole.name : "Select Role"}</span>
                   </div>
                   <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${showRoleDropdown ? "rotate-180" : ""}`} />
                 </button>
@@ -98,7 +156,7 @@ export default function SignInPage() {
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden">
                     {roles.map((role) => (
                       <button
-                        key={role}
+                        key={role.id}
                         type="button"
                         onClick={() => {
                           setSelectedRole(role);
@@ -107,7 +165,7 @@ export default function SignInPage() {
                         className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors ${selectedRole === role ? "bg-blue-50 text-blue-600" : "text-gray-700"}`}
                       >
                         <User className="w-4 h-4" />
-                        {role}
+                        {role.name}
                       </button>
                     ))}
                   </div>
@@ -132,6 +190,7 @@ export default function SignInPage() {
                 <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
                   placeholder="••••••••"
                   required
                   className="w-full pl-11 pr-12 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

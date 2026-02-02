@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { AlertCircle, MapPin, Navigation, History, BarChart3, Clock, Phone, AlertTriangle, CheckCircle, XCircle, MapIcon, Users, DollarSign } from 'lucide-react'
+import { AlertCircle, MapPin, Navigation, History, BarChart3, Clock, Phone, AlertTriangle, CheckCircle, XCircle, MapIcon, Users, DollarSign, User } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { userAgent } from 'next/server'
 
 export default function ParentDashboard() {
   const [activeTab, setActiveTab] = useState('overview')
@@ -41,6 +42,7 @@ export default function ParentDashboard() {
       setShowConfirmation(false)
     }, 2000)
   }
+  const username= localStorage.getItem("username")
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -49,7 +51,7 @@ export default function ParentDashboard() {
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Parent Dashboard</h1>
+              <h1 className="text-3xl font-bold text-foreground">Welcome, {username}</h1>
               <p className="text-sm text-muted-foreground mt-1">
                 Manage bookings, track your child, and view transport history
               </p>
