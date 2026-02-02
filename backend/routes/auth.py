@@ -24,7 +24,8 @@ class Login(Resource):
                 "id": user.id,
                 "name": user.name,
                 "email": user.email,
-                "role_id": user.role_id
+                "role_id": user.role_id,
+                "role": user.role.name
             }
         }
         else:
