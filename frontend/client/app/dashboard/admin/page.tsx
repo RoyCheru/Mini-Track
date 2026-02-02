@@ -55,6 +55,8 @@ export default function AdminDashboard() {
   ])
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [showBookingDetail, setShowBookingDetail] = useState(false)
+  // Important
+  const username= localStorage.getItem("username")
 
   // Handler functions
   const handleEditDriver = (driver) => {
@@ -179,7 +181,7 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+              <h1 className="text-3xl font-bold text-foreground">Welcome Admin, {username}</h1>
               <p className="text-sm text-muted-foreground mt-1">
                 Manage drivers, routes, buses, and bookings
               </p>
