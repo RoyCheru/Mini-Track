@@ -9,7 +9,7 @@ const config: Config = {
   theme: {
     extend: {},
   },
-  plugins: [],
+  plugins: [require("tailwind-animate")],
 };
 
 export default config;

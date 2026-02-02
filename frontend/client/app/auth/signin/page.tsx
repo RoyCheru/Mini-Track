@@ -5,12 +5,15 @@ import { Eye, EyeOff, Lock, Mail, User, ChevronRight, ChevronDown } from "lucide
 import Link from "next/link";
 import Image from "next/image";
 import { apiFetch } from "@/lib/api"
+import { useEffect } from "react"
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState("Admin");
+  // const [selectedRole, setSelectedRole] = useState("Admin");
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
+  const [selectedRole, setSelectedRole] = useState<{ id: number; name: string } | null>(null);
 
   const roles = ["Admin", "Driver", "Parent"];
 

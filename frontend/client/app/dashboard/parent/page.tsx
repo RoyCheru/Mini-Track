@@ -21,15 +21,15 @@ export default function ParentDashboard() {
 
   // Mock data
   const mockBookings = [
-    { id: 1, route: 'Route A - Downtown', date: '2024-02-15', time: '08:00 AM', status: 'completed', cost: '$5.00' },
-    { id: 2, route: 'Route B - Westside', date: '2024-02-14', time: '03:30 PM', status: 'completed', cost: '$5.00' },
-    { id: 3, route: 'Route A - Downtown', date: '2024-02-13', time: '08:00 AM', status: 'completed', cost: '$5.00' },
+    { id: 1, route: 'Route A - Downtown', date: '2024-02-15', time: '08:00 AM', status: 'completed'},
+    { id: 2, route: 'Route B - Westside', date: '2024-02-14', time: '03:30 PM', status: 'completed'},
+    { id: 3, route: 'Route A - Downtown', date: '2024-02-13', time: '08:00 AM', status: 'completed' },
   ]
 
   const routes = [
-    { id: 1, name: 'Route A - Downtown', pickUp: 'Main Street', dropOff: 'School Main Gate', seats: 15, cost: '$5.00' },
-    { id: 2, name: 'Route B - Westside', pickUp: 'West Plaza', dropOff: 'School West Gate', seats: 12, cost: '$5.00' },
-    { id: 3, name: 'Route C - Eastside', pickUp: 'East Mall', dropOff: 'School East Gate', seats: 18, cost: '$5.00' },
+    { id: 1, name: 'Route A - Downtown', pickUp: 'Main Street', dropOff: 'School Main Gate', seats: 15},
+    { id: 2, name: 'Route B - Westside', pickUp: 'West Plaza', dropOff: 'School West Gate', seats: 12},
+    { id: 3, name: 'Route C - Eastside', pickUp: 'East Mall', dropOff: 'School East Gate', seats: 18 },
   ]
 
   const handleBooking = () => {
@@ -108,7 +108,7 @@ export default function ParentDashboard() {
                   <p className="text-xs text-muted-foreground mt-1">Currently on route</p>
                 </CardContent>
               </Card>
-              <Card>
+              {/* <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Total Spent</CardTitle>
                 </CardHeader>
@@ -116,7 +116,7 @@ export default function ParentDashboard() {
                   <div className="text-2xl font-bold">$45.00</div>
                   <p className="text-xs text-muted-foreground mt-1">This month</p>
                 </CardContent>
-              </Card>
+              </Card> */}
             </div>
 
             {/* Recent Bookings */}
@@ -139,7 +139,7 @@ export default function ParentDashboard() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-sm">{booking.cost}</p>
+                        {/* <p className="font-semibold text-sm">{booking.cost}</p> */}
                         <Badge variant="outline" className="text-xs mt-1">Completed</Badge>
                       </div>
                     </div>
@@ -193,7 +193,7 @@ export default function ParentDashboard() {
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="font-bold text-lg">{route.cost}</p>
+                              {/* <p className="font-bold text-lg">{route.cost}</p> */}
                             </div>
                           </div>
                         </div>
@@ -388,7 +388,7 @@ export default function ParentDashboard() {
                               {booking.status}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right font-semibold">{booking.cost}</TableCell>
+                          {/* <TableCell className="text-right font-semibold">{booking.cost}</TableCell> */}
                         </TableRow>
                       ))}
                     </TableBody>
