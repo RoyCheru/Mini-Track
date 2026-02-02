@@ -1,5 +1,6 @@
 from flask import Flask, request, session
 from flask_restful import Resource
+from flask_jwt_extended import create_access_token
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from models import db, User, UserRole
@@ -14,13 +15,16 @@ class Login(Resource):
         user = User.query.filter_by(email=email).first()
 
         if user and check_password_hash(user.password_hash, password):
-            session["user_id"] = user.id
+            # session["user_id"] = user.id
+            access_token = create_access_token(identity={"id": user.id, "role_id": user.role_id})
             return {
             "message": "Login successful",
+            "access_token": access_token,
             "user": {
                 "id": user.id,
                 "name": user.name,
                 "email": user.email,
+                "role_id": user.role_id
             }
         }
         else:
@@ -66,5 +70,5 @@ class Signup(Resource):
     
 class Logout(Resource):
     def post(self):
-        session.pop("user_id", None)
+        # session.pop("user_id", None)
         return {"message": "Logout successful"}, 200
