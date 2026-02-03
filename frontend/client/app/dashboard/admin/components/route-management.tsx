@@ -1,6 +1,6 @@
 'use client'
-
-import { useMemo, useState } from 'react'
+import { apiFetch } from '@/lib/api'
+import { useMemo, useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,19 +24,10 @@ type Route = {
   status: 'Active' | 'Inactive'
 }
 
-const SEED_ROUTES: Route[] = [
-  {
-    id: 1,
-    name: 'RouteA',
-    starting_point: 'Langatta womens prison',
-    ending_point: 'CBD',
-    status: 'Active',
-  },
-]
 
 export default function RouteManagement() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [routes, setRoutes] = useState<Route[]>(SEED_ROUTES)
+  const [routes, setRoutes] = useState<any[]>([]);
 
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState({
@@ -54,6 +45,23 @@ export default function RouteManagement() {
     status: 'Active' as Route['status'],
   })
 
+    const fetchRoutes = async () => {
+      const token = localStorage.getItem("token");
+      console.log (token)
+    try {
+      const res = await apiFetch("/routes", {
+      });
+  
+      const data = await res.json();
+      setRoutes(data);
+    } catch (err) {
+      console.error("Failed to fetch routes", err);
+    }
+    };
+    useEffect(() => {
+    fetchRoutes();
+    }, []);
+
   const filteredRoutes = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
     if (!q) return routes
@@ -66,21 +74,32 @@ export default function RouteManagement() {
 
   const handleDelete = (id: number) => setRoutes(prev => prev.filter(r => r.id !== id))
 
-  const handleAdd = () => {
+  const handleAdd = async() => {
     if (!addForm.name || !addForm.starting_point || !addForm.ending_point) return
 
     // Backend payload matches JSON exactly
     const payload = { ...addForm }
 
-    const newRoute: Route = {
-      id: Math.max(...routes.map(r => r.id), 0) + 1,
-      name: payload.name,
-      starting_point: payload.starting_point,
-      ending_point: payload.ending_point,
-      status: 'Active',
+    // const newRoute: Route = {
+    //   id: Math.max(...routes.map(r => r.id), 0) + 1,
+    //   name: payload.name,
+    //   starting_point: payload.starting_point,
+    //   ending_point: payload.ending_point,
+    //   status: 'Active',
+    // }
+
+    const token = localStorage.getItem("token");
+
+     const res = await apiFetch("/routes", {
+      method: "POST",
+      body: JSON.stringify(payload)
+      });
+
+    if (res.ok) {
+      fetchRoutes();   
     }
 
-    setRoutes(prev => [newRoute, ...prev])
+    // setRoutes(prev => [newRoute, ...prev])
     setAddForm({ name: '', starting_point: '', ending_point: '' })
     setAddOpen(false)
   }
@@ -184,7 +203,7 @@ export default function RouteManagement() {
                 </CardTitle>
 
                 <Badge className={route.status === 'Active' ? 'bg-emerald-600' : 'bg-gray-500'}>
-                  {route.status}
+                  {route.status ?? "Active"}
                 </Badge>
               </div>
             </CardHeader>
