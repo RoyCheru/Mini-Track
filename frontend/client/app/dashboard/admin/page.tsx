@@ -21,7 +21,7 @@ export default function AdminDashboardPage() {
     typeof window !== 'undefined' ? localStorage.getItem('username') : null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="min-h-screen bg-linear-to-br from-background via-background to-muted/20">
       {/* Header */}
       <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
