@@ -2,103 +2,115 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Users, Truck, MapPin, TrendingUp, Clock, AlertCircle } from 'lucide-react'
 
-const STATS = [
-  {
-    title: 'Active Buses',
-    value: '12',
-    change: '+2 this week',
-    icon: Truck,
-    bg: 'from-blue-500/10 to-blue-500/5',
-  },
-  {
-    title: 'Active Drivers',
-    value: '18',
-    change: '+1 this week',
-    icon: Users,
-    bg: 'from-emerald-500/10 to-emerald-500/5',
-  },
-  {
-    title: 'Routes Operational',
-    value: '8',
-    change: 'All active',
-    icon: MapPin,
-    bg: 'from-orange-500/10 to-orange-500/5',
-  },
-  {
-    title: 'Today\'s Bookings',
-    value: '42',
-    change: '+8 from yesterday',
-    icon: TrendingUp,
-    bg: 'from-purple-500/10 to-purple-500/5',
-  },
+type Driver = {
+  id: number
+  name: string
+  email: string
+  phone_number: string
+  status: 'Active' | 'Inactive'
+}
+
+type Route = {
+  id: number
+  name: string
+  starting_point: string
+  ending_point: string
+  status: 'Active' | 'Inactive'
+}
+
+type Vehicle = {
+  id: number
+  route_id: string
+  user_id: string
+  license_plate: string
+  model: string
+  capacity: number
+  status: 'Active' | 'Inactive'
+}
+
+const SEED_DRIVERS: Driver[] = [
+  { id: 1, name: 'Titus Kiptoo', email: 'tituskiptoo@email.com', phone_number: '0700000000', status: 'Active' },
+]
+
+const SEED_ROUTES: Route[] = [
+  { id: 1, name: 'RouteA', starting_point: 'Langatta womens prison', ending_point: 'CBD', status: 'Active' },
+]
+
+const SEED_VEHICLES: Vehicle[] = [
+  { id: 1, route_id: '1', user_id: '2', license_plate: 'KDC 123X', model: 'Scania', capacity: 42, status: 'Active' },
 ]
 
 const RECENT_BOOKINGS = [
-  {
-    id: 'BK-2401',
-    parent: 'Jane Kipchoge',
-    route: 'Route A',
-    seats: 2,
-    amount: 400,
-    status: 'Confirmed',
-    time: '7:30 AM',
-  },
-  {
-    id: 'BK-2402',
-    parent: 'John Kiprotich',
-    route: 'Route B',
-    seats: 1,
-    amount: 180,
-    status: 'Confirmed',
-    time: '7:35 AM',
-  },
-  {
-    id: 'BK-2403',
-    parent: 'Mary Kipkosgei',
-    route: 'Route C',
-    seats: 3,
-    amount: 660,
-    status: 'Pending',
-    time: '7:40 AM',
-  },
-]
-
-const ACTIVE_BUSES = [
-  { id: 'BUS-001', route: 'Route A', driver: 'John Kamau', passengers: 8, capacity: 15, status: 'In Transit' },
-  { id: 'BUS-002', route: 'Route B', driver: 'Peter Kipchoge', passengers: 12, capacity: 15, status: 'In Transit' },
-  { id: 'BUS-003', route: 'Route C', driver: 'Samuel Kipkemboi', passengers: 5, capacity: 15, status: 'In Transit' },
+  { id: 'BK-2401', parent: 'Jane Kipchoge', route: 'RouteA', seats: 2, amount: 400, status: 'Confirmed', time: '7:30 AM' },
+  { id: 'BK-2402', parent: 'John Kiprotich', route: 'RouteA', seats: 1, amount: 200, status: 'Pending', time: '7:35 AM' },
 ]
 
 export default function OverviewSection() {
+  const activeDrivers = SEED_DRIVERS.filter(d => d.status === 'Active').length
+  const activeRoutes = SEED_ROUTES.filter(r => r.status === 'Active').length
+  const activeVehicles = SEED_VEHICLES.filter(v => v.status === 'Active').length
+
   return (
     <div className="space-y-6">
-      {/* Key Metrics */}
+      {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {STATS.map((stat, idx) => {
-          const Icon = stat.icon
-          return (
-            <Card key={idx} className={`bg-gradient-to-br ${stat.bg} border-border/50`}>
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                    <p className="text-3xl font-bold text-foreground mt-2">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
-                  </div>
-                  <Icon className="w-10 h-10 text-muted-foreground/20" />
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Active Vehicles</p>
+                <p className="text-3xl font-bold text-foreground mt-2">{activeVehicles}</p>
+                <p className="text-xs text-muted-foreground mt-1">Fleet online</p>
+              </div>
+              <Truck className="w-10 h-10 text-muted-foreground/20" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Active Drivers</p>
+                <p className="text-3xl font-bold text-foreground mt-2">{activeDrivers}</p>
+                <p className="text-xs text-muted-foreground mt-1">On duty</p>
+              </div>
+              <Users className="w-10 h-10 text-muted-foreground/20" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Routes Operational</p>
+                <p className="text-3xl font-bold text-foreground mt-2">{activeRoutes}</p>
+                <p className="text-xs text-muted-foreground mt-1">Configured</p>
+              </div>
+              <MapPin className="w-10 h-10 text-muted-foreground/20" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Today’s Bookings</p>
+                <p className="text-3xl font-bold text-foreground mt-2">{RECENT_BOOKINGS.length}</p>
+                <p className="text-xs text-muted-foreground mt-1">Last 24 hours</p>
+              </div>
+              <TrendingUp className="w-10 h-10 text-muted-foreground/20" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Main Content Grid */}
+      {/* Recent bookings */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Bookings */}
         <div className="lg:col-span-2">
           <Card className="border-border/50">
             <CardHeader>
@@ -106,35 +118,35 @@ export default function OverviewSection() {
                 <Clock className="w-5 h-5" />
                 Recent Bookings
               </CardTitle>
-              <CardDescription>Last 24 hours</CardDescription>
+              <CardDescription>Sample UI data</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {RECENT_BOOKINGS.map(booking => (
+                {RECENT_BOOKINGS.map(b => (
                   <div
-                    key={booking.id}
+                    key={b.id}
                     className="flex items-center justify-between p-3 bg-card border border-border/50 rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex-1">
-                      <p className="font-semibold text-sm text-foreground">{booking.id}</p>
+                      <p className="font-semibold text-sm text-foreground">{b.id}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {booking.parent} • {booking.route} • {booking.time}
+                        {b.parent} • {b.route} • {b.time}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <p className="font-semibold text-sm text-foreground">KES {booking.amount}</p>
-                        <p className="text-xs text-muted-foreground">{booking.seats} seats</p>
+                        <p className="font-semibold text-sm text-foreground">KES {b.amount}</p>
+                        <p className="text-xs text-muted-foreground">{b.seats} seats</p>
                       </div>
                       <Badge
                         variant="outline"
                         className={
-                          booking.status === 'Confirmed'
+                          b.status === 'Confirmed'
                             ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
                             : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30'
                         }
                       >
-                        {booking.status}
+                        {b.status}
                       </Badge>
                     </div>
                   </div>
@@ -153,96 +165,39 @@ export default function OverviewSection() {
                 System Status
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">Buses</p>
-                  <Badge className="bg-emerald-600">All Online</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">Drivers</p>
-                  <Badge className="bg-emerald-600">All Active</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">Routes</p>
-                  <Badge className="bg-emerald-600">All Active</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">Services</p>
-                  <Badge className="bg-emerald-600">Operational</Badge>
-                </div>
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Vehicles</p>
+                <Badge className="bg-emerald-600">Operational</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Drivers</p>
+                <Badge className="bg-emerald-600">Active</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Routes</p>
+                <Badge className="bg-emerald-600">Configured</Badge>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-border/50">
             <CardHeader>
-              <CardTitle className="text-base">Quick Stats</CardTitle>
+              <CardTitle className="text-base">Fleet Snapshot</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="bg-muted/30 p-3 rounded-lg">
-                <p className="text-xs text-muted-foreground">Revenue Today</p>
-                <p className="text-2xl font-bold text-foreground mt-1">KES 8,480</p>
-              </div>
-              <div className="bg-muted/30 p-3 rounded-lg">
-                <p className="text-xs text-muted-foreground">Avg. Occupancy</p>
-                <p className="text-2xl font-bold text-foreground mt-1">68%</p>
-              </div>
+            <CardContent className="space-y-2">
+              {SEED_VEHICLES.map(v => (
+                <div key={v.id} className="p-3 rounded-lg bg-muted/30">
+                  <p className="font-semibold text-foreground">{v.license_plate}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Model: {v.model} • Capacity: {v.capacity} • route_id: {v.route_id} • user_id: {v.user_id}
+                  </p>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </div>
       </div>
-
-      {/* Active Buses */}
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Truck className="w-5 h-5" />
-            Active Buses
-          </CardTitle>
-          <CardDescription>Real-time bus status and occupancy</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/50">
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Bus ID</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Route</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Driver</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Occupancy</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ACTIVE_BUSES.map(bus => (
-                  <tr key={bus.id} className="border-b border-border/50 hover:bg-muted/50">
-                    <td className="py-3 px-4 font-medium text-foreground">{bus.id}</td>
-                    <td className="py-3 px-4 text-muted-foreground">{bus.route}</td>
-                    <td className="py-3 px-4 text-muted-foreground">{bus.driver}</td>
-                    <td className="py-3 px-4">
-                      <div className="w-20 bg-muted rounded-full h-2">
-                        <div
-                          className="bg-primary h-full rounded-full"
-                          style={{
-                            width: `${(bus.passengers / bus.capacity) * 100}%`,
-                          }}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {bus.passengers}/{bus.capacity}
-                      </p>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge className="bg-emerald-600">{bus.status}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
