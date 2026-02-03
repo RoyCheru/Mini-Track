@@ -19,20 +19,20 @@ export default function Navbar() {
           </Link>
         </nav>
            {/* Parent Dashboard */}
-          <Link
+          {/* <Link
             className="text-sm font-semibold text-slate-700 hover:text-slate-900"
             href={ROUTES.parentDashboard}
           >
             Parent
-          </Link>
+          </Link> */}
 
           {/* Admin Dashboard */}
-          <Link
+          {/* <Link
             className="text-sm font-semibold text-slate-700 hover:text-slate-900"
             href={ROUTES.adminDashboard}
           >
             Admin
-          </Link>
+          </Link> */}
 
         <div className="flex items-center gap-3">
           <Link className="btn btn-ghost" href={ROUTES.signin}>
