@@ -25,15 +25,6 @@ type Driver = {
   status: 'Active' | 'Inactive'
 }
 
-// const SEED_DRIVERS: Driver[] = [
-//   {
-//     id: 1,
-//     name: 'Titus Kiptoo',
-//     email: 'tituskiptoo@email.com',
-//     phone_number: '0700000000',
-//     status: 'Active',
-//   },
-// ]
 
 
 export default function DriverManagement() {
@@ -48,12 +39,11 @@ export default function DriverManagement() {
     phone_number: '',
     password: '',
   })
-
-  useEffect(() => {
+  
   const fetchDrivers = async () => {
     const token = localStorage.getItem("token");
     console.log (token)
-
+  try {
     const res = await apiFetch("/drivers", {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -63,10 +53,13 @@ export default function DriverManagement() {
 
     const data = await res.json();
     setDrivers(data);
+  } catch (err) {
+    console.error("Failed to fetch drivers", err);
+  }
   };
-
+  useEffect(() => {
   fetchDrivers();
-}, []);
+  }, []);
 
   // Dialog state (Edit)
   const [editOpen, setEditOpen] = useState(false)
@@ -93,7 +86,7 @@ export default function DriverManagement() {
     setDrivers(prev => prev.filter(d => d.id !== id))
   }
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!addForm.name || !addForm.email || !addForm.phone_number || !addForm.password) return
 
     // Matches backend JSON (password collected, not displayed)
@@ -104,16 +97,22 @@ export default function DriverManagement() {
       phone_number: addForm.phone_number,
     }
 
-    // For now we just add to UI state
-    const newDriver: Driver = {
-      id: Math.max(...drivers.map(d => d.id), 0) + 1,
-      name: payload.name,
-      email: payload.email,
-      phone_number: payload.phone_number,
-      status: 'Active',
+    const token = localStorage.getItem("token");
+
+     const res = await apiFetch("/drivers", {
+      method: "POST",
+      headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+      });
+
+    if (res.ok) {
+      fetchDrivers();   
     }
 
-    setDrivers(prev => [newDriver, ...prev])
+    // setDrivers(prev => [newDriver, ...prev])
     setAddForm({ name: '', email: '', phone_number: '', password: '' })
     setAddOpen(false)
   }
