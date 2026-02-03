@@ -33,7 +33,7 @@ def create_app():
         supports_credentials=True,
         origins=["http://localhost:3000"],
         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type"]
+        allow_headers=["Content-Type", "Authorization"]
     )
     api = Api(app)
 
