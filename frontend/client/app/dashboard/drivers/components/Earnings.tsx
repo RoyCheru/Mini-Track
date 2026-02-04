@@ -1,3 +1,3 @@
-export default function VehicleStatus() {
+export default function Earnings() {
   return null
 }
