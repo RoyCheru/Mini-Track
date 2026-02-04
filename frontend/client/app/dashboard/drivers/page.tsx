@@ -82,7 +82,6 @@ export default function DriverDashboard() {
   const [alert, setAlert] = useState<AlertMessage | null>(null)
   const username = typeof window !== 'undefined' ? localStorage.getItem("username") || 'Driver' : 'Driver'
 
-
   // Fetch driver data
   const fetchDriverData = async () => {
     try {
@@ -112,7 +111,7 @@ export default function DriverDashboard() {
     fetchDriverData()
   }, [])
 
-    const handleStartTrip = (trip: DriverSchedule) => {
+  const handleStartTrip = (trip: DriverSchedule) => {
     setSchedule(schedule.map(s => 
       s === trip ? { ...s, status: 'in-progress' } : s
     ))
@@ -168,8 +167,8 @@ export default function DriverDashboard() {
           </Alert>
         </div>
       )}
-    
-     {/* Header */}
+
+      {/* Header */}
       <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
@@ -194,7 +193,8 @@ export default function DriverDashboard() {
           </div>
         </div>
       </div>
-{/* Main Content */}
+
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {loading ? (
           <div className="flex items-center justify-center min-h-[400px]">
@@ -242,7 +242,8 @@ export default function DriverDashboard() {
 
               <VehicleStatus vehicle={vehicle} />
             </div>
- {/* Main Content Area */}
+
+            {/* Main Content Area */}
             <div className="lg:col-span-3">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="grid w-full grid-cols-5 lg:w-auto bg-card border border-border/50">
@@ -263,7 +264,8 @@ export default function DriverDashboard() {
                     <span className="hidden sm:inline">Earnings</span>
                   </TabsTrigger>
                 </TabsList>
-                    {/* DASHBOARD TAB */}
+
+                {/* DASHBOARD TAB */}
                 <TabsContent value="dashboard" className="space-y-6">
                   {/* Current Trip Alert */}
                   {currentTrip && (
@@ -297,7 +299,7 @@ export default function DriverDashboard() {
                     </Card>
                   )}
 
-   {/* Today's Schedule */}
+                  {/* Today's Schedule */}
                   <Card className="border-border/50">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -454,7 +456,8 @@ export default function DriverDashboard() {
                 <TabsContent value="route">
                   <RouteMap schedule={schedule} />
                 </TabsContent>
-{/* EARNINGS TAB */}
+
+                {/* EARNINGS TAB */}
                 <TabsContent value="earnings">
                   <Earnings earnings={earnings} />
                 </TabsContent>
