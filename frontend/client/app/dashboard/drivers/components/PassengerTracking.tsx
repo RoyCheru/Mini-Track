@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, CheckCircle, XCircle, Clock, Phone, MapPin } from 'lucide-react'
+import { Users, CheckCircle, XCircle, Clock, Phone, MapPin, Sun, Moon } from 'lucide-react'
 
 interface Passenger {
   id: number
@@ -13,6 +13,7 @@ interface Passenger {
   status: 'pending' | 'picked-up' | 'dropped-off' | 'absent'
   checked_in_time?: string
   checked_out_time?: string
+  trip_type: 'morning' | 'evening'
 }
 
 interface PassengerTrackingProps {
@@ -45,6 +46,12 @@ export default function PassengerTracking({ trip, onMarkPassenger }: PassengerTr
       case 'absent': return 'Absent'
       default: return 'Pending'
     }
+  }
+
+  const getTripTypeIcon = (tripType: 'morning' | 'evening') => {
+    return tripType === 'morning' ? 
+      <Sun className="w-3 h-3 text-amber-600" /> : 
+      <Moon className="w-3 h-3 text-indigo-600" />
   }
 
   const pendingPassengers = passengers.filter(p => p.status === 'pending')
@@ -99,7 +106,7 @@ export default function PassengerTracking({ trip, onMarkPassenger }: PassengerTr
       {pendingPassengers.length > 0 && (
         <Card className="border-border/50">
           <CardHeader>
-            <CardTitle className="text-lg">Pending Pickup ({pendingPassengers.length})</CardTitle>
+            <CardTitle className="text-lg">Pending ({pendingPassengers.length})</CardTitle>
             <CardDescription>Mark passengers as they board the vehicle</CardDescription>
           </CardHeader>
           <CardContent>
@@ -109,9 +116,12 @@ export default function PassengerTracking({ trip, onMarkPassenger }: PassengerTr
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{passenger.name}</span>
-                      <Badge variant="outline" className="text-xs">
-                        Seat {passenger.id}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        {getTripTypeIcon(passenger.trip_type)}
+                        <Badge variant="outline" className="text-xs">
+                          Seat {passenger.id}
+                        </Badge>
+                      </div>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
@@ -125,7 +135,11 @@ export default function PassengerTracking({ trip, onMarkPassenger }: PassengerTr
                     <Button
                       size="sm"
                       onClick={() => onMarkPassenger(passenger.id, 'picked-up')}
-                      className="bg-emerald-600 hover:bg-emerald-700"
+                      className={`${
+                        passenger.trip_type === 'morning' 
+                          ? 'bg-amber-600 hover:bg-amber-700' 
+                          : 'bg-indigo-600 hover:bg-indigo-700'
+                      }`}
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
                       Pick Up
@@ -160,9 +174,12 @@ export default function PassengerTracking({ trip, onMarkPassenger }: PassengerTr
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{passenger.name}</span>
-                      <Badge className={getStatusColor(passenger.status)}>
-                        {getStatusText(passenger.status)}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        {getTripTypeIcon(passenger.trip_type)}
+                        <Badge className={getStatusColor(passenger.status)}>
+                          {getStatusText(passenger.status)}
+                        </Badge>
+                      </div>
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {passenger.status === 'picked-up' && passenger.checked_in_time && (
