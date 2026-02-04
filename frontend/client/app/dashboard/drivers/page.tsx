@@ -18,25 +18,16 @@ import { fetchDriverSchedule } from './utils/api'
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 interface DriverSchedule {
-  id: number;
-  date: string;
-  start_time: string;
-  end_time: string;
-  route: string;
-  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
-  passengers: number;
-  vehicle: string;
-}
-
-interface BookingRequest {
-  id: number;
-  child_name: string;
+  user_id: number;
+  vehicle_id: number;
   pickup_location: string;
   dropoff_location: string;
-  date: string;
-  time: string;
-  seats: number;
-  status: 'pending' | 'approved' | 'rejected';
+  start_date: string;
+  end_date: string;
+  days_of_week: string;
+  service_type: 'morning' | 'evening' | 'both';
+  seats_booked: number;
+  status?: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
 }
 
 interface VehicleInfo {
@@ -56,6 +47,11 @@ interface EarningsData {
   thisMonth: number;
   totalTrips: number;
   avgRating: number;
+}
+
+interface AlertMessage {
+  type: 'success' | 'error' | 'info';
+  message: string;
 }
 
 const MOCK_SCHEDULE: DriverSchedule[] = [
