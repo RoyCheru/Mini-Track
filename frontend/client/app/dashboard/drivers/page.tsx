@@ -111,3 +111,60 @@ export default function DriverDashboard() {
   useEffect(() => {
     fetchDriverData()
   }, [])
+
+    const handleStartTrip = (trip: DriverSchedule) => {
+    setSchedule(schedule.map(s => 
+      s === trip ? { ...s, status: 'in-progress' } : s
+    ))
+    setAlert({
+      type: 'success',
+      message: 'Trip started successfully'
+    })
+    setTimeout(() => setAlert(null), 3000)
+  }
+
+  const handleCompleteTrip = (trip: DriverSchedule) => {
+    setSchedule(schedule.map(s => 
+      s === trip ? { ...s, status: 'completed' } : s
+    ))
+    setAlert({
+      type: 'success',
+      message: 'Trip completed successfully'
+    })
+    setTimeout(() => setAlert(null), 3000)
+  }
+
+  const currentTrip = schedule.find(s => s.status === 'in-progress')
+
+  // Filter today's schedule
+  const today = new Date().toISOString().split('T')[0]
+  const todaySchedule = schedule.filter(s => {
+    const scheduleDate = new Date(s.start_date)
+    return scheduleDate.toISOString().split('T')[0] === today
+  })
+
+  // Calculate stats
+  const passengersToday = todaySchedule.reduce((sum, trip) => sum + trip.seats_booked, 0)
+  const tripsToday = todaySchedule.length
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      {/* Alert Banner */}
+      {alert && (
+        <div className="sticky top-0 z-50">
+          <Alert className={`
+            ${alert.type === 'success' ? 'bg-green-50 border-green-200' : ''}
+            ${alert.type === 'error' ? 'bg-red-50 border-red-200' : ''}
+            ${alert.type === 'info' ? 'bg-blue-50 border-blue-200' : ''}
+            border-b
+          `}>
+            <AlertDescription className={`
+              ${alert.type === 'success' ? 'text-green-800' : ''}
+              ${alert.type === 'error' ? 'text-red-800' : ''}
+              ${alert.type === 'info' ? 'text-blue-800' : ''}
+            `}>
+              {alert.message}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
