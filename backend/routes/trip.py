@@ -2,15 +2,20 @@
 Trip Routes and Resources
 Handles driver daily operations and trip status management
 """
+
 from flask import request
 from flask_restful import Resource
 from datetime import datetime, date
 from models import db, Trip, Booking
 
-# 1. HELPER FUNCTION
+# ========================
+# HELPER FUNCTIONS
+# ========================
 
 def serialize_trip(trip):
-
+    """
+    Serialize trip with booking details for driver view
+    """
     return {
         "trip_id": trip.id,
         "booking_id": trip.booking_id,
@@ -28,7 +33,10 @@ def serialize_trip(trip):
         "seats_booked": trip.booking.seats_booked,
     }
 
-# 2. CLASS RESOURCE
+
+# ========================
+# RESOURCE CLASSES
+# ========================
 
 class TripToday(Resource):
     """
@@ -39,6 +47,12 @@ class TripToday(Resource):
     def get(self):
         """
         Get today's trips
+        
+        Query params (required):
+            - vehicle_id: Which vehicle's trips to show
+            - service_time: 'morning' or 'evening'
+        
+        Example: GET /trips/today?vehicle_id=5&service_time=morning
         """
         # Get required parameters
         vehicle_id = request.args.get('vehicle_id', type=int)
@@ -57,10 +71,16 @@ class TripToday(Resource):
         # Query today's trips for this vehicle and service time
         today = date.today()
         
+        # Get vehicle to find its route
+        from models import Vehicle
+        vehicle = Vehicle.query.get(vehicle_id)
+        if not vehicle:
+            return {"error": "Vehicle not found"}, 404
+        
         trips = Trip.query.join(Booking).filter(
             Trip.trip_date == today,
             Trip.service_time == service_time,
-            Booking.vehicle_id == vehicle_id,
+            Booking.route_id == vehicle.route_id,  # Changed from vehicle_id to route_id
             Trip.status.in_(['scheduled', 'picked_up'])  # Don't show cancelled/completed
         ).all()
         
@@ -76,7 +96,7 @@ class TripToday(Resource):
         }
         
         return response, 200
-    
+
 
 class TripPickup(Resource):
     """
@@ -86,6 +106,11 @@ class TripPickup(Resource):
     def patch(self, trip_id):
         """
         Mark child as picked up
+        
+        Optional JSON body:
+        {
+            "driver_notes": "optional notes"
+        }
         """
         trip = Trip.query.get(trip_id)
         
@@ -113,7 +138,7 @@ class TripPickup(Resource):
         response["message"] = "Child marked as picked up"
         
         return response, 200
-    
+
 
 class TripDropoff(Resource):
     """
@@ -123,6 +148,11 @@ class TripDropoff(Resource):
     def patch(self, trip_id):
         """
         Mark child as dropped off
+        
+        Optional JSON body:
+        {
+            "driver_notes": "optional notes"
+        }
         """
         trip = Trip.query.get(trip_id)
         
