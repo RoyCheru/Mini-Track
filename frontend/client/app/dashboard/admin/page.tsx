@@ -1,24 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TrendingUp, Settings, Zap } from 'lucide-react'
 
-// Import the sections (your project likely already uses this pattern)
 import OverviewSection from './components/overview'
 import AnalyticsSection from './components/analytics'
 import BookingsManagement from './components/bookings-management'
 
-// Optional: If you have these pages too, keep them in management area
 import DriverManagement from './components/driver-management'
 import RouteManagement from './components/route-management'
 import VehicleManagement from './components/bus-management'
+import SchoolLocationManagement from './components/school-location-management'
 
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState('overview')
 
-  const username =
-    typeof window !== 'undefined' ? localStorage.getItem('username') : null
+  // ✅ read after mount to avoid hydration mismatch
+  const [username, setUsername] = useState<string | null>(null)
+
+  useEffect(() => {
+    setUsername(localStorage.getItem('username'))
+  }, [])
 
   return (
     <div className="min-h-screen bg-linear-to-br from-background via-background to-muted/20">
@@ -31,7 +34,7 @@ export default function AdminDashboardPage() {
                 Welcome Admin{username ? `, ${username}` : ''}
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Manage drivers, routes, vehicles, and bookings
+                Manage drivers, routes, vehicles, school locations, and bookings
               </p>
             </div>
           </div>
@@ -64,6 +67,7 @@ export default function AdminDashboardPage() {
           <TabsContent value="management" className="space-y-6">
             <DriverManagement />
             <RouteManagement />
+            <SchoolLocationManagement />
             <VehicleManagement />
           </TabsContent>
 
