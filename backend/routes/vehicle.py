@@ -176,4 +176,4 @@ class VehicleDetail(Resource):
         db.session.delete(vehicle)
         db.session.commit()
         
-        return {"message": "Vehicle deleted successfully"}, 20
+        return {"message": "Vehicle deleted successfully"}, 200
