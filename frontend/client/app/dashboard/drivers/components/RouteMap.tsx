@@ -11,6 +11,7 @@ interface RouteMapProps {
 }
 
 import { Route } from 'lucide-react'
+import { MapPin } from 'lucide-react'
 
 export default function RouteMap({ schedule }: RouteMapProps) {
   if (schedule.length === 0) {
@@ -39,6 +40,16 @@ export default function RouteMap({ schedule }: RouteMapProps) {
     </div>
   </div>
 </div>
+<div className="flex items-start gap-2">
+  <MapPin className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+  <div>
+    <p className="text-sm font-medium">Pickup</p>
+    <p className="text-sm text-muted-foreground">
+      {trip.pickup_location}
+    </p>
+  </div>
+</div>
+
     )
   }
 
