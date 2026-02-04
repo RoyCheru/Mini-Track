@@ -11,8 +11,15 @@ interface VehicleStatusProps {
     next_service: string
   }
 }
+export default function VehicleStatus({ vehicle }: VehicleStatusProps) {
+  const statusColors = {
+    active: 'bg-emerald-500',
+    maintenance: 'bg-amber-500',
+    offline: 'bg-red-500'
+  }
 
-export default function VehicleStatus({ status }: VehicleStatusProps) {
+
+{
 
    return (
     <div>
