@@ -22,16 +22,14 @@ type Driver = {
   name: string
   email: string
   phone_number: string
-  status: 'Active' | 'Inactive'
+  status: 'Active' | 'Inactive' | string
 }
-
-
 
 export default function DriverManagement() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [drivers, setDrivers] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([])
 
-  // Dialog state (Add)
+  // Add dialog
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState({
     name: '',
@@ -39,57 +37,57 @@ export default function DriverManagement() {
     phone_number: '',
     password: '',
   })
-  
-  const fetchDrivers = async () => {
-    const token = localStorage.getItem("token");
-    console.log (token)
-  try {
-    const res = await apiFetch("/drivers", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
-    });
 
-    const data = await res.json();
-    setDrivers(data);
-  } catch (err) {
-    console.error("Failed to fetch drivers", err);
-  }
-  };
-  useEffect(() => {
-  fetchDrivers();
-  }, []);
-
-  // Dialog state (Edit)
+  // Edit dialog
   const [editOpen, setEditOpen] = useState(false)
   const [editing, setEditing] = useState<Driver | null>(null)
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
     phone_number: '',
-    password: '' ,// optional update
+    password: '', 
     status: 'Active' as Driver['status'],
   })
+
+  const fetchDrivers = async () => {
+    const token = localStorage.getItem('token')
+
+    try {
+      const res = await apiFetch('/drivers', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await res.json()
+      setDrivers(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error('Failed to fetch drivers', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchDrivers()
+  }, [])
 
   const filteredDrivers = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
     if (!q) return drivers
-    return drivers.filter(d =>
-      d.name.toLowerCase().includes(q) ||
-      d.email.toLowerCase().includes(q) ||
-      d.phone_number.includes(q)
-    )
-  }, [drivers, searchTerm])
 
-  const handleDelete = (id: number) => {
-    setDrivers(prev => prev.filter(d => d.id !== id))
-  }
+    return drivers.filter((d: any) => {
+      const name = String(d.name ?? '').toLowerCase()
+      const email = String(d.email ?? '').toLowerCase()
+      const phone = String(d.phone_number ?? '')
+      return name.includes(q) || email.includes(q) || phone.includes(q)
+    })
+  }, [drivers, searchTerm])
 
   const handleAdd = async () => {
     if (!addForm.name || !addForm.email || !addForm.phone_number || !addForm.password) return
 
-    // Matches backend JSON (password collected, not displayed)
+    const token = localStorage.getItem('token')
+
     const payload = {
       name: addForm.name,
       email: addForm.email,
@@ -97,24 +95,30 @@ export default function DriverManagement() {
       phone_number: addForm.phone_number,
     }
 
-    const token = localStorage.getItem("token");
+    try {
+      const res = await apiFetch('/drivers', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
 
-     const res = await apiFetch("/drivers", {
-      method: "POST",
-      headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
-      });
+      const data = await res.json()
 
-    if (res.ok) {
-      fetchDrivers();   
+      if (!res.ok) {
+        alert(data?.error || data?.message || 'Create driver failed')
+        return
+      }
+
+      await fetchDrivers()
+      setAddForm({ name: '', email: '', phone_number: '', password: '' })
+      setAddOpen(false)
+    } catch (err) {
+      console.error(err)
+      alert('Server error')
     }
-
-    // setDrivers(prev => [newDriver, ...prev])
-    setAddForm({ name: '', email: '', phone_number: '', password: '' })
-    setAddOpen(false)
   }
 
   const openEdit = (driver: Driver) => {
@@ -129,29 +133,72 @@ export default function DriverManagement() {
     setEditOpen(true)
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editing) return
     if (!editForm.name || !editForm.email || !editForm.phone_number) return
 
-    // Backend-aligned payload:
-    // Only include password if user typed one (optional)
+    const token = localStorage.getItem('token')
+
     const payload: any = {
+      id: editing.id, // many backends ignore this; harmless if allowed
       name: editForm.name,
       email: editForm.email,
       phone_number: editForm.phone_number,
+      status: editForm.status,
     }
-    if (editForm.password) payload.password = editForm.password
+    if (editForm.password?.trim()) payload.password = editForm.password.trim()
 
-    setDrivers(prev =>
-      prev.map(d =>
-        d.id === editing.id
-          ? { ...d, name: payload.name, email: payload.email, phone_number: payload.phone_number,
-              status: editForm.status }
-          : d
-      )
-    )
-    setEditOpen(false)
-    setEditing(null)
+    try {
+      const res = await apiFetch(`/users/${editing.id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        alert(data?.error || data?.message || 'Update failed')
+        return
+      }
+
+      // Refresh from backend (source of truth)
+      await fetchDrivers()
+
+      setEditOpen(false)
+      setEditing(null)
+    } catch (err) {
+      console.error(err)
+      alert('Server error')
+    }
+  }
+
+  const handleDelete = async (id: number) => {
+    const token = localStorage.getItem('token')
+
+    try {
+      const res = await apiFetch(`/users/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        alert(data?.error || data?.message || 'Delete failed')
+        return
+      }
+
+      setDrivers(prev => prev.filter(d => d.id !== id))
+    } catch (err) {
+      console.error(err)
+      alert('Server error')
+    }
   }
 
   return (
@@ -171,6 +218,7 @@ export default function DriverManagement() {
                   Add Driver
                 </Button>
               </DialogTrigger>
+
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add New Driver</DialogTitle>
@@ -180,19 +228,37 @@ export default function DriverManagement() {
                 <div className="space-y-4">
                   <div>
                     <Label>Full Name</Label>
-                    <Input value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} className="mt-1" />
+                    <Input
+                      value={addForm.name}
+                      onChange={e => setAddForm({ ...addForm, name: e.target.value })}
+                      className="mt-1"
+                    />
                   </div>
                   <div>
                     <Label>Email</Label>
-                    <Input type="email" value={addForm.email} onChange={e => setAddForm({ ...addForm, email: e.target.value })} className="mt-1" />
+                    <Input
+                      type="email"
+                      value={addForm.email}
+                      onChange={e => setAddForm({ ...addForm, email: e.target.value })}
+                      className="mt-1"
+                    />
                   </div>
                   <div>
                     <Label>Phone Number</Label>
-                    <Input value={addForm.phone_number} onChange={e => setAddForm({ ...addForm, phone_number: e.target.value })} className="mt-1" />
+                    <Input
+                      value={addForm.phone_number}
+                      onChange={e => setAddForm({ ...addForm, phone_number: e.target.value })}
+                      className="mt-1"
+                    />
                   </div>
                   <div>
                     <Label>Password</Label>
-                    <Input type="password" value={addForm.password} onChange={e => setAddForm({ ...addForm, password: e.target.value })} className="mt-1" />
+                    <Input
+                      type="password"
+                      value={addForm.password}
+                      onChange={e => setAddForm({ ...addForm, password: e.target.value })}
+                      className="mt-1"
+                    />
                   </div>
 
                   <Button className="w-full mt-6" onClick={handleAdd}>
@@ -233,9 +299,13 @@ export default function DriverManagement() {
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredDrivers.map(driver => (
-                  <tr key={driver.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                  <tr
+                    key={driver.id}
+                    className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                  >
                     <td className="py-4 px-6">
                       <p className="font-semibold text-foreground">{driver.name}</p>
                       <p className="text-xs text-muted-foreground">{driver.email}</p>
@@ -243,11 +313,17 @@ export default function DriverManagement() {
 
                     <td className="py-4 px-6">
                       <div className="space-y-1">
-                        <a href={`tel:${driver.phone_number}`} className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors">
+                        <a
+                          href={`tel:${driver.phone_number}`}
+                          className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
+                        >
                           <Phone className="w-4 h-4" />
                           {driver.phone_number}
                         </a>
-                        <a href={`mailto:${driver.email}`} className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors">
+                        <a
+                          href={`mailto:${driver.email}`}
+                          className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
+                        >
                           <Mail className="w-4 h-4" />
                           {driver.email}
                         </a>
@@ -255,7 +331,9 @@ export default function DriverManagement() {
                     </td>
 
                     <td className="py-4 px-6">
-                      <Badge className={driver.status === 'Active' ? 'bg-emerald-600' : 'bg-gray-500'}>{driver.status}</Badge>
+                      <Badge className={String(driver.status) === 'Active' ? 'bg-emerald-600' : 'bg-gray-500'}>
+                        {driver.status}
+                      </Badge>
                     </td>
 
                     <td className="py-4 px-6">
@@ -295,23 +373,45 @@ export default function DriverManagement() {
           <div className="space-y-4">
             <div>
               <Label>Full Name</Label>
-              <Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="mt-1" />
+              <Input
+                value={editForm.name}
+                onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Email</Label>
-              <Input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} className="mt-1" />
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Phone Number</Label>
-              <Input value={editForm.phone_number} onChange={e => setEditForm({ ...editForm, phone_number: e.target.value })} className="mt-1" />
+              <Input
+                value={editForm.phone_number}
+                onChange={e => setEditForm({ ...editForm, phone_number: e.target.value })}
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Password (optional)</Label>
-              <Input type="password" value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} className="mt-1" />
+              <Input
+                type="password"
+                value={editForm.password}
+                onChange={e => setEditForm({ ...editForm, password: e.target.value })}
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Status</Label>
-              <Input value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value as any })} className="mt-1" />
+              <Input
+                value={String(editForm.status)}
+                onChange={e => setEditForm({ ...editForm, status: e.target.value as any })}
+                className="mt-1"
+              />
             </div>
 
             <Button className="w-full mt-6" onClick={handleSaveEdit}>

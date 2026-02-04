@@ -16,7 +16,6 @@ import SchoolLocationManagement from './components/school-location-management'
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState('overview')
 
-  // ✅ read after mount to avoid hydration mismatch
   const [username, setUsername] = useState<string | null>(null)
 
   useEffect(() => {
