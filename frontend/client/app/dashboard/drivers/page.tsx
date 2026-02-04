@@ -159,7 +159,7 @@ export default function DriverDashboardPage() {
   const [showProfile, setShowProfile] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
-  // ✅ read after mount to avoid hydration mismatch
+  // read after mount to avoid hydration mismatch
   const [username, setUsername] = useState<string | null>(null)
 
   useEffect(() => {
