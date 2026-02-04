@@ -193,7 +193,7 @@ export default function TripManagement({ trip, onCompleteTrip, onMarkPassenger }
           )}
         </div>
 
-        {/* Important Notes */}
+        
         {pendingCount > 0 && (
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <div className="flex items-start gap-2">
