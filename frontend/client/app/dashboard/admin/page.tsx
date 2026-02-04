@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TrendingUp, Settings, Zap } from 'lucide-react'
 
 import OverviewSection from './components/overview'
-import AnalyticsSection from './components/analytics'
+// import AnalyticsSection from './components/analytics'
 import BookingsManagement from './components/bookings-management'
 
 import DriverManagement from './components/driver-management'
@@ -60,7 +60,7 @@ export default function AdminDashboardPage() {
 
           <TabsContent value="overview" className="space-y-6">
             <OverviewSection />
-            <AnalyticsSection />
+            {/* <AnalyticsSection /> */}
           </TabsContent>
 
           <TabsContent value="management" className="space-y-6">
