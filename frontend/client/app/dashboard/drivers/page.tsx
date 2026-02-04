@@ -5,11 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, MapPin, Car, Users, Clock, Navigation, Bell, CheckCircle, AlertCircle, UserCheck, Sun, Moon } from 'lucide-react'
-import ProfileCard from './components/ProfileCard'
+import { Calendar, MapPin, Car, Users, Clock, Navigation, Bell, CheckCircle, AlertCircle, UserCheck, Sun, Moon, Menu, X } from 'lucide-react'
 import ScheduleView from './components/ScheduleView'
 import PassengerTracking from './components/PassengerTracking'
-import VehicleStatus from './components/VehicleStatus'
 import RouteMap from './components/RouteMap'
 import TripManagement from './components/TripManagement'
 
@@ -25,7 +23,7 @@ interface DriverSchedule {
   service_type: 'morning' | 'evening' | 'both'
   seats_booked: number
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
-  trip_time?: string // Added for morning/evening timing
+  trip_time?: string
   passengers?: Passenger[]
 }
 
@@ -39,7 +37,7 @@ interface Passenger {
   status: 'pending' | 'picked-up' | 'dropped-off' | 'absent'
   checked_in_time?: string
   checked_out_time?: string
-  trip_type: 'morning' | 'evening' // Added to track which trip
+  trip_type: 'morning' | 'evening'
 }
 
 interface VehicleInfo {
@@ -75,10 +73,10 @@ const MOCK_SCHEDULE: DriverSchedule[] = [
     status: 'in-progress',
     trip_time: "07:00 AM",
     passengers: [
-      { id: 1, name: "Emma Wilson", parent_name: "Sarah Wilson", parent_phone: "+254 712 345 678", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'picked-up', checked_in_time: "07:30", trip_type: 'morning' },
-      { id: 2, name: "Liam Davis", parent_name: "Michael Davis", parent_phone: "+254 723 456 789", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'picked-up', checked_in_time: "07:32", trip_type: 'morning' },
-      { id: 3, name: "Olivia Martinez", parent_name: "Maria Martinez", parent_phone: "+254 734 567 890", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'pending', trip_type: 'morning' },
-      { id: 4, name: "Noah Taylor", parent_name: "James Taylor", parent_phone: "+254 745 678 901", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'pending', trip_type: 'morning' },
+      { id: 1, name: "Heeba Hassan", parent_name: "Hassan", parent_phone: "+254 712 345 678", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'picked-up', checked_in_time: "07:30", trip_type: 'morning' },
+      { id: 2, name: "Kamau Joseph", parent_name: "Micheal Njeri", parent_phone: "+254 723 456 789", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'picked-up', checked_in_time: "07:32", trip_type: 'morning' },
+      { id: 3, name: "Dan Rotich", parent_name: "Michael Doe", parent_phone: "+254 734 567 890", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'pending', trip_type: 'morning' },
+      { id: 4, name: "Fourtune", parent_name: "James Kamau", parent_phone: "+254 745 678 901", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'pending', trip_type: 'morning' },
     ]
   },
   {
@@ -95,10 +93,10 @@ const MOCK_SCHEDULE: DriverSchedule[] = [
     status: 'scheduled',
     trip_time: "03:30 PM",
     passengers: [
-      { id: 5, name: "Emma Wilson", parent_name: "Sarah Wilson", parent_phone: "+254 712 345 678", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
-      { id: 6, name: "Liam Davis", parent_name: "Michael Davis", parent_phone: "+254 723 456 789", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
-      { id: 7, name: "Olivia Martinez", parent_name: "Maria Martinez", parent_phone: "+254 734 567 890", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
-      { id: 8, name: "Noah Taylor", parent_name: "James Taylor", parent_phone: "+254 745 678 901", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
+      { id: 5, name: "Heeba Hassan", parent_name: "Hassan", parent_phone: "+254 712 345 678", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
+      { id: 6, name: "Kamau Joseph", parent_name: "Micheal Njeri", parent_phone: "+254 723 456 789", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
+      { id: 7, name: "Dan Rotich", parent_name: "Michael Doe", parent_phone: "+254 734 567 890", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
+      { id: 8, name: "Fourtune", parent_name: "James Kamau", parent_phone: "+254 745 678 901", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
     ]
   },
   {
@@ -115,9 +113,9 @@ const MOCK_SCHEDULE: DriverSchedule[] = [
     status: 'scheduled',
     trip_time: "07:15 AM",
     passengers: [
-      { id: 9, name: "Sophia Brown", parent_name: "Robert Brown", parent_phone: "+254 756 789 012", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
-      { id: 10, name: "Mason Wilson", parent_name: "Lisa Wilson", parent_phone: "+254 767 890 123", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
-      { id: 11, name: "Isabella Clark", parent_name: "David Clark", parent_phone: "+254 778 901 234", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
+      { id: 9, name: "Sophia Benard", parent_name: "Robert Njoroge", parent_phone: "+254 756 789 012", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
+      { id: 10, name: "Mason Otieno", parent_name: "Lisa Awino", parent_phone: "+254 767 890 123", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
+      { id: 11, name: "Abdul Abdi", parent_name: "Samira said", parent_phone: "+254 778 901 234", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
     ]
   },
   {
@@ -134,9 +132,9 @@ const MOCK_SCHEDULE: DriverSchedule[] = [
     status: 'scheduled',
     trip_time: "04:00 PM",
     passengers: [
-      { id: 12, name: "Sophia Brown", parent_name: "Robert Brown", parent_phone: "+254 756 789 012", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
-      { id: 13, name: "Mason Wilson", parent_name: "Lisa Wilson", parent_phone: "+254 767 890 123", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
-      { id: 14, name: "Isabella Clark", parent_name: "David Clark", parent_phone: "+254 778 901 234", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
+      { id: 12, name: "Sophia Benard", parent_name: "Robert Njoroge", parent_phone: "+254 756 789 012", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
+      { id: 13, name: "Mason Otieno", parent_name: "Lisa Awino", parent_phone: "+254 767 890 123", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
+      { id: 14, name: "Abdul Abdi", parent_name: "Samira said", parent_phone: "+254 778 901 234", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
     ]
   }
 ]
@@ -158,6 +156,8 @@ export default function DriverDashboardPage() {
   const [vehicle, setVehicle] = useState<VehicleInfo>(MOCK_VEHICLE)
   const [loading, setLoading] = useState(false)
   const [alerts, setAlerts] = useState<AlertMessage[]>([])
+  const [showProfile, setShowProfile] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
   // ✅ read after mount to avoid hydration mismatch
   const [username, setUsername] = useState<string | null>(null)
@@ -297,18 +297,31 @@ export default function DriverDashboardPage() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header - Clean & Minimal */}
       <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">
-                Welcome Driver{username ? `, ${username}` : ''}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Manage morning & evening trips, track passengers, and update vehicle status
-              </p>
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {/* Mobile Menu Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </Button>
+              
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">
+                  Driver Dashboard
+                </h1>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Welcome back, {username || 'Driver'}
+                </p>
+              </div>
             </div>
+            
             <div className="flex items-center gap-3">
               {currentTrip && (
                 <Badge className={`gap-2 px-3 py-1.5 ${
@@ -321,100 +334,174 @@ export default function DriverDashboardPage() {
                   ) : (
                     <Moon className="w-3 h-3" />
                   )}
-                  {currentTrip.service_type.toUpperCase()} TRIP • On Route
+                  {currentTrip.service_type.toUpperCase()} TRIP
                 </Badge>
               )}
-              <Button size="sm" variant="ghost" className="gap-2">
-                <Bell className="w-4 h-4" />
-                Alerts
+              
+              {/* Profile Avatar Button */}
+              <Button
+                size="icon"
+                variant="ghost"
+                className="rounded-full h-10 w-10 hover:bg-blue-50 transition-colors"
+                onClick={() => setShowProfile(true)}
+              >
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                  <span className="text-white font-medium text-sm">
+                    {(username || 'D').charAt(0)}
+                  </span>
+                </div>
+              </Button>
+              
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="gap-2 hover:bg-blue-50 transition-colors"
+              >
+                <Bell className="w-5 h-5" />
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
+          <div className="absolute right-0 top-16 h-full w-64 bg-card border-l shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                  <span className="text-white font-medium text-lg">
+                    {(username || 'D').charAt(0)}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-slate-900">{username || 'Driver'}</h3>
+                  <p className="text-sm text-slate-600">Professional Driver</p>
+                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors"
+                  onClick={() => {
+                    setActiveTab('dashboard')
+                    setMobileMenuOpen(false)
+                  }}
+                >
+                  <Navigation className="w-4 h-4 mr-2" />
+                  Dashboard
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors"
+                  onClick={() => {
+                    setActiveTab('passengers')
+                    setMobileMenuOpen(false)
+                  }}
+                >
+                  <UserCheck className="w-4 h-4 mr-2" />
+                  Passengers
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors"
+                  onClick={() => {
+                    setActiveTab('schedule')
+                    setMobileMenuOpen(false)
+                  }}
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Schedule
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content - Full Width */}
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {loading ? (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center space-y-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-              <p className="text-muted-foreground">Loading dashboard...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+              <p className="text-slate-600">Loading dashboard...</p>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Left Sidebar - Profile & Stats */}
-            <div className="lg:col-span-1 space-y-6">
-              <ProfileCard 
-                name={username || 'Driver'}
-                license="DL-001234"
-                phone="+254 712 345 678"
-                rating={4.8}
-                totalTrips={156}
-              />
-              
-              {/* Today's Trip Summary */}
-              <Card className="border-border/50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Today's Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-amber-50 p-3 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-amber-700">{morningTrips.length}</div>
-                      <div className="text-xs text-amber-600">Morning Trips</div>
+          <>
+            {/* Today's Summary - Moved to top */}
+            <div className="mb-8">
+              <Card className="border-slate-200 bg-white shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-900">Today's Overview</h2>
+                      <p className="text-sm text-slate-600 mt-1">
+                        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                      </p>
                     </div>
-                    <div className="bg-indigo-50 p-3 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-indigo-700">{eveningTrips.length}</div>
-                      <div className="text-xs text-indigo-600">Evening Trips</div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Completed</span>
-                      <span className="font-medium">{completedTrips.length}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Active</span>
-                      <span className="font-medium">{currentTrip ? 1 : 0}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Upcoming</span>
-                      <span className="font-medium">{upcomingTrip ? 1 : 0}</span>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="text-center bg-amber-50 p-3 rounded-lg">
+                        <div className="text-2xl font-bold text-amber-700">{morningTrips.length}</div>
+                        <div className="text-sm text-amber-600">Morning</div>
+                      </div>
+                      <div className="text-center bg-indigo-50 p-3 rounded-lg">
+                        <div className="text-2xl font-bold text-indigo-700">{eveningTrips.length}</div>
+                        <div className="text-sm text-indigo-600">Evening</div>
+                      </div>
+                      <div className="text-center bg-emerald-50 p-3 rounded-lg">
+                        <div className="text-2xl font-bold text-emerald-700">{completedTrips.length}</div>
+                        <div className="text-sm text-emerald-600">Completed</div>
+                      </div>
+                      <div className="text-center bg-blue-50 p-3 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-700">{vehicle.current_passengers}</div>
+                        <div className="text-sm text-blue-600">On Board</div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-
-              <VehicleStatus vehicle={vehicle} />
             </div>
 
-            {/* Main Content Area */}
-            <div className="lg:col-span-3">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <TabsList className="grid w-full grid-cols-3 lg:w-auto bg-card border border-border/50">
-                  <TabsTrigger value="dashboard" className="gap-2">
-                    <Navigation className="w-4 h-4" />
-                    <span>Dashboard</span>
+            {/* Tabs Navigation - Updated with better styling */}
+            <div className="mb-8">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="w-full grid grid-cols-3 bg-slate-50 border border-slate-200 rounded-xl p-1">
+                  <TabsTrigger 
+                    value="dashboard" 
+                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border-slate-300 data-[state=active]:border hover:text-slate-700 transition-all duration-200"
+                  >
+                    <Navigation className="w-4 h-4 mr-2" />
+                    Dashboard
                   </TabsTrigger>
-                  <TabsTrigger value="passengers" className="gap-2">
-                    <UserCheck className="w-4 h-4" />
-                    <span>Passengers</span>
+                  <TabsTrigger 
+                    value="passengers" 
+                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border-slate-300 data-[state=active]:border hover:text-slate-700 transition-all duration-200"
+                  >
+                    <UserCheck className="w-4 h-4 mr-2" />
+                    Passengers
                   </TabsTrigger>
-                  <TabsTrigger value="schedule" className="gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>Schedule</span>
+                  <TabsTrigger 
+                    value="schedule" 
+                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border-slate-300 data-[state=active]:border hover:text-slate-700 transition-all duration-200"
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Schedule
                   </TabsTrigger>
                 </TabsList>
+              </Tabs>
+            </div>
 
-                {/* DASHBOARD TAB */}
-                <TabsContent value="dashboard" className="space-y-6">
-                  {/* Current Trip Management */}
+            {/* Tab Content */}
+            <div>
+              {/* DASHBOARD TAB */}
+              {activeTab === 'dashboard' && (
+                <div className="space-y-8">
+                  {/* Current Trip Management OR Upcoming Trip */}
                   {currentTrip ? (
                     <TripManagement 
                       trip={currentTrip}
@@ -424,70 +511,73 @@ export default function DriverDashboardPage() {
                       }
                     />
                   ) : upcomingTrip ? (
-                    <Card className="border-border/50">
+                    <Card className="border-slate-200 bg-white shadow-sm">
                       <CardContent className="pt-6">
-                        <div className="text-center py-6">
-                          <div className={`p-3 rounded-full w-16 h-16 mx-auto mb-4 ${
-                            upcomingTrip.service_type === 'morning' 
-                              ? 'bg-amber-100 text-amber-600' 
-                              : 'bg-indigo-100 text-indigo-600'
-                          }`}>
-                            {upcomingTrip.service_type === 'morning' ? (
-                              <Sun className="w-8 h-8 mx-auto" />
-                            ) : (
-                              <Moon className="w-8 h-8 mx-auto" />
-                            )}
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                          <div className="flex items-center gap-4">
+                            <div className={`p-4 rounded-full ${
+                              upcomingTrip.service_type === 'morning' 
+                                ? 'bg-amber-100 text-amber-600' 
+                                : 'bg-indigo-100 text-indigo-600'
+                            }`}>
+                              {upcomingTrip.service_type === 'morning' ? (
+                                <Sun className="w-8 h-8" />
+                              ) : (
+                                <Moon className="w-8 h-8" />
+                              )}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-lg text-slate-900">
+                                Next {upcomingTrip.service_type} Trip Ready
+                              </h3>
+                              <p className="text-slate-600">
+                                {upcomingTrip.pickup_location.split(',')[0]} → {upcomingTrip.dropoff_location.split(',')[0]}
+                              </p>
+                              <p className="text-sm text-slate-500 mt-1">
+                                {upcomingTrip.seats_booked} passengers • {upcomingTrip.trip_time}
+                              </p>
+                            </div>
                           </div>
-                          <h3 className="font-semibold text-foreground mb-2">
-                            Next {upcomingTrip.service_type} Trip Ready
-                          </h3>
-                          <p className="text-muted-foreground mb-4">
-                            {upcomingTrip.pickup_location.split(',')[0]} → {upcomingTrip.dropoff_location.split(',')[0]}
-                          </p>
-                          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <Button 
-                              onClick={() => handleStartTrip(upcomingTrip.id)}
-                              className={upcomingTrip.service_type === 'morning' 
-                                ? 'bg-amber-600 hover:bg-amber-700' 
-                                : 'bg-indigo-600 hover:bg-indigo-700'
-                              }
-                            >
-                              Start {upcomingTrip.service_type} Trip
-                            </Button>
-                            <Button variant="outline" onClick={() => setActiveTab('schedule')}>
-                              View All Trips
-                            </Button>
-                          </div>
+                          <Button 
+                            onClick={() => handleStartTrip(upcomingTrip.id)}
+                            className={`px-6 ${
+                              upcomingTrip.service_type === 'morning' 
+                                ? 'bg-amber-600 hover:bg-amber-700 text-white' 
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                            }`}
+                          >
+                            Start {upcomingTrip.service_type} Trip
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
                   ) : (
-                    <Card className="border-border/50">
+                    <Card className="border-slate-200 bg-white shadow-sm">
                       <CardContent className="pt-6">
-                        <div className="text-center py-8">
-                          <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                          <h3 className="font-semibold text-foreground mb-2">No Trips Scheduled</h3>
-                          <p className="text-muted-foreground">All trips for today are completed</p>
+                        <div className="text-center py-6">
+                          <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
+                          <h3 className="font-semibold text-slate-900 mb-2">All Trips Completed</h3>
+                          <p className="text-slate-600">Great job! All scheduled trips for today are completed.</p>
                         </div>
                       </CardContent>
                     </Card>
                   )}
 
-                  {/* Today's Schedule Split by Morning/Evening */}
+                  {/* Today's Trips Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Morning Trips */}
-                    <Card className="border-border/50">
+                    <Card className="border-slate-200 bg-white shadow-sm">
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-slate-900">
                           <div className="p-2 bg-amber-100 rounded-lg">
                             <Sun className="w-5 h-5 text-amber-600" />
                           </div>
                           Morning Trips
-                          <Badge variant="outline" className="ml-2">
+                          <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200">
                             {morningTrips.length}
                           </Badge>
                         </CardTitle>
-                        <CardDescription>Pickup from home to school</CardDescription>
+                        <CardDescription className="text-slate-600">Pickup from home to school</CardDescription>
                       </CardHeader>
                       <CardContent>
                         {morningTrips.length > 0 ? (
@@ -497,26 +587,26 @@ export default function DriverDashboardPage() {
                             onCompleteTrip={handleCompleteTrip}
                           />
                         ) : (
-                          <div className="text-center py-4">
-                            <p className="text-muted-foreground">No morning trips scheduled</p>
+                          <div className="text-center py-6">
+                            <p className="text-slate-500">No morning trips scheduled</p>
                           </div>
                         )}
                       </CardContent>
                     </Card>
 
                     {/* Evening Trips */}
-                    <Card className="border-border/50">
+                    <Card className="border-slate-200 bg-white shadow-sm">
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-slate-900">
                           <div className="p-2 bg-indigo-100 rounded-lg">
                             <Moon className="w-5 h-5 text-indigo-600" />
                           </div>
                           Evening Trips
-                          <Badge variant="outline" className="ml-2">
+                          <Badge variant="outline" className="ml-2 bg-indigo-50 text-indigo-700 border-indigo-200">
                             {eveningTrips.length}
                           </Badge>
                         </CardTitle>
-                        <CardDescription>Dropoff from school to home</CardDescription>
+                        <CardDescription className="text-slate-600">Dropoff from school to home</CardDescription>
                       </CardHeader>
                       <CardContent>
                         {eveningTrips.length > 0 ? (
@@ -526,37 +616,57 @@ export default function DriverDashboardPage() {
                             onCompleteTrip={handleCompleteTrip}
                           />
                         ) : (
-                          <div className="text-center py-4">
-                            <p className="text-muted-foreground">No evening trips scheduled</p>
+                          <div className="text-center py-6">
+                            <p className="text-slate-500">No evening trips scheduled</p>
                           </div>
                         )}
                       </CardContent>
                     </Card>
                   </div>
 
-                  {/* Vehicle & Route Overview */}
+                  {/* Vehicle & Route Info */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <Card className="border-border/50">
+                    {/* Vehicle Status */}
+                    <Card className="border-slate-200 bg-white shadow-sm">
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-slate-900">
                           <Car className="w-5 h-5" />
                           Vehicle Status
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">License Plate</span>
-                            <span className="font-medium">{vehicle.license_plate}</span>
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-slate-600 mb-1">License Plate</p>
+                              <p className="font-bold text-lg text-slate-900">{vehicle.license_plate}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-slate-600 mb-1">Model</p>
+                              <p className="font-medium text-slate-900">{vehicle.model}</p>
+                            </div>
                           </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">Current Passengers</span>
-                            <span className="font-medium">{vehicle.current_passengers}/{vehicle.capacity}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">Fuel Level</span>
-                            <div className="flex items-center gap-2">
-                              <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                          
+                          <div className="space-y-4">
+                            <div>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-sm text-slate-600">Passenger Occupancy</span>
+                                <span className="text-sm font-medium text-slate-900">{vehicle.current_passengers}/{vehicle.capacity}</span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-blue-500 rounded-full"
+                                  style={{ width: `${(vehicle.current_passengers / vehicle.capacity) * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-sm text-slate-600">Fuel Level</span>
+                                <span className="text-sm font-medium text-slate-900">{vehicle.fuel_level}%</span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                                 <div 
                                   className={`h-full rounded-full ${
                                     vehicle.fuel_level > 60 ? 'bg-emerald-500' : 
@@ -565,16 +675,21 @@ export default function DriverDashboardPage() {
                                   style={{ width: `${vehicle.fuel_level}%` }}
                                 />
                               </div>
-                              <span className="text-sm font-medium">{vehicle.fuel_level}%</span>
                             </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600">Next Service</span>
+                            <span className="font-medium text-slate-900">{vehicle.next_service}</span>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="border-border/50">
+                    {/* Route Map */}
+                    <Card className="border-slate-200 bg-white shadow-sm">
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-slate-900">
                           <MapPin className="w-5 h-5" />
                           Today's Routes
                         </CardTitle>
@@ -584,10 +699,12 @@ export default function DriverDashboardPage() {
                       </CardContent>
                     </Card>
                   </div>
-                </TabsContent>
+                </div>
+              )}
 
-                {/* PASSENGERS TAB */}
-                <TabsContent value="passengers">
+              {/* PASSENGERS TAB */}
+              {activeTab === 'passengers' && (
+                <div>
                   {currentTrip ? (
                     <PassengerTracking 
                       trip={currentTrip}
@@ -596,25 +713,29 @@ export default function DriverDashboardPage() {
                       }
                     />
                   ) : (
-                    <Card className="border-border/50">
+                    <Card className="border-slate-200 bg-white shadow-sm">
                       <CardContent className="pt-6">
                         <div className="text-center py-8">
-                          <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                          <h3 className="font-semibold text-foreground mb-2">No Active Trip</h3>
-                          <p className="text-muted-foreground mb-4">Start a trip to begin passenger tracking</p>
+                          <UserCheck className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                          <h3 className="font-semibold text-slate-900 mb-2">No Active Trip</h3>
+                          <p className="text-slate-600 mb-4">Start a trip to begin passenger tracking</p>
                           <div className="flex flex-col sm:flex-row gap-3 justify-center">
                             {upcomingTrip && (
                               <Button 
                                 onClick={() => handleStartTrip(upcomingTrip.id)}
                                 className={upcomingTrip.service_type === 'morning' 
-                                  ? 'bg-amber-600 hover:bg-amber-700' 
-                                  : 'bg-indigo-600 hover:bg-indigo-700'
+                                  ? 'bg-amber-600 hover:bg-amber-700 text-white' 
+                                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                                 }
                               >
                                 Start {upcomingTrip.service_type} Trip
                               </Button>
                             )}
-                            <Button variant="outline" onClick={() => setActiveTab('schedule')}>
+                            <Button 
+                              variant="outline" 
+                              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                              onClick={() => setActiveTab('schedule')}
+                            >
                               View Schedule
                             </Button>
                           </div>
@@ -622,23 +743,27 @@ export default function DriverDashboardPage() {
                       </CardContent>
                     </Card>
                   )}
-                </TabsContent>
+                </div>
+              )}
 
-                {/* SCHEDULE TAB */}
-                <TabsContent value="schedule" className="space-y-6">
-                  <Card className="border-border/50">
+              {/* SCHEDULE TAB */}
+              {activeTab === 'schedule' && (
+                <div className="space-y-6">
+                  <Card className="border-slate-200 bg-white shadow-sm">
                     <CardHeader>
-                      <CardTitle>My Schedule</CardTitle>
-                      <CardDescription>All your scheduled morning and evening trips</CardDescription>
+                      <CardTitle className="text-slate-900">My Schedule</CardTitle>
+                      <CardDescription className="text-slate-600">All your scheduled morning and evening trips</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-6">
+                      <div className="space-y-8">
                         {/* Morning Trips Section */}
                         <div>
                           <div className="flex items-center gap-2 mb-4">
                             <Sun className="w-5 h-5 text-amber-600" />
-                            <h3 className="font-semibold">Morning Trips</h3>
-                            <Badge variant="outline">{morningTrips.length} scheduled</Badge>
+                            <h3 className="font-semibold text-lg text-slate-900">Morning Trips</h3>
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                              {morningTrips.length} scheduled
+                            </Badge>
                           </div>
                           {morningTrips.length > 0 ? (
                             <ScheduleView 
@@ -648,7 +773,9 @@ export default function DriverDashboardPage() {
                               showAll={true}
                             />
                           ) : (
-                            <p className="text-muted-foreground text-center py-4">No morning trips</p>
+                            <div className="text-center py-6 border border-slate-200 rounded-lg bg-slate-50">
+                              <p className="text-slate-500">No morning trips scheduled</p>
+                            </div>
                           )}
                         </div>
 
@@ -656,8 +783,10 @@ export default function DriverDashboardPage() {
                         <div>
                           <div className="flex items-center gap-2 mb-4">
                             <Moon className="w-5 h-5 text-indigo-600" />
-                            <h3 className="font-semibold">Evening Trips</h3>
-                            <Badge variant="outline">{eveningTrips.length} scheduled</Badge>
+                            <h3 className="font-semibold text-lg text-slate-900">Evening Trips</h3>
+                            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+                              {eveningTrips.length} scheduled
+                            </Badge>
                           </div>
                           {eveningTrips.length > 0 ? (
                             <ScheduleView 
@@ -667,18 +796,89 @@ export default function DriverDashboardPage() {
                               showAll={true}
                             />
                           ) : (
-                            <p className="text-muted-foreground text-center py-4">No evening trips</p>
+                            <div className="text-center py-6 border border-slate-200 rounded-lg bg-slate-50">
+                              <p className="text-slate-500">No evening trips scheduled</p>
+                            </div>
                           )}
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                </TabsContent>
-              </Tabs>
+                </div>
+              )}
             </div>
-          </div>
+          </>
         )}
       </div>
+
+      {/* Profile Modal */}
+      {showProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-slate-900">Driver Profile</h2>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="hover:bg-slate-100 text-slate-600"
+                  onClick={() => setShowProfile(false)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="flex flex-col items-center text-center">
+                  <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-4 shadow-lg">
+                    <span className="text-white font-medium text-2xl">
+                      {(username || 'D').charAt(0)}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">{username || 'Driver'}</h3>
+                  <p className="text-sm text-slate-600">Professional Driver</p>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-3 rounded-lg">
+                      <p className="text-sm text-slate-500 mb-1">License Number</p>
+                      <p className="font-medium text-slate-900">DL-001234</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-lg">
+                      <p className="text-sm text-slate-500 mb-1">Phone</p>
+                      <p className="font-medium text-slate-900">+254 712 345 678</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-slate-50 p-3 rounded-lg">
+                    <p className="text-sm text-slate-500 mb-1">Email</p>
+                    <p className="font-medium text-slate-900">driver@example.com</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+                    <div className="text-center bg-amber-50 p-3 rounded-lg">
+                      <div className="text-2xl font-bold text-amber-700">4.8</div>
+                      <div className="text-xs text-amber-600">Rating</div>
+                    </div>
+                    <div className="text-center bg-blue-50 p-3 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-700">156</div>
+                      <div className="text-xs text-blue-600">Total Trips</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <Button 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-6"
+                  onClick={() => setShowProfile(false)}
+                >
+                  Close Profile
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
