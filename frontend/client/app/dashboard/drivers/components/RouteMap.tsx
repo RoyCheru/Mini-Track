@@ -22,6 +22,23 @@ export default function RouteMap({ schedule }: RouteMapProps) {
         <Route className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
         <p className="text-muted-foreground">No routes scheduled</p>
       </div>
+
+      <div className="flex items-start gap-3">
+  <div className="p-2 bg-blue-100 rounded-lg mt-1">
+    <Navigation className="w-4 h-4 text-blue-600" />
+  </div>
+
+  <div className="flex-1">
+    <div className="flex items-center justify-between mb-2">
+      <h4 className="font-medium capitalize">
+        {trip.service_type} Route
+      </h4>
+      <span className="text-xs px-2 py-1 bg-muted rounded-full">
+        Active
+      </span>
+    </div>
+  </div>
+</div>
     )
   }
 
