@@ -49,6 +49,15 @@ export default function RouteMap({ schedule }: RouteMapProps) {
     </p>
   </div>
 </div>
+<div className="flex items-start gap-2">
+  <MapPin className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+  <div>
+    <p className="text-sm font-medium">Dropoff</p>
+    <p className="text-sm text-muted-foreground">
+      {trip.dropoff_location}
+    </p>
+  </div>
+</div>
 
     )
   }
