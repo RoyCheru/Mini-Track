@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, MapPin, Car, Users, Clock, Navigation, Bell, CheckCircle, AlertCircle, UserCheck } from 'lucide-react'
+import { Calendar, MapPin, Car, Users, Clock, Navigation, Bell, CheckCircle, AlertCircle, UserCheck, Sun, Moon } from 'lucide-react'
 import ProfileCard from './components/ProfileCard'
 import ScheduleView from './components/ScheduleView'
 import PassengerTracking from './components/PassengerTracking'
@@ -25,6 +25,7 @@ interface DriverSchedule {
   service_type: 'morning' | 'evening' | 'both'
   seats_booked: number
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
+  trip_time?: string // Added for morning/evening timing
   passengers?: Passenger[]
 }
 
@@ -38,6 +39,7 @@ interface Passenger {
   status: 'pending' | 'picked-up' | 'dropped-off' | 'absent'
   checked_in_time?: string
   checked_out_time?: string
+  trip_type: 'morning' | 'evening' // Added to track which trip
 }
 
 interface VehicleInfo {
@@ -57,7 +59,7 @@ interface AlertMessage {
   id: number
 }
 
-// Mock data with passengers
+// Mock data with morning and evening trips
 const MOCK_SCHEDULE: DriverSchedule[] = [
   {
     id: 1,
@@ -71,11 +73,12 @@ const MOCK_SCHEDULE: DriverSchedule[] = [
     service_type: "morning",
     seats_booked: 4,
     status: 'in-progress',
+    trip_time: "07:00 AM",
     passengers: [
-      { id: 1, name: "Emma Wilson", parent_name: "Sarah Wilson", parent_phone: "+254 712 345 678", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'picked-up', checked_in_time: "07:30" },
-      { id: 2, name: "Liam Davis", parent_name: "Michael Davis", parent_phone: "+254 723 456 789", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'picked-up', checked_in_time: "07:32" },
-      { id: 3, name: "Olivia Martinez", parent_name: "Maria Martinez", parent_phone: "+254 734 567 890", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'pending' },
-      { id: 4, name: "Noah Taylor", parent_name: "James Taylor", parent_phone: "+254 745 678 901", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'pending' },
+      { id: 1, name: "Emma Wilson", parent_name: "Sarah Wilson", parent_phone: "+254 712 345 678", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'picked-up', checked_in_time: "07:30", trip_type: 'morning' },
+      { id: 2, name: "Liam Davis", parent_name: "Michael Davis", parent_phone: "+254 723 456 789", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'picked-up', checked_in_time: "07:32", trip_type: 'morning' },
+      { id: 3, name: "Olivia Martinez", parent_name: "Maria Martinez", parent_phone: "+254 734 567 890", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'pending', trip_type: 'morning' },
+      { id: 4, name: "Noah Taylor", parent_name: "James Taylor", parent_phone: "+254 745 678 901", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'pending', trip_type: 'morning' },
     ]
   },
   {
@@ -90,11 +93,50 @@ const MOCK_SCHEDULE: DriverSchedule[] = [
     service_type: "evening",
     seats_booked: 4,
     status: 'scheduled',
+    trip_time: "03:30 PM",
     passengers: [
-      { id: 1, name: "Emma Wilson", parent_name: "Sarah Wilson", parent_phone: "+254 712 345 678", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending' },
-      { id: 2, name: "Liam Davis", parent_name: "Michael Davis", parent_phone: "+254 723 456 789", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending' },
-      { id: 3, name: "Olivia Martinez", parent_name: "Maria Martinez", parent_phone: "+254 734 567 890", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending' },
-      { id: 4, name: "Noah Taylor", parent_name: "James Taylor", parent_phone: "+254 745 678 901", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending' },
+      { id: 5, name: "Emma Wilson", parent_name: "Sarah Wilson", parent_phone: "+254 712 345 678", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
+      { id: 6, name: "Liam Davis", parent_name: "Michael Davis", parent_phone: "+254 723 456 789", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
+      { id: 7, name: "Olivia Martinez", parent_name: "Maria Martinez", parent_phone: "+254 734 567 890", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
+      { id: 8, name: "Noah Taylor", parent_name: "James Taylor", parent_phone: "+254 745 678 901", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
+    ]
+  },
+  {
+    id: 3,
+    user_id: 1,
+    vehicle_id: 1,
+    pickup_location: "Westgate Mall, Nairobi",
+    dropoff_location: "St. Mary's School",
+    start_date: "2024-02-15",
+    end_date: "2024-02-20",
+    days_of_week: "1,3,5",
+    service_type: "morning",
+    seats_booked: 3,
+    status: 'scheduled',
+    trip_time: "07:15 AM",
+    passengers: [
+      { id: 9, name: "Sophia Brown", parent_name: "Robert Brown", parent_phone: "+254 756 789 012", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
+      { id: 10, name: "Mason Wilson", parent_name: "Lisa Wilson", parent_phone: "+254 767 890 123", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
+      { id: 11, name: "Isabella Clark", parent_name: "David Clark", parent_phone: "+254 778 901 234", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
+    ]
+  },
+  {
+    id: 4,
+    user_id: 1,
+    vehicle_id: 1,
+    pickup_location: "St. Mary's School",
+    dropoff_location: "Westgate Mall, Nairobi",
+    start_date: "2024-02-15",
+    end_date: "2024-02-20",
+    days_of_week: "1,3,5",
+    service_type: "evening",
+    seats_booked: 3,
+    status: 'scheduled',
+    trip_time: "04:00 PM",
+    passengers: [
+      { id: 12, name: "Sophia Brown", parent_name: "Robert Brown", parent_phone: "+254 756 789 012", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
+      { id: 13, name: "Mason Wilson", parent_name: "Lisa Wilson", parent_phone: "+254 767 890 123", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
+      { id: 14, name: "Isabella Clark", parent_name: "David Clark", parent_phone: "+254 778 901 234", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
     ]
   }
 ]
@@ -117,7 +159,7 @@ export default function DriverDashboardPage() {
   const [loading, setLoading] = useState(false)
   const [alerts, setAlerts] = useState<AlertMessage[]>([])
   
-  // read after mount to avoid hydration mismatch
+  // ✅ read after mount to avoid hydration mismatch
   const [username, setUsername] = useState<string | null>(null)
 
   useEffect(() => {
@@ -139,7 +181,7 @@ export default function DriverDashboardPage() {
       setLoading(true)
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000))
-      addAlert('success', 'Data loaded successfully')
+      addAlert('success', 'Schedule loaded successfully')
     } catch (error) {
       addAlert('error', 'Failed to load data')
     } finally {
@@ -151,14 +193,30 @@ export default function DriverDashboardPage() {
     setSchedule(prev => prev.map(trip => 
       trip.id === tripId ? { ...trip, status: 'in-progress' } : trip
     ))
-    addAlert('success', 'Trip started successfully')
+    const trip = schedule.find(t => t.id === tripId)
+    addAlert('success', `${trip?.service_type} trip started successfully`)
   }
 
   const handleCompleteTrip = (tripId: number) => {
     setSchedule(prev => prev.map(trip => 
       trip.id === tripId ? { ...trip, status: 'completed' } : trip
     ))
-    addAlert('success', 'Trip completed successfully')
+    const trip = schedule.find(t => t.id === tripId)
+    addAlert('success', `${trip?.service_type} trip completed successfully`)
+    
+    // If morning trip completed, check if there's an evening trip to auto-start
+    if (trip?.service_type === 'morning') {
+      const eveningTrip = schedule.find(t => 
+        t.status === 'scheduled' && 
+        t.service_type === 'evening' &&
+        t.start_date === trip.start_date
+      )
+      if (eveningTrip) {
+        setTimeout(() => {
+          addAlert('info', `Evening trip to ${eveningTrip.dropoff_location} is ready to start`)
+        }, 2000)
+      }
+    }
   }
 
   const handleMarkPassenger = (tripId: number, passengerId: number, status: 'picked-up' | 'dropped-off' | 'absent') => {
@@ -196,9 +254,22 @@ export default function DriverDashboardPage() {
   const currentTrip = schedule.find(trip => trip.status === 'in-progress')
   const today = new Date().toISOString().split('T')[0]
   const todaySchedule = schedule.filter(trip => trip.start_date === today)
+  
+  // Separate morning and evening trips
+  const morningTrips = todaySchedule.filter(trip => trip.service_type === 'morning')
+  const eveningTrips = todaySchedule.filter(trip => trip.service_type === 'evening')
+  const completedTrips = todaySchedule.filter(trip => trip.status === 'completed')
 
   // Days mapping
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+  // Get upcoming trips
+  const getUpcomingTrip = () => {
+    if (currentTrip) return null
+    return todaySchedule.find(trip => trip.status === 'scheduled')
+  }
+
+  const upcomingTrip = getUpcomingTrip()
 
   return (
     <div className="min-h-screen bg-linear-to-br from-background via-background to-muted/20">
@@ -235,14 +306,22 @@ export default function DriverDashboardPage() {
                 Welcome Driver{username ? `, ${username}` : ''}
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Manage trips, track passengers, and update vehicle status
+                Manage morning & evening trips, track passengers, and update vehicle status
               </p>
             </div>
             <div className="flex items-center gap-3">
               {currentTrip && (
-                <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white gap-2 px-3 py-1.5">
-                  <Navigation className="w-3 h-3" />
-                  On Route • {currentTrip.service_type.toUpperCase()} TRIP
+                <Badge className={`gap-2 px-3 py-1.5 ${
+                  currentTrip.service_type === 'morning' 
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                    : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                }`}>
+                  {currentTrip.service_type === 'morning' ? (
+                    <Sun className="w-3 h-3" />
+                  ) : (
+                    <Moon className="w-3 h-3" />
+                  )}
+                  {currentTrip.service_type.toUpperCase()} TRIP • On Route
                 </Badge>
               )}
               <Button size="sm" variant="ghost" className="gap-2">
@@ -275,41 +354,40 @@ export default function DriverDashboardPage() {
                 totalTrips={156}
               />
               
-              {/* Current Trip Stats */}
+              {/* Today's Trip Summary */}
               <Card className="border-border/50">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <UserCheck className="w-4 h-4" />
-                    Current Trip Stats
+                    <Calendar className="w-4 h-4" />
+                    Today's Summary
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  {currentTrip ? (
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Passengers</span>
-                        <span className="font-bold text-foreground">
-                          {currentTrip.passengers?.filter(p => p.status === 'picked-up').length || 0}/{currentTrip.seats_booked}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Status</span>
-                        <Badge className="bg-emerald-500 text-white">
-                          {currentTrip.service_type}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Route</span>
-                        <span className="text-sm font-medium text-right">
-                          {currentTrip.pickup_location.split(',')[0]} → {currentTrip.dropoff_location.split(',')[0]}
-                        </span>
-                      </div>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-amber-50 p-3 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-amber-700">{morningTrips.length}</div>
+                      <div className="text-xs text-amber-600">Morning Trips</div>
                     </div>
-                  ) : (
-                    <div className="text-center py-2">
-                      <p className="text-sm text-muted-foreground">No active trip</p>
+                    <div className="bg-indigo-50 p-3 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-indigo-700">{eveningTrips.length}</div>
+                      <div className="text-xs text-indigo-600">Evening Trips</div>
                     </div>
-                  )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Completed</span>
+                      <span className="font-medium">{completedTrips.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Active</span>
+                      <span className="font-medium">{currentTrip ? 1 : 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Upcoming</span>
+                      <span className="font-medium">{upcomingTrip ? 1 : 0}</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -345,38 +423,116 @@ export default function DriverDashboardPage() {
                         handleMarkPassenger(currentTrip.id, passengerId, status)
                       }
                     />
+                  ) : upcomingTrip ? (
+                    <Card className="border-border/50">
+                      <CardContent className="pt-6">
+                        <div className="text-center py-6">
+                          <div className={`p-3 rounded-full w-16 h-16 mx-auto mb-4 ${
+                            upcomingTrip.service_type === 'morning' 
+                              ? 'bg-amber-100 text-amber-600' 
+                              : 'bg-indigo-100 text-indigo-600'
+                          }`}>
+                            {upcomingTrip.service_type === 'morning' ? (
+                              <Sun className="w-8 h-8 mx-auto" />
+                            ) : (
+                              <Moon className="w-8 h-8 mx-auto" />
+                            )}
+                          </div>
+                          <h3 className="font-semibold text-foreground mb-2">
+                            Next {upcomingTrip.service_type} Trip Ready
+                          </h3>
+                          <p className="text-muted-foreground mb-4">
+                            {upcomingTrip.pickup_location.split(',')[0]} → {upcomingTrip.dropoff_location.split(',')[0]}
+                          </p>
+                          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <Button 
+                              onClick={() => handleStartTrip(upcomingTrip.id)}
+                              className={upcomingTrip.service_type === 'morning' 
+                                ? 'bg-amber-600 hover:bg-amber-700' 
+                                : 'bg-indigo-600 hover:bg-indigo-700'
+                              }
+                            >
+                              Start {upcomingTrip.service_type} Trip
+                            </Button>
+                            <Button variant="outline" onClick={() => setActiveTab('schedule')}>
+                              View All Trips
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ) : (
                     <Card className="border-border/50">
                       <CardContent className="pt-6">
                         <div className="text-center py-8">
-                          <Navigation className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                          <h3 className="font-semibold text-foreground mb-2">No Active Trip</h3>
-                          <p className="text-muted-foreground mb-4">Start a trip from your schedule to begin passenger tracking</p>
-                          <Button onClick={() => setActiveTab('schedule')}>
-                            View Schedule
-                          </Button>
+                          <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="font-semibold text-foreground mb-2">No Trips Scheduled</h3>
+                          <p className="text-muted-foreground">All trips for today are completed</p>
                         </div>
                       </CardContent>
                     </Card>
                   )}
 
-                  {/* Today's Schedule */}
-                  <Card className="border-border/50">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Calendar className="w-5 h-5" />
-                        Today's Schedule
-                      </CardTitle>
-                      <CardDescription>Your trips for today ({todaySchedule.length} scheduled)</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ScheduleView 
-                        schedule={todaySchedule}
-                        onStartTrip={handleStartTrip}
-                        onCompleteTrip={handleCompleteTrip}
-                      />
-                    </CardContent>
-                  </Card>
+                  {/* Today's Schedule Split by Morning/Evening */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Morning Trips */}
+                    <Card className="border-border/50">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <div className="p-2 bg-amber-100 rounded-lg">
+                            <Sun className="w-5 h-5 text-amber-600" />
+                          </div>
+                          Morning Trips
+                          <Badge variant="outline" className="ml-2">
+                            {morningTrips.length}
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription>Pickup from home to school</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {morningTrips.length > 0 ? (
+                          <ScheduleView 
+                            schedule={morningTrips}
+                            onStartTrip={handleStartTrip}
+                            onCompleteTrip={handleCompleteTrip}
+                          />
+                        ) : (
+                          <div className="text-center py-4">
+                            <p className="text-muted-foreground">No morning trips scheduled</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Evening Trips */}
+                    <Card className="border-border/50">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <div className="p-2 bg-indigo-100 rounded-lg">
+                            <Moon className="w-5 h-5 text-indigo-600" />
+                          </div>
+                          Evening Trips
+                          <Badge variant="outline" className="ml-2">
+                            {eveningTrips.length}
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription>Dropoff from school to home</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {eveningTrips.length > 0 ? (
+                          <ScheduleView 
+                            schedule={eveningTrips}
+                            onStartTrip={handleStartTrip}
+                            onCompleteTrip={handleCompleteTrip}
+                          />
+                        ) : (
+                          <div className="text-center py-4">
+                            <p className="text-muted-foreground">No evening trips scheduled</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
 
                   {/* Vehicle & Route Overview */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -420,7 +576,7 @@ export default function DriverDashboardPage() {
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <MapPin className="w-5 h-5" />
-                          Route Overview
+                          Today's Routes
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -447,17 +603,20 @@ export default function DriverDashboardPage() {
                           <h3 className="font-semibold text-foreground mb-2">No Active Trip</h3>
                           <p className="text-muted-foreground mb-4">Start a trip to begin passenger tracking</p>
                           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <Button onClick={() => setActiveTab('schedule')}>
-                              View Schedule
-                            </Button>
-                            {todaySchedule.length > 0 && (
+                            {upcomingTrip && (
                               <Button 
-                                variant="outline"
-                                onClick={() => handleStartTrip(todaySchedule[0].id)}
+                                onClick={() => handleStartTrip(upcomingTrip.id)}
+                                className={upcomingTrip.service_type === 'morning' 
+                                  ? 'bg-amber-600 hover:bg-amber-700' 
+                                  : 'bg-indigo-600 hover:bg-indigo-700'
+                                }
                               >
-                                Start Next Trip
+                                Start {upcomingTrip.service_type} Trip
                               </Button>
                             )}
+                            <Button variant="outline" onClick={() => setActiveTab('schedule')}>
+                              View Schedule
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -470,15 +629,48 @@ export default function DriverDashboardPage() {
                   <Card className="border-border/50">
                     <CardHeader>
                       <CardTitle>My Schedule</CardTitle>
-                      <CardDescription>All your scheduled routes and assignments</CardDescription>
+                      <CardDescription>All your scheduled morning and evening trips</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <ScheduleView 
-                        schedule={schedule}
-                        onStartTrip={handleStartTrip}
-                        onCompleteTrip={handleCompleteTrip}
-                        showAll={true}
-                      />
+                      <div className="space-y-6">
+                        {/* Morning Trips Section */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-4">
+                            <Sun className="w-5 h-5 text-amber-600" />
+                            <h3 className="font-semibold">Morning Trips</h3>
+                            <Badge variant="outline">{morningTrips.length} scheduled</Badge>
+                          </div>
+                          {morningTrips.length > 0 ? (
+                            <ScheduleView 
+                              schedule={morningTrips}
+                              onStartTrip={handleStartTrip}
+                              onCompleteTrip={handleCompleteTrip}
+                              showAll={true}
+                            />
+                          ) : (
+                            <p className="text-muted-foreground text-center py-4">No morning trips</p>
+                          )}
+                        </div>
+
+                        {/* Evening Trips Section */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-4">
+                            <Moon className="w-5 h-5 text-indigo-600" />
+                            <h3 className="font-semibold">Evening Trips</h3>
+                            <Badge variant="outline">{eveningTrips.length} scheduled</Badge>
+                          </div>
+                          {eveningTrips.length > 0 ? (
+                            <ScheduleView 
+                              schedule={eveningTrips}
+                              onStartTrip={handleStartTrip}
+                              onCompleteTrip={handleCompleteTrip}
+                              showAll={true}
+                            />
+                          ) : (
+                            <p className="text-muted-foreground text-center py-4">No evening trips</p>
+                          )}
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
