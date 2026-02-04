@@ -3,7 +3,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Users, Truck, MapPin, TrendingUp, Clock, AlertCircle } from 'lucide-react'
+import {
+  Users,
+  Truck,
+  MapPin,
+  TrendingUp,
+  Clock,
+  AlertCircle,
+  Route as RouteIcon,
+  UserCheck,
+} from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 
 type Driver = {
@@ -11,7 +20,7 @@ type Driver = {
   name: string
   email: string
   phone_number: string
-  status: 'Active' | 'Inactive' | string
+  status?: 'Active' | 'Inactive' | string
 }
 
 type Route = {
@@ -19,7 +28,7 @@ type Route = {
   name: string
   starting_point: string
   ending_point: string
-  status: 'Active' | 'Inactive' | string
+  status?: 'Active' | 'Inactive' | string
 }
 
 type Vehicle = {
@@ -29,10 +38,9 @@ type Vehicle = {
   license_plate: string
   model: string
   capacity: number
-  status: 'Active' | 'Inactive' | string
+  status?: 'Active' | 'Inactive' | string
 }
 
-// Optional (only used if your backend exposes /bookings/recent)
 type Booking = {
   id: string
   parent: string
@@ -43,7 +51,11 @@ type Booking = {
   time: string
 }
 
-const isActive = (status: any) => String(status ?? '').toLowerCase() === 'active'
+// If status is missing, assume "Active" so cards don’t show 0
+const isActiveOrMissing = (status: any) => {
+  if (status === undefined || status === null || status === '') return true
+  return String(status).toLowerCase() === 'active'
+}
 
 const toArray = (x: any) => {
   if (Array.isArray(x)) return x
@@ -55,6 +67,8 @@ const toArray = (x: any) => {
   if (Array.isArray(x?.items)) return x.items
   return []
 }
+
+const safeStr = (v: any) => String(v ?? '')
 
 export default function OverviewSection() {
   const [drivers, setDrivers] = useState<Driver[]>([])
@@ -73,6 +87,10 @@ export default function OverviewSection() {
       try {
         const token = localStorage.getItem('token')
 
+        if (!token) {
+          throw new Error('Missing token. Please sign in again.')
+        }
+
         const headers: HeadersInit = {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -84,11 +102,6 @@ export default function OverviewSection() {
           apiFetch('/vehicles', { headers }),
         ])
 
-        // Helpful debug (leave for now; remove later)
-        console.log('drivers status:', driversRes.status)
-        console.log('routes status:', routesRes.status)
-        console.log('vehicles status:', vehiclesRes.status)
-
         if (!driversRes.ok) throw new Error(`Drivers fetch failed (${driversRes.status})`)
         if (!routesRes.ok) throw new Error(`Routes fetch failed (${routesRes.status})`)
         if (!vehiclesRes.ok) throw new Error(`Vehicles fetch failed (${vehiclesRes.status})`)
@@ -99,15 +112,11 @@ export default function OverviewSection() {
           vehiclesRes.json(),
         ])
 
-        console.log('drivers json:', driversJson)
-        console.log('routes json:', routesJson)
-        console.log('vehicles json:', vehiclesJson)
-
         setDrivers(toArray(driversJson))
         setRoutes(toArray(routesJson))
         setVehicles(toArray(vehiclesJson))
 
-        // Optional: recent bookings (only if endpoint exists)
+        // Optional bookings: if endpoint exists use it; otherwise keep empty list.
         try {
           const bookingsRes = await apiFetch('/bookings/recent', { headers })
           if (bookingsRes.ok) {
@@ -134,9 +143,42 @@ export default function OverviewSection() {
     load()
   }, [])
 
-  const activeDrivers = useMemo(() => drivers.filter(d => isActive(d.status)).length, [drivers])
-  const activeRoutes = useMemo(() => routes.filter(r => isActive(r.status)).length, [routes])
-  const activeVehicles = useMemo(() => vehicles.filter(v => isActive(v.status)).length, [vehicles])
+  const activeDrivers = useMemo(
+    () => drivers.filter(d => isActiveOrMissing((d as any).status)).length,
+    [drivers]
+  )
+  const activeRoutes = useMemo(
+    () => routes.filter(r => isActiveOrMissing((r as any).status)).length,
+    [routes]
+  )
+  const activeVehicles = useMemo(
+    () => vehicles.filter(v => isActiveOrMissing((v as any).status)).length,
+    [vehicles]
+  )
+
+  // Creative backend-derived KPIs (no revenue/occupancy/satisfaction)
+  const totalFleetCapacity = useMemo(
+    () => vehicles.reduce((sum, v) => sum + (Number((v as any).capacity) || 0), 0),
+    [vehicles]
+  )
+
+  const routesWithVehicles = useMemo(() => {
+    const routeIds = new Set(vehicles.map(v => safeStr((v as any).route_id)))
+    return routeIds.size
+  }, [vehicles])
+
+  const assignedDrivers = useMemo(() => {
+    const driverIds = new Set(vehicles.map(v => safeStr((v as any).user_id)))
+    return driverIds.size
+  }, [vehicles])
+
+  const fleetUtilization = useMemo(() => {
+    const total = vehicles.length || 0
+    if (!total) return 0
+    // drivers assigned to vehicles / total vehicles
+    const assigned = vehicles.filter(v => safeStr((v as any).user_id).trim() !== '').length
+    return Math.round((assigned / total) * 100)
+  }, [vehicles])
 
   if (loading) {
     return (
@@ -175,7 +217,7 @@ export default function OverviewSection() {
 
   return (
     <div className="space-y-6">
-      {/* Metrics */}
+      {/* Metrics (4 cards only - no revenue/occupancy/satisfaction) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-border/50">
           <CardContent className="pt-6">
@@ -196,7 +238,7 @@ export default function OverviewSection() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Active Drivers</p>
                 <p className="text-3xl font-bold text-foreground mt-2">{activeDrivers}</p>
-                <p className="text-xs text-muted-foreground mt-1">On duty</p>
+                <p className="text-xs text-muted-foreground mt-1">Available</p>
               </div>
               <Users className="w-10 h-10 text-muted-foreground/20" />
             </div>
@@ -230,9 +272,124 @@ export default function OverviewSection() {
         </Card>
       </div>
 
-      {/* Recent bookings + Sidebar */}
+      {/* Replaced bottom section: backend-derived Operational Snapshot */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+        {/* Operational Snapshot */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RouteIcon className="w-5 h-5" />
+                Operational Snapshot
+              </CardTitle>
+              <CardDescription>Live figures computed from your database records</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">Total Fleet Capacity</p>
+                  <Truck className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-2xl font-bold mt-2">{totalFleetCapacity}</p>
+                <p className="text-xs text-muted-foreground mt-1">Sum of all vehicle capacity</p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">Routes With Vehicles</p>
+                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-2xl font-bold mt-2">{routesWithVehicles}</p>
+                <p className="text-xs text-muted-foreground mt-1">Unique route_id currently assigned</p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">Assigned Drivers</p>
+                  <UserCheck className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-2xl font-bold mt-2">{assignedDrivers}</p>
+                <p className="text-xs text-muted-foreground mt-1">Unique user_id on vehicles</p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">Fleet Utilization</p>
+                  <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-2xl font-bold mt-2">{fleetUtilization}%</p>
+                <p className="text-xs text-muted-foreground mt-1">Vehicles with driver assigned</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Latest Vehicles (from DB) */}
+          <Card className="border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="w-5 h-5" />
+                Latest Vehicles
+              </CardTitle>
+              <CardDescription>Most recent entries from your fleet</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {vehicles.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No vehicles found.</div>
+              ) : (
+                vehicles.slice(0, 6).map(v => (
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between p-3 bg-card border border-border/50 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm text-foreground">{v.license_plate}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {v.model} • capacity {v.capacity} • route_id {safeStr(v.route_id)} • driver {safeStr(v.user_id)}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={
+                        isActiveOrMissing((v as any).status)
+                          ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
+                          : 'bg-gray-500/10 text-gray-600 border-gray-500/30'
+                      }
+                    >
+                      {safeStr((v as any).status) || 'Active'}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right column: Latest Drivers (from DB) */}
+        <div className="space-y-6">
+          <Card className="border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Latest Drivers
+              </CardTitle>
+              <CardDescription>Recently created driver accounts</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {drivers.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No drivers found.</div>
+              ) : (
+                drivers.slice(0, 6).map(d => (
+                  <div key={d.id} className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                    <p className="font-semibold text-foreground">{d.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{d.email}</p>
+                    <p className="text-xs text-muted-foreground">{d.phone_number}</p>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Optional: recent bookings if endpoint exists */}
           <Card className="border-border/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -243,88 +400,20 @@ export default function OverviewSection() {
                 {recentBookings.length ? 'Loaded from database' : 'No recent bookings endpoint / no data'}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               {recentBookings.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No recent bookings.</div>
               ) : (
-                <div className="space-y-3">
-                  {recentBookings.map(b => (
-                    <div
-                      key={b.id}
-                      className="flex items-center justify-between p-3 bg-card border border-border/50 rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm text-foreground">{b.id}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {b.parent} • {b.route} • {b.time}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <p className="font-semibold text-sm text-foreground">KES {b.amount}</p>
-                          <p className="text-xs text-muted-foreground">{b.seats} seats</p>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={
-                            String(b.status).toLowerCase() === 'confirmed'
-                              ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
-                              : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30'
-                          }
-                        >
-                          {b.status}
-                        </Badge>
-                      </div>
+                recentBookings.slice(0, 5).map(b => (
+                  <div key={b.id} className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-foreground text-sm">{b.id}</p>
+                      <Badge variant="outline">{b.status}</Badge>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
-          {/* System Status */}
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                System Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Vehicles</p>
-                <Badge className="bg-emerald-600">Operational</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Drivers</p>
-                <Badge className="bg-emerald-600">Active</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Routes</p>
-                <Badge className="bg-emerald-600">Configured</Badge>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Fleet Snapshot */}
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle className="text-base">Fleet Snapshot</CardTitle>
-              <CardDescription>Showing up to 5 vehicles</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {vehicles.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No vehicles found.</div>
-              ) : (
-                vehicles.slice(0, 5).map(v => (
-                  <div key={v.id} className="p-3 rounded-lg bg-muted/30">
-                    <p className="font-semibold text-foreground">{v.license_plate}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Model: {v.model} • Capacity: {v.capacity} • route_id: {String(v.route_id)} • user_id:{' '}
-                      {String(v.user_id)}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {b.parent} • {b.route} • {b.time}
                     </p>
+                    <p className="text-xs text-muted-foreground">Seats: {b.seats} • KES {b.amount}</p>
                   </div>
                 ))
               )}
