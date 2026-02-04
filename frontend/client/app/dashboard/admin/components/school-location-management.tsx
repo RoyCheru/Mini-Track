@@ -24,13 +24,6 @@ type SchoolLocation = {
   gps_coordinates: string
 }
 
-// const SEED_SCHOOL_LOCATIONS: SchoolLocation[] = [
-//   {
-//     name: 'Moi Educational Centre',
-//     route_id: '1',
-//     gps_coordinates: '234-432N, 376-122E',
-//   },
-// ]
 
 export default function SchoolLocationManagement() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -100,12 +93,12 @@ export default function SchoolLocationManagement() {
     setAddOpen(false)
   }
 
-    const openEdit = (schoolLocation: SchoolLocation) => {
-    setEditing(schoolLocation)
+    const openEdit = (s: SchoolLocation) => {
+    setEditing(s)
     setEditForm({
-      name: schoolLocation.name,
-      route_id: schoolLocation.route_id,
-      gps_coordinates: schoolLocation.gps_coordinates
+      name: s.name,
+      route_id: s.route_id,
+      gps_coordinates: s.gps_coordinates
     })
     setEditOpen(true)
   }
@@ -128,6 +121,7 @@ export default function SchoolLocationManagement() {
     const res = await apiFetch(`/school-locations/${editing.id}`,
       {
         method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       }
     )
@@ -143,7 +137,7 @@ export default function SchoolLocationManagement() {
 
     setLocations(prev =>
       prev.map(s =>
-        s.id === editing.id ? { ...s, ...editForm } : s
+        s.id === editing.id ? { ...s, ...payload } : s
       )
     )
     setEditOpen(false)
@@ -155,8 +149,29 @@ export default function SchoolLocationManagement() {
   }
 }
 
-  const handleDelete = (route_id: string) =>
-    setLocations(prev => prev.filter(l => l.route_id !== route_id))
+  const handleDelete = async (id: number) => {
+    try {
+    const res = await apiFetch(
+      `/school-locations/${id}`,
+      {
+        method: "DELETE"
+      }
+    )
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      alert(data.message || "Delete failed")
+      return
+    }
+
+    setLocations(prev => prev.filter(s => s.id !== id))
+
+  } catch (err) {
+    console.error(err)
+    alert("Server error")
+  }
+}
 
   return (
     <div className="space-y-6">
@@ -273,7 +288,7 @@ export default function SchoolLocationManagement() {
                     <td className="py-4 px-6 text-muted-foreground">{l.gps_coordinates}</td>
 
                     <td className="py-4 px-6">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(l.id)}>
+                      <Button size="sm" variant="outline" onClick={() => openEdit(l)}>
                           <Edit2 className="w-4 h-4" />
                         </Button>
                       <Button size="sm" variant="outline" onClick={() => handleDelete(l.id)}>
