@@ -168,3 +168,29 @@ export default function DriverDashboard() {
           </Alert>
         </div>
       )}
+    
+     {/* Header */}
+      <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Welcome, {username}</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Driver Dashboard • {vehicle.license_plate}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {currentTrip && (
+                <Badge className="bg-emerald-500 gap-2">
+                  <Navigation className="w-3 h-3" />
+                  On Route: {currentTrip.pickup_location} → {currentTrip.dropoff_location}
+                </Badge>
+              )}
+              <Button size="sm" variant="outline" className="gap-2">
+                <Bell className="w-4 h-4" />
+                Alerts
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
