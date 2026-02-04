@@ -1,11 +1,3 @@
-# users
-# vehicles
-# bookings
-# user_roles
-# routes
-# parents
-# school_locations
-
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date
 
@@ -17,13 +9,13 @@ class User(db.Model):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     phone_number = db.Column(db.String(20), unique=True, nullable=True)
-    residence = db.Column(db.String(200), nullable=True) # this can be null for non-parents
+    residence = db.Column(db.String(200), nullable=True)
     password_hash = db.Column(db.String(128), nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey('user_roles.id'), nullable=False)
 
     role = db.relationship('UserRole', back_populates='users')
     vehicles = db.relationship('Vehicle', back_populates='user')
-    bookings = db.relationship('Booking', back_populates='user') # bookings made by the user
+    bookings = db.relationship('Booking', back_populates='user')
     
 class UserRole(db.Model):
     __tablename__ = 'user_roles'
@@ -41,14 +33,14 @@ class Vehicle(db.Model):
     model = db.Column(db.String(100), nullable=False)
     capacity = db.Column(db.Integer, nullable=False)
 
-    bookings = db.relationship('Booking', back_populates='vehicle')
+    # REMOVED: bookings relationship (no longer valid)
     user = db.relationship('User', back_populates='vehicles')
     route = db.relationship('Route', back_populates='vehicles')
     
 class Booking(db.Model):
     __tablename__ = 'bookings'
     id = db.Column(db.Integer, primary_key=True)
-    vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicles.id'), nullable=False)
+    route_id = db.Column(db.Integer, db.ForeignKey('routes.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     booking_date = db.Column(db.DateTime, nullable=False)
     start_date = db.Column(db.Date, nullable=False)
@@ -58,11 +50,12 @@ class Booking(db.Model):
     status = db.Column(db.String(50), nullable=False)
     seats_booked = db.Column(db.Integer, nullable=False, default=1)
     service_type = db.Column(db.String(50), nullable=False)
-    days_of_week = db.Column(db.String(100), nullable=True)  # e.g., "Monday,Wednesday,Friday"
+    days_of_week = db.Column(db.String(100), nullable=False)  # Changed to NOT NULL
 
-    vehicle = db.relationship('Vehicle', back_populates='bookings')
+    routes = db.relationship('Route', back_populates='bookings')  # Fixed
     user = db.relationship('User', back_populates='bookings')
     trips = db.relationship('Trip', back_populates='booking', cascade='all, delete-orphan')
+
 class Route(db.Model):
     __tablename__ = 'routes'
     id = db.Column(db.Integer, primary_key=True)
@@ -72,7 +65,7 @@ class Route(db.Model):
 
     vehicles = db.relationship('Vehicle', back_populates='route')
     school_locations = db.relationship('SchoolLocation', back_populates='route')
-    
+    bookings = db.relationship('Booking', back_populates='routes')  # Fixed
     
 class SchoolLocation(db.Model):
     __tablename__ = 'school_locations'
@@ -87,7 +80,7 @@ class Trip(db.Model):
     __tablename__ = 'trips'
     id = db.Column(db.Integer, primary_key=True)
     booking_id = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)
-    service_time = db.Column(db.String, nullable=False)
+    service_time = db.Column(db.String(20), nullable=False)  # Added length
     status = db.Column(db.String(50), nullable=False)
     trip_date = db.Column(db.Date, nullable=False)
     pickup_time = db.Column(db.Time, nullable=True)
@@ -95,8 +88,4 @@ class Trip(db.Model):
     actual_dropoff_time = db.Column(db.DateTime, nullable=True)
     driver_notes = db.Column(db.Text, nullable=True)
 
-    booking = db.relationship('Booking')
-    
-    
-
-
+    booking = db.relationship('Booking', back_populates='trips')
