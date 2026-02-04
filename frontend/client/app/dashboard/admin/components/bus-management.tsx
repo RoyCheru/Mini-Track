@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { apiFetch } from '@/lib/api'
 import { Plus, Search, Edit2, Trash2, Truck } from 'lucide-react'
 import {
   Dialog,
@@ -16,22 +17,6 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 
-/** School Location JSON shape */
-type SchoolLocation = {
-  name: string
-  route_id: string
-  gps_coordinates: string
-}
-
-/** Seed school locations (your JSON) */
-const SEED_SCHOOL_LOCATIONS: SchoolLocation[] = [
-  {
-    name: 'Moi Educational Centre',
-    route_id: '1',
-    gps_coordinates: '234-432N, 376-122E',
-  },
-]
-
 type Vehicle = {
   id: number
   route_id: string
@@ -42,26 +27,12 @@ type Vehicle = {
   status: 'Active' | 'Inactive'
 }
 
-const SEED_VEHICLES: Vehicle[] = [
-  {
-    id: 1,
-    route_id: '1',
-    user_id: '2',
-    license_plate: 'KDC 123X',
-    model: 'Scania',
-    capacity: 42,
-    status: 'Active',
-  },
-]
 
 export default function VehicleManagement() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [vehicles, setVehicles] = useState<Vehicle[]>(SEED_VEHICLES)
+  const [vehicles, setVehicles] = useState<any[]>([]);
 
-  /** ✅ NEW: school locations state */
-  const [schoolLocations, setSchoolLocations] = useState<SchoolLocation[]>(SEED_SCHOOL_LOCATIONS)
 
-  /** Vehicle add */
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState({
     route_id: '',
@@ -71,7 +42,6 @@ export default function VehicleManagement() {
     capacity: 0,
   })
 
-  /** Vehicle edit */
   const [editOpen, setEditOpen] = useState(false)
   const [editing, setEditing] = useState<Vehicle | null>(null)
   const [editForm, setEditForm] = useState({
@@ -83,40 +53,60 @@ export default function VehicleManagement() {
     status: 'Active' as Vehicle['status'],
   })
 
-  /** ✅ NEW: add school location dialog state */
-  const [schoolOpen, setSchoolOpen] = useState(false)
-  const [schoolForm, setSchoolForm] = useState<SchoolLocation>({
-    name: '',
-    route_id: '',
-    gps_coordinates: '',
-  })
-
-  /** School lookup by route */
-  const getSchoolByRouteId = (route_id: string) => schoolLocations.find(s => s.route_id === route_id)
+  const fetchVehicles = async () => {
+      const token = localStorage.getItem("token");
+      console.log (token)
+    try {
+      const res = await apiFetch("/vehicles");
+  
+      const data = await res.json();
+      setVehicles(data);
+    } catch (err) {
+      console.error("Failed to fetch vehicles", err);
+    }
+    };
+    useEffect(() => {
+    fetchVehicles();
+    }, []);
 
   const filteredVehicles = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
     if (!q) return vehicles
+    return vehicles.filter(v =>
+      v.license_plate.toLowerCase().includes(q) ||
+      v.model.toLowerCase().includes(q) ||
+      v.route_id.includes(q) ||
+      v.user_id.includes(q)
+    )
+  }, [vehicles, searchTerm])
 
-    return vehicles.filter(v => {
-      const school = getSchoolByRouteId(v.route_id)
+  const handleDelete = async (id: number) => {
+  try {
+    const res = await apiFetch(
+      `/vehicles/${id}`,
+      {
+        method: "DELETE"
+      }
+    )
 
-      return (
-        v.license_plate.toLowerCase().includes(q) ||
-        v.model.toLowerCase().includes(q) ||
-        v.route_id.includes(q) ||
-        v.user_id.includes(q) ||
-        (school?.name.toLowerCase().includes(q) ?? false) ||
-        (school?.gps_coordinates.toLowerCase().includes(q) ?? false)
-      )
-    })
-  }, [vehicles, schoolLocations, searchTerm])
+    const data = await res.json()
 
-  const handleDelete = (id: number) => setVehicles(prev => prev.filter(v => v.id !== id))
+    if (!res.ok) {
+      alert(data.message || "Delete failed")
+      return
+    }
 
-  const handleAdd = () => {
+    setVehicles(prev => prev.filter(v => v.id !== id))
+
+  } catch (err) {
+    console.error(err)
+    alert("Server error")
+  }
+}
+  const handleAdd = async() => {
     if (!addForm.route_id || !addForm.user_id || !addForm.license_plate || !addForm.model) return
 
+    // Backend payload matches JSON exactly
     const payload = {
       route_id: addForm.route_id,
       user_id: addForm.user_id,
@@ -125,13 +115,17 @@ export default function VehicleManagement() {
       capacity: Number(addForm.capacity) || 0,
     }
 
-    const newVehicle: Vehicle = {
-      id: Math.max(...vehicles.map(v => v.id), 0) + 1,
-      ...payload,
-      status: 'Active',
+    const token = localStorage.getItem("token");
+     const res = await apiFetch("/vehicles", {
+      method: "POST",
+      body: JSON.stringify(payload)
+      });
+
+    if (res.ok) {
+      fetchVehicles();
     }
 
-    setVehicles(prev => [newVehicle, ...prev])
+    // setVehicles(prev => [newVehicle, ...prev])
     setAddForm({ route_id: '', user_id: '', license_plate: '', model: '', capacity: 0 })
     setAddOpen(false)
   }
@@ -149,32 +143,55 @@ export default function VehicleManagement() {
     setEditOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async() => {
     if (!editing) return
-    if (!editForm.route_id || !editForm.user_id || !editForm.license_plate || !editForm.model) return
+    if (!editForm.route_id || !editForm.user_id || !editForm.license_plate || !editForm.model|| !editForm.capacity) return
 
+    const payload = {
+    route_id: editForm.route_id,
+    user_id: editForm.user_id,
+    license_plate: editForm.license_plate,
+    model: editForm.model,
+    capacity: editForm.capacity,
+
+
+  }
+
+  
+  try {
+    const token = localStorage.getItem("token")
+
+    const res = await apiFetch(`/vehicles/${editing.id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      }
+    )
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      alert(data.error || "Update failed")
+      return
+    }
+
+    // Update UI AFTER backend success
     setVehicles(prev =>
       prev.map(v =>
-        v.id === editing.id ? { ...v, ...editForm, capacity: Number(editForm.capacity) || 0 } : v
+        v.id === editing.id
+          ? { ...v, ...editForm, capacity: Number(editForm.capacity) || 0 }
+          : v
       )
     )
+
     setEditOpen(false)
     setEditing(null)
+
+  } catch (err) {
+    console.error(err)
+    alert("Server error")
   }
-
-  /** ✅ NEW: create school location */
-  const handleAddSchoolLocation = () => {
-    if (!schoolForm.name || !schoolForm.route_id || !schoolForm.gps_coordinates) return
-
-    // prevent duplicates by route_id (simple rule)
-    const exists = schoolLocations.some(s => s.route_id === schoolForm.route_id)
-    if (exists) return
-
-    setSchoolLocations(prev => [schoolForm, ...prev])
-    setSchoolForm({ name: '', route_id: '', gps_coordinates: '' })
-    setSchoolOpen(false)
   }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -185,102 +202,69 @@ export default function VehicleManagement() {
               <CardTitle>Vehicle Management</CardTitle>
             </div>
 
-            {/* ✅ NEW: Add School Location + Add Vehicle buttons */}
-            <div className="flex gap-2">
-              <Dialog open={schoolOpen} onOpenChange={setSchoolOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2 bg-transparent">
-                    <Plus className="w-4 h-4" />
-                    Add School Location
-                  </Button>
-                </DialogTrigger>
+            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Vehicle
+                </Button>
+              </DialogTrigger>
 
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add School Location</DialogTitle>
-                  </DialogHeader>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Vehicle</DialogTitle>
+                  <DialogDescription>Enter vehicle details</DialogDescription>
+                </DialogHeader>
 
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Name</Label>
-                      <Input
-                        value={schoolForm.name}
-                        onChange={e => setSchoolForm({ ...schoolForm, name: e.target.value })}
-                        className="mt-1"
-                        placeholder="Moi Educational Centre"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Route ID</Label>
-                      <Input
-                        value={schoolForm.route_id}
-                        onChange={e => setSchoolForm({ ...schoolForm, route_id: e.target.value })}
-                        className="mt-1"
-                        placeholder="1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>GPS Coordinates</Label>
-                      <Input
-                        value={schoolForm.gps_coordinates}
-                        onChange={e => setSchoolForm({ ...schoolForm, gps_coordinates: e.target.value })}
-                        className="mt-1"
-                        placeholder="234-432N, 376-122E"
-                      />
-                    </div>
-
-                    <Button className="w-full mt-6" onClick={handleAddSchoolLocation}>
-                      Create School Location
-                    </Button>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Route ID</Label>
+                    <Input
+                      value={addForm.route_id}
+                      onChange={e => setAddForm({ ...addForm, route_id: e.target.value })}
+                      className="mt-1"
+                    />
                   </div>
-                </DialogContent>
-              </Dialog>
-
-              <Dialog open={addOpen} onOpenChange={setAddOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Add Vehicle
-                  </Button>
-                </DialogTrigger>
-
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Vehicle</DialogTitle>
-                    <DialogDescription>Enter vehicle details</DialogDescription>
-                  </DialogHeader>
-
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Route ID</Label>
-                      <Input value={addForm.route_id} onChange={e => setAddForm({ ...addForm, route_id: e.target.value })} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>User ID (Driver)</Label>
-                      <Input value={addForm.user_id} onChange={e => setAddForm({ ...addForm, user_id: e.target.value })} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>License Plate</Label>
-                      <Input value={addForm.license_plate} onChange={e => setAddForm({ ...addForm, license_plate: e.target.value })} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>Model</Label>
-                      <Input value={addForm.model} onChange={e => setAddForm({ ...addForm, model: e.target.value })} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>Capacity</Label>
-                      <Input type="number" value={addForm.capacity} onChange={e => setAddForm({ ...addForm, capacity: Number(e.target.value) })} className="mt-1" />
-                    </div>
-
-                    <Button className="w-full mt-6" onClick={handleAdd}>
-                      Create Vehicle
-                    </Button>
+                  <div>
+                    <Label>User ID (Driver)</Label>
+                    <Input
+                      value={addForm.user_id}
+                      onChange={e => setAddForm({ ...addForm, user_id: e.target.value })}
+                      className="mt-1"
+                    />
                   </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+                  <div>
+                    <Label>License Plate</Label>
+                    <Input
+                      value={addForm.license_plate}
+                      onChange={e => setAddForm({ ...addForm, license_plate: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Model</Label>
+                    <Input
+                      value={addForm.model}
+                      onChange={e => setAddForm({ ...addForm, model: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Capacity</Label>
+                    <Input
+                      type="number"
+                      value={addForm.capacity}
+                      onChange={e => setAddForm({ ...addForm, capacity: Number(e.target.value) })}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <Button className="w-full mt-6" onClick={handleAdd}>
+                    Create Vehicle
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardHeader>
       </Card>
@@ -291,7 +275,7 @@ export default function VehicleManagement() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search by plate, model, route_id, user_id, school..."
+              placeholder="Search by plate, model, route_id, user_id..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -309,7 +293,6 @@ export default function VehicleManagement() {
                 <tr>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Vehicle</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Route ID</th>
-                  <th className="text-left py-4 px-6 font-semibold text-foreground">School Location</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">User ID</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Capacity</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Status</th>
@@ -318,53 +301,42 @@ export default function VehicleManagement() {
               </thead>
 
               <tbody>
-                {filteredVehicles.map(v => {
-                  const school = getSchoolByRouteId(v.route_id)
+                {filteredVehicles.map(v => (
+                  <tr key={v.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                    <td className="py-4 px-6">
+                      <p className="font-semibold text-foreground flex items-center gap-2">
+                        <Truck className="w-4 h-4" />
+                        {v.license_plate}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">{v.model}</p>
+                    </td>
 
-                  return (
-                    <tr key={v.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                      <td className="py-4 px-6">
-                        <p className="font-semibold text-foreground flex items-center gap-2">
-                          <Truck className="w-4 h-4" />
-                          {v.license_plate}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">{v.model}</p>
-                      </td>
-
-                      <td className="py-4 px-6">{v.route_id}</td>
-
-                      <td className="py-4 px-6">
-                        <p className="font-medium text-foreground">{school?.name ?? 'Unknown School'}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{school?.gps_coordinates ?? 'N/A'}</p>
-                      </td>
-
-                      <td className="py-4 px-6">{v.user_id}</td>
-
-                      <td className="py-4 px-6">
-                        <Badge variant="outline">{v.capacity}</Badge>
-                      </td>
-
-                      <td className="py-4 px-6">
-                        <Badge className={v.status === 'Active' ? 'bg-emerald-600' : 'bg-gray-500'}>{v.status}</Badge>
-                      </td>
-
-                      <td className="py-4 px-6">
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openEdit(v)}>
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDelete(v.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
+                    <td className="py-4 px-6">{v.route_id}</td>
+                    <td className="py-4 px-6">{v.user_id}</td>
+                    <td className="py-4 px-6">
+                      <Badge variant="outline">{v.capacity}</Badge>
+                    </td>
+                    <td className="py-4 px-6">
+                      <Badge className={v.status === 'Active' ? 'bg-emerald-600' : 'bg-gray-500'}>
+                        {v.status}
+                      </Badge>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openEdit(v)}>
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleDelete(v.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
 
                 {filteredVehicles.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-10 px-6 text-center text-muted-foreground">
+                    <td colSpan={6} className="py-10 px-6 text-center text-muted-foreground">
                       No vehicles found.
                     </td>
                   </tr>
@@ -417,4 +389,4 @@ export default function VehicleManagement() {
       </Dialog>
     </div>
   )
-}
+  }
