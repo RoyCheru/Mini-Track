@@ -263,3 +263,37 @@ export default function DriverDashboard() {
                     <span className="hidden sm:inline">Earnings</span>
                   </TabsTrigger>
                 </TabsList>
+                    {/* DASHBOARD TAB */}
+                <TabsContent value="dashboard" className="space-y-6">
+                  {/* Current Trip Alert */}
+                  {currentTrip && (
+                    <Card className="border-emerald-500/30 bg-emerald-500/5 border-border/50">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold text-emerald-600">Current Trip in Progress</h3>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {currentTrip.pickup_location} → {currentTrip.dropoff_location} • {currentTrip.seats_booked} passengers
+                            </p>
+                            <div className="flex items-center gap-4 mt-3">
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm text-foreground">
+                                  {currentTrip.service_type === 'morning' ? 'Morning Service' : 
+                                   currentTrip.service_type === 'evening' ? 'Evening Service' : 'Full Day'}
+                                </span>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleCompleteTrip(currentTrip)}
+                                className="bg-emerald-600 hover:bg-emerald-700"
+                              >
+                                Complete Trip
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
