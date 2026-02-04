@@ -194,3 +194,51 @@ export default function DriverDashboard() {
           </div>
         </div>
       </div>
+{/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        {loading ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-4 text-muted-foreground">Loading schedule...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Left Sidebar - Profile & Stats */}
+            <div className="lg:col-span-1 space-y-6">
+              <ProfileCard 
+                name={username}
+                license="DL-001234"
+                phone="+254 712 345 678"
+                rating={earnings.avgRating}
+                totalTrips={earnings.totalTrips}
+              />
+              
+              <Card className="border-border/50">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Today's Earnings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Today</span>
+                      <span className="font-bold text-foreground">KES {earnings.today.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">This Week</span>
+                      <span className="font-bold text-foreground">KES {earnings.thisWeek.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">This Month</span>
+                      <span className="font-bold text-foreground">KES {earnings.thisMonth.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <VehicleStatus vehicle={vehicle} />
+            </div>
