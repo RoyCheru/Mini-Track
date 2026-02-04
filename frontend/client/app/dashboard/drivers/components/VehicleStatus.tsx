@@ -1,3 +1,7 @@
 export default function VehicleStatus() {
-  return null
+   return (
+    <div>
+      Vehicle Status
+    </div>
+  )
 }
