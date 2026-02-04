@@ -297,3 +297,160 @@ export default function DriverDashboard() {
                     </Card>
                   )}
 
+   {/* Today's Schedule */}
+                  <Card className="border-border/50">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="w-5 h-5" />
+                        Today's Schedule
+                      </CardTitle>
+                      <CardDescription>Your trips for {today}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {todaySchedule.length > 0 ? (
+                        <div className="space-y-4">
+                          {todaySchedule.map((trip, index) => (
+                            <div key={index} className="p-4 border rounded-lg">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h4 className="font-medium">{trip.pickup_location} → {trip.dropoff_location}</h4>
+                                  <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <Users className="w-4 h-4" />
+                                      {trip.seats_booked} passengers
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Car className="w-4 h-4" />
+                                      {trip.service_type}
+                                    </span>
+                                  </div>
+                                </div>
+                                {trip.status !== 'completed' && (
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => 
+                                      trip.status === 'in-progress' 
+                                        ? handleCompleteTrip(trip)
+                                        : handleStartTrip(trip)
+                                    }
+                                  >
+                                    {trip.status === 'in-progress' ? 'Complete Trip' : 'Start Trip'}
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-center text-muted-foreground py-8">No trips scheduled for today</p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-border/50">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-500/10 rounded-lg">
+                            <Users className="w-6 h-6 text-blue-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Passengers Today</p>
+                            <p className="text-2xl font-bold text-foreground">{passengersToday}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-border/50">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-emerald-500/10 rounded-lg">
+                            <Navigation className="w-6 h-6 text-emerald-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Trips Today</p>
+                            <p className="text-2xl font-bold text-foreground">{tripsToday}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-border/50">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-orange-500/10 rounded-lg">
+                            <Clock className="w-6 h-6 text-orange-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">On-time Rate</p>
+                            <p className="text-2xl font-bold text-foreground">94%</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+
+                {/* SCHEDULE TAB */}
+                <TabsContent value="schedule">
+                  <Card className="border-border/50">
+                    <CardHeader>
+                      <CardTitle>My Schedule</CardTitle>
+                      <CardDescription>Your route assignments</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {schedule.length > 0 ? (
+                        <div className="space-y-4">
+                          {schedule.map((trip, index) => (
+                            <Card key={index} className="border-border">
+                              <CardContent className="pt-6">
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <h4 className="font-semibold">Route</h4>
+                                      <p className="text-muted-foreground">{trip.pickup_location} → {trip.dropoff_location}</p>
+                                    </div>
+                                    <div>
+                                      <h4 className="font-semibold">Service Type</h4>
+                                      <Badge variant="outline" className="capitalize">
+                                        {trip.service_type}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                      <h4 className="font-semibold">Date Range</h4>
+                                      <p className="text-muted-foreground">{trip.start_date} to {trip.end_date}</p>
+                                    </div>
+                                    <div>
+                                      <h4 className="font-semibold">Days</h4>
+                                      <p className="text-muted-foreground">
+                                        {trip.days_of_week.split(',').map(day => {
+                                          const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                                          return days[parseInt(day) - 1]
+                                        }).join(', ')}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <h4 className="font-semibold">Passengers</h4>
+                                      <p className="text-muted-foreground">{trip.seats_booked} booked</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-center text-muted-foreground py-8">No schedule available</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* ROUTE TAB */}
+                <TabsContent value="route">
+                  <RouteMap schedule={schedule} />
+                </TabsContent>
