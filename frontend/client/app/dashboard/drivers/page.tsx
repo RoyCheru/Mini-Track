@@ -297,7 +297,7 @@ export default function DriverDashboardPage() {
         </div>
       )}
 
-      {/* Header - Clean & Minimal */}
+      {/* Header */}
       <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
@@ -312,14 +312,17 @@ export default function DriverDashboardPage() {
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </Button>
               
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  Driver Dashboard
-                </h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Welcome back, {username || 'Driver'}
-                </p>
-              </div>
+               <div className="relative">
+  <div className="absolute -left-3 top-0 h-full w-1 bg-gradient-to-b from-blue-400 to-blue-300 rounded-full"></div>
+  <div className="pl-2">
+    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+      Driver Dashboard
+    </h1>
+    <p className="text-sm text-blue-700/70 mt-0.5">
+      Welcome back, <span className="font-medium text-blue-800">{username || 'Driver'}</span>
+    </p>
+  </div>
+</div>
             </div>
             
             <div className="flex items-center gap-3">
@@ -421,7 +424,7 @@ export default function DriverDashboardPage() {
         </div>
       )}
 
-      {/* Main Content - Full Width */}
+      {/* Main Content  */}
       <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {loading ? (
           <div className="flex items-center justify-center min-h-[400px]">
@@ -432,7 +435,7 @@ export default function DriverDashboardPage() {
           </div>
         ) : (
           <>
-            {/* Today's Summary - Moved to top */}
+            {/* Today's Summary */}
             <div className="mb-8">
               <Card className="border-slate-200 bg-white shadow-sm">
                 <CardContent className="p-6">
@@ -467,7 +470,7 @@ export default function DriverDashboardPage() {
               </Card>
             </div>
 
-            {/* Tabs Navigation - Updated with better styling */}
+            {/* Tabs Navigation */}
             <div className="mb-8">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="w-full grid grid-cols-3 bg-slate-50 border border-slate-200 rounded-xl p-1">
