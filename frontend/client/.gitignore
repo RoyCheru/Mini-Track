@@ -27,3 +27,6 @@ Thumbs.db
 .vscode/
 ../package-lock.json
 ../../package-lock.json
+
+*.db
+instance/
