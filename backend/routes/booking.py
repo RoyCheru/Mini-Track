@@ -1,15 +1,16 @@
 """
-Booking Route and Resources
+Booking Routes and Resources
 Handles booking creation, listing, and management
-Has helper function to filter data to be send to Trip Route
 """
 
 from flask import request
 from flask_restful import Resource
 from datetime import datetime, date, timedelta
-from models import db, Booking, Vehicle, User, Trip 
+from models import db, Booking, Vehicle, User, Trip
 
-# 1. Helper functions
+# ========================
+# HELPER FUNCTIONS
+# ========================
 
 def generate_trips_for_booking(booking):
     """
@@ -54,6 +55,7 @@ def generate_trips_for_booking(booking):
     
     return len(trips)
 
+
 def validate_booking_capacity(vehicle_id, start_date, end_date, seats_requested):
     """
     Check if vehicle has capacity for the requested booking
@@ -64,9 +66,9 @@ def validate_booking_capacity(vehicle_id, start_date, end_date, seats_requested)
     if not vehicle:
         return False, 0, "Vehicle not found"
     
-    # Find all trips that overlap with this date range
+    # Find all trips that overlap with this date range for this vehicle's route
     overlapping_trips = Trip.query.join(Booking).filter(
-        Booking.vehicle_id == vehicle_id,
+        Booking.route_id == vehicle.route_id,  # Changed from vehicle_id to route_id
         Trip.trip_date >= start_date,
         Trip.trip_date <= end_date,
         Trip.status.in_(['scheduled', 'picked_up'])  # Active trips only
@@ -87,10 +89,14 @@ def validate_booking_capacity(vehicle_id, start_date, end_date, seats_requested)
         return True, available, ""
     else:
         return False, available, f"Not enough seats. Only {available} seats available, but {seats_requested} requested"
-    
+
 
 def validate_date_range(start_date, end_date):
-
+    """
+    Validate booking date range
+    
+    Returns: (is_valid: bool, error_message: str)
+    """
     if start_date < date.today():
         return False, "Start date cannot be in the past"
     
@@ -104,8 +110,14 @@ def validate_date_range(start_date, end_date):
     
     return True, ""
 
-def validate_days_of_week(days_string):
 
+def validate_days_of_week(days_string):
+    """
+    Validate days_of_week format
+    Expected format: '1,3,5' (comma-separated numbers, 1=Monday, 7=Sunday)
+    
+    Returns: (is_valid: bool, error_message: str)
+    """
     try:
         days = [int(d) for d in days_string.split(',')]
         
@@ -124,7 +136,11 @@ def validate_days_of_week(days_string):
 
 
 def validate_service_type(service_type):
-
+    """
+    Validate service_type value
+    
+    Returns: (is_valid: bool, error_message: str)
+    """
     valid_types = ['morning', 'evening', 'both']
     if service_type not in valid_types:
         return False, f"Service type must be one of: {', '.join(valid_types)}"
@@ -134,13 +150,19 @@ def validate_service_type(service_type):
 def serialize_booking(booking, include_trips=False):
     """
     Serialize booking object to dictionary
+    
+    Args:
+        booking: Booking object
+        include_trips: Whether to include trips list
+    
+    Returns: dict
     """
     result = {
         "booking_id": booking.id,
         "user_id": booking.user_id,
         "user_name": booking.user.name,
-        "vehicle_id": booking.vehicle_id,
-        "vehicle_plate": booking.vehicle.license_plate,
+        "route_id": booking.route_id,
+        "route_name": booking.routes.name,
         "pickup_location": booking.pickup_location,
         "dropoff_location": booking.dropoff_location,
         "booking_date": booking.booking_date.isoformat(),
@@ -164,6 +186,8 @@ def serialize_booking(booking, include_trips=False):
 def serialize_trip(trip):
     """
     Serialize trip object to dictionary
+    
+    Returns: dict
     """
     return {
         "trip_id": trip.id,
@@ -178,7 +202,9 @@ def serialize_trip(trip):
     }
 
 
-# 2. RESOURCE CLASSES
+# ========================
+# RESOURCE CLASSES
+# ========================
 
 class BookingList(Resource):
     """
@@ -192,12 +218,12 @@ class BookingList(Resource):
         Get all bookings
         Query params:
             - user_id: Filter by user (optional, for parents to see their own)
-            - vehicle_id: Filter by vehicle (optional, for drivers)
+            - route_id: Filter by route (optional)
             - status: Filter by status (optional)
         """
         # Get query parameters
         user_id = request.args.get('user_id', type=int)
-        vehicle_id = request.args.get('vehicle_id', type=int)
+        route_id = request.args.get('route_id', type=int)
         status = request.args.get('status')
         
         # Build query
@@ -206,8 +232,8 @@ class BookingList(Resource):
         if user_id:
             query = query.filter_by(user_id=user_id)
         
-        if vehicle_id:
-            query = query.filter_by(vehicle_id=vehicle_id)
+        if route_id:
+            query = query.filter_by(route_id=route_id)
         
         if status:
             query = query.filter_by(status=status)
@@ -227,7 +253,7 @@ class BookingList(Resource):
         Expected JSON body:
         {
             "user_id": 1,
-            "vehicle_id": 5,
+            "route_id": 5,
             "pickup_location": "Westlands Mall",
             "dropoff_location": "Brookhouse School",
             "start_date": "2026-02-01",
@@ -241,7 +267,7 @@ class BookingList(Resource):
         
         # Validate required fields
         required_fields = [
-            'user_id', 'vehicle_id', 'pickup_location', 'dropoff_location',
+            'user_id', 'route_id', 'pickup_location', 'dropoff_location',
             'start_date', 'end_date', 'days_of_week', 'service_type', 'seats_booked'
         ]
         
@@ -254,10 +280,16 @@ class BookingList(Resource):
         if not user:
             return {"error": "User not found"}, 404
         
-        # Validate vehicle exists
-        vehicle = Vehicle.query.get(data['vehicle_id'])
+        # Validate route exists
+        from models import Route
+        route = Route.query.get(data['route_id'])
+        if not route:
+            return {"error": "Route not found"}, 404
+        
+        # Auto-assign vehicle from route (get first available vehicle on this route)
+        vehicle = Vehicle.query.filter_by(route_id=data['route_id']).first()
         if not vehicle:
-            return {"error": "Vehicle not found"}, 404
+            return {"error": "No vehicles available on this route"}, 404
         
         # Parse and validate dates
         try:
@@ -288,7 +320,7 @@ class BookingList(Resource):
         
         # Check vehicle capacity
         is_valid, available_seats, error_msg = validate_booking_capacity(
-            data['vehicle_id'],
+            vehicle.id,  # Use auto-assigned vehicle
             start_date,
             end_date,
             seats_booked
@@ -299,7 +331,7 @@ class BookingList(Resource):
         # Create booking
         booking = Booking(
             user_id=data['user_id'],
-            vehicle_id=data['vehicle_id'],
+            route_id=data['route_id'],
             pickup_location=data['pickup_location'],
             dropoff_location=data['dropoff_location'],
             booking_date=datetime.utcnow(),
@@ -329,7 +361,8 @@ class BookingList(Resource):
         response["message"] = "Booking created successfully"
         
         return response, 201
-    
+
+
 class BookingDetail(Resource):
     """
     Handle single booking operations
