@@ -49,8 +49,7 @@ export default function RouteManagement() {
       const token = localStorage.getItem("token");
       console.log (token)
     try {
-      const res = await apiFetch("/routes", {
-      });
+      const res = await apiFetch("/routes");
   
       const data = await res.json();
       setRoutes(data);
@@ -72,21 +71,35 @@ export default function RouteManagement() {
     )
   }, [routes, searchTerm])
 
-  const handleDelete = (id: number) => setRoutes(prev => prev.filter(r => r.id !== id))
+  const handleDelete = async (id: number) => {
+  try {
+    const res = await apiFetch(
+      `/routes/${id}`,
+      {
+        method: "DELETE"
+      }
+    )
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      alert(data.message || "Delete failed")
+      return
+    }
+
+    setRoutes(prev => prev.filter(v => v.id !== id))
+
+  } catch (err) {
+    console.error(err)
+    alert("Server error")
+  }
+}
 
   const handleAdd = async() => {
     if (!addForm.name || !addForm.starting_point || !addForm.ending_point) return
 
     // Backend payload matches JSON exactly
     const payload = { ...addForm }
-
-    // const newRoute: Route = {
-    //   id: Math.max(...routes.map(r => r.id), 0) + 1,
-    //   name: payload.name,
-    //   starting_point: payload.starting_point,
-    //   ending_point: payload.ending_point,
-    //   status: 'Active',
-    // }
 
     const token = localStorage.getItem("token");
 
@@ -115,9 +128,33 @@ export default function RouteManagement() {
     setEditOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async() => {
     if (!editing) return
     if (!editForm.name || !editForm.starting_point || !editForm.ending_point) return
+
+    const payload = {
+    name: editForm.name,
+    starting_point: editForm.starting_point,
+    ending_point: editForm.ending_point,
+  }
+
+  
+  try {
+    const token = localStorage.getItem("token")
+
+    const res = await apiFetch(`/routes/${editing.id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      }
+    )
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      alert(data.error || "Update failed")
+      return
+    }
 
     setRoutes(prev =>
       prev.map(r =>
@@ -127,6 +164,11 @@ export default function RouteManagement() {
     setEditOpen(false)
     setEditing(null)
   }
+   catch (err) {
+    console.error(err)
+    alert("Server error")
+  }
+}
 
   return (
     <div className="space-y-6">
@@ -136,7 +178,6 @@ export default function RouteManagement() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle>Route Management</CardTitle>
-              {/* <CardDescription>Matches JSON: name, starting_point, ending_point</CardDescription> */}
             </div>
 
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
