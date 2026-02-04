@@ -69,16 +69,21 @@ export default function VehicleManagement() {
     fetchVehicles();
     }, []);
 
-  const filteredVehicles = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase()
-    if (!q) return vehicles
-    return vehicles.filter(v =>
-      v.license_plate.toLowerCase().includes(q) ||
-      v.model.toLowerCase().includes(q) ||
-      v.route_id.includes(q) ||
-      v.user_id.includes(q)
-    )
-  }, [vehicles, searchTerm])
+ const filteredVehicles = useMemo(() => {
+  const q = searchTerm.toLowerCase()
+  if (!q) return vehicles
+
+ return vehicles.filter(v => {
+  return (
+    v.route_id?.toString().includes(q) ||
+    v.user_id?.toString().includes(q) ||
+    v.license_plate?.toLowerCase().includes(q) ||
+    v.model?.toLowerCase().includes(q)
+  )
+ })
+}, [vehicles, searchTerm])
+
+
 
   const handleDelete = async (id: number) => {
   try {
@@ -88,7 +93,6 @@ export default function VehicleManagement() {
         method: "DELETE"
       }
     )
-
     const data = await res.json()
 
     if (!res.ok) {
@@ -102,10 +106,10 @@ export default function VehicleManagement() {
     console.error(err)
     alert("Server error")
   }
-}
+  }
   const handleAdd = async() => {
     if (!addForm.route_id || !addForm.user_id || !addForm.license_plate || !addForm.model) return
-
+    if (editForm.capacity < 0) return
     // Backend payload matches JSON exactly
     const payload = {
       route_id: addForm.route_id,
@@ -146,7 +150,7 @@ export default function VehicleManagement() {
   const handleSave = async() => {
     if (!editing) return
     if (!editForm.route_id || !editForm.user_id || !editForm.license_plate || !editForm.model|| !editForm.capacity) return
-
+    if (editForm.capacity < 0) return
     const payload = {
     route_id: editForm.route_id,
     user_id: editForm.user_id,
@@ -157,7 +161,6 @@ export default function VehicleManagement() {
 
   }
 
-  
   try {
     const token = localStorage.getItem("token")
 
