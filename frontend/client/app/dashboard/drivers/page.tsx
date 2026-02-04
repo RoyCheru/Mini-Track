@@ -454,3 +454,15 @@ export default function DriverDashboard() {
                 <TabsContent value="route">
                   <RouteMap schedule={schedule} />
                 </TabsContent>
+{/* EARNINGS TAB */}
+                <TabsContent value="earnings">
+                  <Earnings earnings={earnings} />
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
