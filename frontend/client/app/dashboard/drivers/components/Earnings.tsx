@@ -13,5 +13,10 @@ export default function Earnings() {
 export default function Earnings({ earnings }: EarningsProps) {
   return null
 }
-  
+
+const formatCurrency = (amount: number) => {
+  return `KES ${amount.toLocaleString()}`
+}
+
+
 }
