@@ -242,3 +242,24 @@ export default function DriverDashboard() {
 
               <VehicleStatus vehicle={vehicle} />
             </div>
+ {/* Main Content Area */}
+            <div className="lg:col-span-3">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <TabsList className="grid w-full grid-cols-5 lg:w-auto bg-card border border-border/50">
+                  <TabsTrigger value="dashboard" className="gap-2">
+                    <Navigation className="w-4 h-4" />
+                    <span className="hidden sm:inline">Dashboard</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="schedule" className="gap-2">
+                    <Calendar className="w-4 h-4" />
+                    <span className="hidden sm:inline">Schedule</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="route" className="gap-2">
+                    <MapPin className="w-4 h-4" />
+                    <span className="hidden sm:inline">Route</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="earnings" className="gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    <span className="hidden sm:inline">Earnings</span>
+                  </TabsTrigger>
+                </TabsList>
