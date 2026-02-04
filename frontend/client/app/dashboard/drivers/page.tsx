@@ -81,3 +81,33 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true)
   const [alert, setAlert] = useState<AlertMessage | null>(null)
   const username = typeof window !== 'undefined' ? localStorage.getItem("username") || 'Driver' : 'Driver'
+
+
+  // Fetch driver data
+  const fetchDriverData = async () => {
+    try {
+      setLoading(true)
+      const driverId = localStorage.getItem("user_id") || "1"
+      const scheduleData = await fetchDriverSchedule(parseInt(driverId))
+      setSchedule(scheduleData)
+      
+      setAlert({
+        type: 'success',
+        message: 'Schedule loaded successfully'
+      })
+      
+      // Clear alert after 3 seconds
+      setTimeout(() => setAlert(null), 3000)
+    } catch (error) {
+      setAlert({
+        type: 'error',
+        message: 'Failed to load driver data'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchDriverData()
+  }, [])
