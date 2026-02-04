@@ -1,11 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { TrendingUp, Settings, Zap } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { apiFetch } from '@/lib/api'
+import { TrendingUp, Settings, Zap, LogOut } from 'lucide-react'
 
 import OverviewSection from './components/overview'
-import AnalyticsSection from './components/analytics'
+// import AnalyticsSection from './components/analytics'
 import BookingsManagement from './components/bookings-management'
 
 import DriverManagement from './components/driver-management'
@@ -14,20 +17,56 @@ import VehicleManagement from './components/bus-management'
 import SchoolLocationManagement from './components/school-location-management'
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState('overview')
+  const router = useRouter()
 
+  const [activeTab, setActiveTab] = useState('overview')
   const [username, setUsername] = useState<string | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   useEffect(() => {
-    setUsername(localStorage.getItem('username'))
-  }, [])
+    const token = localStorage.getItem('token')
+    const storedUsername = localStorage.getItem('username')
+
+    // Basic protection: if not logged in, go to signin
+    if (!token) {
+      router.replace('/auth/signin')
+      return
+    }
+
+    setUsername(storedUsername)
+  }, [router])
+
+  const handleLogout = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+
+    try {
+      const token = localStorage.getItem('token')
+
+      // Backend logout (ignore failure; still clear locally)
+      await apiFetch('/logout', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+    } catch (err) {
+      console.error('Logout error:', err)
+    } finally {
+      localStorage.removeItem('token')
+      localStorage.removeItem('username')
+
+      setLoggingOut(false)
+      router.replace('/auth/signin')
+    }
+  }
 
   return (
     <div className="min-h-screen bg-linear-to-br from-background via-background to-muted/20">
       {/* Header */}
       <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-foreground">
                 Welcome Admin{username ? `, ${username}` : ''}
@@ -36,6 +75,16 @@ export default function AdminDashboardPage() {
                 Manage drivers, routes, vehicles, school locations, and bookings
               </p>
             </div>
+
+            <Button
+              variant="outline"
+              className="gap-2 bg-transparent"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              <LogOut className="w-4 h-4" />
+              {loggingOut ? 'Logging out...' : 'Logout'}
+            </Button>
           </div>
         </div>
       </div>
@@ -60,7 +109,7 @@ export default function AdminDashboardPage() {
 
           <TabsContent value="overview" className="space-y-6">
             <OverviewSection />
-            <AnalyticsSection />
+            {/* <AnalyticsSection /> */}
           </TabsContent>
 
           <TabsContent value="management" className="space-y-6">
