@@ -1,265 +1,228 @@
 'use client'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useEffect, useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { History, Search, Download, MapPin, Calendar, Users } from 'lucide-react'
-import { useState } from 'react'
+import { History, Search, MapPin, Navigation } from 'lucide-react'
 
-const BOOKING_HISTORY = [
-  {
-    id: 'BK-001',
-    date: '2025-01-30',
-    route: 'Route A - Downtown',
-    pickup: 'Home - Westlands',
-    dropoff: 'School - Parklands',
-    seats: 2,
-    cost: 400,
-    status: 'Completed',
-    children: 'Sarah, Michael',
-    time: '7:30 AM',
-  },
-  {
-    id: 'BK-002',
-    date: '2025-01-29',
-    route: 'Route B - Westside',
-    pickup: 'Home - Westlands',
-    dropoff: 'School - Parklands',
-    seats: 2,
-    cost: 360,
-    status: 'Completed',
-    children: 'Sarah, Michael',
-    time: '7:30 AM',
-  },
-  {
-    id: 'BK-003',
-    date: '2025-01-28',
-    route: 'Route A - Downtown',
-    pickup: 'Home - Westlands',
-    dropoff: 'School - Parklands',
-    seats: 1,
-    cost: 200,
-    status: 'Completed',
-    children: 'Sarah',
-    time: '7:30 AM',
-  },
-  {
-    id: 'BK-004',
-    date: '2025-01-27',
-    route: 'Route C - Eastside',
-    pickup: 'Home - Westlands',
-    dropoff: 'School - Parklands',
-    seats: 2,
-    cost: 440,
-    status: 'Cancelled',
-    children: 'Sarah, Michael',
-    time: '7:30 AM',
-  },
-  {
-    id: 'BK-005',
-    date: '2025-01-26',
-    route: 'Route A - Downtown',
-    pickup: 'Home - Westlands',
-    dropoff: 'School - Parklands',
-    seats: 2,
-    cost: 400,
-    status: 'Completed',
-    children: 'Sarah, Michael',
-    time: '7:30 AM',
-  },
-]
+const BASE_URL = 'http://127.0.0.1:5555'
 
-export default function BookingHistory() {
+export type Booking = {
+  booking_id: number
+  pickup_location: string
+  dropoff_location: string
+  start_date: string
+  end_date: string
+  seats_booked: number
+  service_type: string
+  status: 'active' | 'cancelled' | 'completed'
+}
+
+interface Props {
+  onTrack: (bookingId: number) => void
+}
+
+export default function BookingHistory({ onTrack }: Props) {
+  const [bookings, setBookings] = useState<Booking[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState('all')
+  const [activeTab, setActiveTab] =
+    useState<'all' | 'active' | 'cancelled'>('all')
+  const [loading, setLoading] = useState(true)
 
-  const filteredBookings = BOOKING_HISTORY.filter(booking => {
+  // ---------------- FETCH BOOKINGS ----------------
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/bookings?user_id=1`, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
+          },
+        })
+
+        if (!res.ok) throw new Error('Failed to fetch booking history')
+
+        const data: Booking[] = await res.json()
+        setBookings(data)
+      } catch (err) {
+        console.error('Booking history error:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBookings()
+  }, [])
+
+  // ---------------- CANCEL BOOKING ----------------
+  const cancelBooking = async (bookingId: number) => {
+    try {
+      const res = await fetch(`${BASE_URL}/bookings/${bookingId}/cancel`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
+        },
+      })
+      if (!res.ok) throw new Error('Failed to cancel booking')
+
+      // Update local state
+      setBookings(prev =>
+        prev.map(b =>
+          b.booking_id === bookingId ? { ...b, status: 'cancelled' } : b
+        )
+      )
+    } catch (err) {
+      console.error('Cancel booking error:', err)
+      alert('Failed to cancel booking')
+    }
+  }
+
+  // ---------------- FILTER ----------------
+  const filteredBookings = bookings.filter(b => {
     const matchesSearch =
-      booking.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.route.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.children.toLowerCase().includes(searchTerm.toLowerCase())
+      b.pickup_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      b.dropoff_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      b.booking_id.toString().includes(searchTerm)
 
-    if (activeTab === 'completed') return booking.status === 'Completed' && matchesSearch
-    if (activeTab === 'cancelled') return booking.status === 'Cancelled' && matchesSearch
+    if (activeTab === 'active') return b.status === 'active' && matchesSearch
+    if (activeTab === 'cancelled') return b.status === 'cancelled' && matchesSearch
     return matchesSearch
   })
 
-  const totalSpent = BOOKING_HISTORY.filter(b => b.status === 'Completed').reduce(
-    (sum, b) => sum + b.cost,
-    0
-  )
-
-  const getStatusColor = (status: string) => {
+  // ---------------- STATUS STYLES ----------------
+  const getStatusColor = (status: Booking['status']) => {
     switch (status) {
-      case 'Completed':
-        return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
-      case 'Cancelled':
-        return 'bg-red-500/10 text-red-600 border-red-500/30'
+      case 'active':
+        return 'bg-emerald-500/20 text-emerald-700 border-emerald-500/50'
+      case 'cancelled':
+        return 'bg-red-500/20 text-red-700 border-red-500/50'
+      case 'completed':
+        return 'bg-gray-500/20 text-gray-700 border-gray-500/50'
       default:
-        return 'bg-gray-500/10 text-gray-600 border-gray-500/30'
+        return ''
     }
+  }
+
+  const getCardColor = (index: number) => {
+    const colors = ['bg-blue-50', 'bg-purple-50', 'bg-pink-50', 'bg-green-50', 'bg-yellow-50']
+    return colors[index % colors.length]
+  }
+
+  if (loading) {
+    return <p className="text-muted-foreground text-center py-6">Loading booking history…</p>
   }
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-border/50">
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Total Bookings</p>
-              <p className="text-3xl font-bold text-foreground">{BOOKING_HISTORY.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-border/50">
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Completed Trips</p>
-              <p className="text-3xl font-bold text-foreground">
-                {BOOKING_HISTORY.filter(b => b.status === 'Completed').length}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-border/50">
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Total Amount Spent</p>
-              <p className="text-3xl font-bold text-foreground">KES {totalSpent}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search and Filter */}
-      <Card className="border-border/50">
+      {/* SEARCH */}
+      <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by booking ID, route, or child name..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Button variant="outline" className="gap-2 bg-transparent">
-              <Download className="w-4 h-4" />
-              Export
-            </Button>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by booking ID or location…"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </CardHeader>
       </Card>
 
-      {/* Tabs and History */}
-      <Card className="border-border/50 overflow-hidden">
+      {/* HISTORY */}
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="w-5 h-5" />
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <History className="w-5 h-5 text-primary" />
             Booking History
           </CardTitle>
         </CardHeader>
+
         <CardContent className="p-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="w-full rounded-none border-b border-border/50 bg-transparent p-0">
-              <TabsTrigger
-                value="all"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
-              >
-                All Bookings
-              </TabsTrigger>
-              <TabsTrigger
-                value="completed"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
-              >
-                Completed
-              </TabsTrigger>
-              <TabsTrigger
-                value="cancelled"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
-              >
-                Cancelled
-              </TabsTrigger>
+          <Tabs value={activeTab} onValueChange={v => setActiveTab(v as any)}>
+            <TabsList className="w-full rounded-none border-b">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="active">Active</TabsTrigger>
+              <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
             </TabsList>
 
-            <TabsContent value={activeTab} className="p-0 m-0">
-              <div className="divide-y divide-border/50">
-                {filteredBookings.length > 0 ? (
-                  filteredBookings.map(booking => (
-                    <div
-                      key={booking.id}
-                      className="p-4 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex-1 space-y-3">
-                          {/* Booking ID and Status */}
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-semibold text-foreground">{booking.id}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {booking.date} • {booking.time}
-                              </p>
-                            </div>
-                            <Badge variant="outline" className={getStatusColor(booking.status)}>
-                              {booking.status}
-                            </Badge>
-                          </div>
+            <TabsContent value={activeTab}>
+              {filteredBookings.length === 0 ? (
+                <div className="p-6 text-center text-muted-foreground">
+                  No bookings found
+                </div>
+              ) : (
+                filteredBookings.map((b, i) => (
+                  <div
+                    key={b.booking_id}
+                    className={`flex flex-col md:flex-row justify-between p-5 border border-border/50 rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 ${getCardColor(i)}`}
+                  >
+                    {/* Left: Booking info */}
+                    <div className="flex-1 space-y-1">
+                      <p className="font-semibold text-sm md:text-base text-gray-800 dark:text-gray-900">
+                        BK-{b.booking_id} • {b.service_type}
+                      </p>
 
-                          {/* Route Details */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                            <div className="flex items-start gap-2">
-                              <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                              <div>
-                                <p className="text-xs text-muted-foreground">Route</p>
-                                <p className="font-medium text-foreground">{booking.route}</p>
-                              </div>
-                            </div>
-
-                            <div>
-                              <p className="text-xs text-muted-foreground">Pickup</p>
-                              <p className="font-medium text-foreground">{booking.pickup}</p>
-                            </div>
-
-                            <div>
-                              <p className="text-xs text-muted-foreground">Children</p>
-                              <p className="font-medium text-foreground">{booking.children}</p>
-                            </div>
-
-                            <div className="text-right">
-                              <p className="text-xs text-muted-foreground">Cost</p>
-                              <p className="font-bold text-primary">KES {booking.cost}</p>
-                            </div>
-                          </div>
+                      <div className="inline-flex items-center gap-2 mt-1">
+                        <div className="px-2 py-1 bg-primary text-white rounded-lg text-xs font-medium">
+                          {new Date(b.start_date).toLocaleDateString()}
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          → {new Date(b.end_date).toLocaleDateString()}
+                        </p>
+                      </div>
 
-                        <div className="flex gap-2 sm:flex-col">
-                          <Button size="sm" variant="outline">
-                            Details
-                          </Button>
-                          {booking.status === 'Completed' && (
-                            <Button size="sm" variant="outline">
-                              Rebook
-                            </Button>
-                          )}
+                      <div className="flex items-start gap-2 text-sm mt-1">
+                        <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                        <div>
+                          <p>{b.pickup_location}</p>
+                          <p className="text-muted-foreground">→ {b.dropoff_location}</p>
                         </div>
                       </div>
+
+                      <p className="text-sm mt-1">
+                        Seats: <b>{b.seats_booked}</b>
+                      </p>
                     </div>
-                  ))
-                ) : (
-                  <div className="p-8 text-center">
-                    <History className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground">No bookings found</p>
+
+                    {/* Right: Status & Track/Cancel */}
+                    <div className="flex flex-col items-end gap-2 mt-3 md:mt-0">
+                      <Badge variant="outline" className={getStatusColor(b.status)}>
+                        {b.status}
+                      </Badge>
+
+                      {b.status === 'active' && (
+                        <div className="flex flex-col gap-2 mt-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                            onClick={() => onTrack(b.booking_id)}
+                          >
+                            <Navigation className="w-4 h-4" />
+                            Track
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="gap-1"
+                            onClick={() => cancelBooking(b.booking_id)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+                ))
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
