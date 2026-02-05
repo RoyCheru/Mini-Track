@@ -15,6 +15,7 @@ import DriverManagement from './components/driver-management'
 import RouteManagement from './components/route-management'
 import VehicleManagement from './components/bus-management'
 import SchoolLocationManagement from './components/school-location-management'
+import PickupLocationsManagement from './components/pickup-locations-management' // ✅ ADD
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -27,7 +28,6 @@ export default function AdminDashboardPage() {
     const token = localStorage.getItem('token')
     const storedUsername = localStorage.getItem('username')
 
-    // Basic protection: if not logged in, go to signin
     if (!token) {
       router.replace('/auth/signin')
       return
@@ -43,7 +43,6 @@ export default function AdminDashboardPage() {
     try {
       const token = localStorage.getItem('token')
 
-      // Backend logout (ignore failure; still clear locally)
       await apiFetch('/logout', {
         method: 'POST',
         headers: {
@@ -72,7 +71,7 @@ export default function AdminDashboardPage() {
                 Welcome Admin{username ? `, ${username}` : ''}
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Manage drivers, routes, vehicles, school locations, and bookings
+                Manage drivers, routes, vehicles, school locations, pickup locations, and bookings
               </p>
             </div>
 
@@ -115,7 +114,13 @@ export default function AdminDashboardPage() {
           <TabsContent value="management" className="space-y-6">
             <DriverManagement />
             <RouteManagement />
-            <SchoolLocationManagement />
+
+            {/* ✅ School + Pickup side-by-side on Management tab */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SchoolLocationManagement />
+              <PickupLocationsManagement />
+            </div>
+
             <VehicleManagement />
           </TabsContent>
 
