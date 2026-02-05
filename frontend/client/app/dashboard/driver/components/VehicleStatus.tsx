@@ -1,79 +1,79 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Fuel, Users, Wrench, Car } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+'use client'
 
-interface VehicleStatusProps {
-  vehicle: {
-    license_plate: string
-    model: string
-    capacity: number
-    current_passengers: number
-    fuel_level: number
-    status: 'active' | 'maintenance' | 'offline'
-    next_service: string
-  }
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Car } from 'lucide-react'
+
+type VehicleInfo = {
+  id: number
+  license_plate: string
+  model: string
+  capacity: number
+  current_passengers: number
+  fuel_level: number
+  status: 'active' | 'maintenance' | 'offline'
+  next_service: string
 }
 
-export default function VehicleStatus({ vehicle }: VehicleStatusProps) {
-  const statusColors = {
-    active: 'bg-emerald-500',
-    maintenance: 'bg-amber-500',
-    offline: 'bg-red-500'
-  }
+export default function VehicleStatus({ vehicle }: { vehicle: VehicleInfo }) {
+  const cap = Number.isFinite(vehicle.capacity) ? vehicle.capacity : 0
+  const onboard = Number.isFinite(vehicle.current_passengers) ? vehicle.current_passengers : 0
+  const loadPct = cap > 0 ? Math.round((onboard / cap) * 100) : 0
 
   return (
-    <Card className="border-border/50 bg-card shadow-sm">
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Car className="w-4 h-4" />
-            Vehicle Status
-          </CardTitle>
-          <Badge className={`${statusColors[vehicle.status]} text-white`}>
+    <Card className="border-slate-200 bg-white shadow-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-slate-900">
+          <Car className="w-5 h-5" />
+          Vehicle Status
+          <Badge
+            variant="outline"
+            className={
+              vehicle.status === 'active'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : vehicle.status === 'maintenance'
+                ? 'border-amber-200 bg-amber-50 text-amber-700'
+                : 'border-slate-200 bg-slate-50 text-slate-700'
+            }
+          >
             {vehicle.status}
           </Badge>
-        </div>
-        <CardDescription>{vehicle.license_plate} • {vehicle.model}</CardDescription>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span>Occupancy</span>
-            </div>
-            <span className="font-medium">
-              {vehicle.current_passengers}/{vehicle.capacity}
-            </span>
+
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-slate-500">Plate</p>
+            <p className="font-semibold text-slate-900">{vehicle.license_plate}</p>
           </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              <Fuel className="w-4 h-4 text-muted-foreground" />
-              <span>Fuel Level</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                <div 
-                  className={`h-full rounded-full ${
-                    vehicle.fuel_level > 60 ? 'bg-emerald-500' : 
-                    vehicle.fuel_level > 30 ? 'bg-amber-500' : 'bg-red-500'
-                  }`}
-                  style={{ width: `${vehicle.fuel_level}%` }}
-                />
-              </div>
-              <span className="font-medium text-sm w-8">{vehicle.fuel_level}%</span>
-            </div>
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-slate-500">Model</p>
+            <p className="font-semibold text-slate-900">{vehicle.model}</p>
           </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              <Wrench className="w-4 h-4 text-muted-foreground" />
-              <span>Next Service</span>
-            </div>
-            <span className="font-medium text-sm">{vehicle.next_service}</span>
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-slate-500">Capacity</p>
+            <p className="font-semibold text-slate-900">{cap}</p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-slate-500">On board</p>
+            <p className="font-semibold text-slate-900">
+              {onboard} <span className="text-slate-500 font-normal">({loadPct}%)</span>
+            </p>
           </div>
         </div>
+
+        {/* Optional fields; show only if backend provides them */}
+        {(vehicle.fuel_level || vehicle.next_service) && (
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-slate-500">Maintenance</p>
+            <p className="text-sm text-slate-700">
+              {vehicle.fuel_level ? `Fuel: ${vehicle.fuel_level}%` : ''}
+              {vehicle.fuel_level && vehicle.next_service ? ' • ' : ''}
+              {vehicle.next_service ? `Next service: ${vehicle.next_service}` : ''}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
