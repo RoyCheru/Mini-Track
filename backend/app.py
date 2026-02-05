@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_restful import Api 
 from flask_cors import CORS
+from routes.pickup_locations import PickupLocationDetail
 from models import db 
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
@@ -14,6 +15,8 @@ from routes.school_location import CreateSchoolLocation, GetAllSchoolLocations, 
 
 from routes.vehicle import VehicleList, VehicleDetail
 from routes.route import RouteList, RouteDetail
+from routes.pickup_locations import PickupLocationList, PickupLocationDetail,PickupLocationByRoute, PickupLocationBulk
+
 
 def create_app():
 
@@ -71,7 +74,10 @@ def create_app():
     api.add_resource(RouteList, '/routes')
     api.add_resource(RouteDetail, '/routes/<int:route_id>')
 
-
+    api.add_resource(PickupLocationList, '/pickup_locations')
+    api.add_resource(PickupLocationDetail, '/pickup_locations/<int:id>')
+    api.add_resource(PickupLocationByRoute, '/pickup_locations/route/<int:route_id>')
+    api.add_resource(PickupLocationBulk, '/pickup_locations/bulk')
     
     return app 
 
