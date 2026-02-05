@@ -231,10 +231,6 @@ export default function SchoolLocationManagement() {
                   <Button className="w-full mt-6" onClick={handleAdd}>
                     Create Location
                   </Button>
-
-                  <p className="text-xs text-muted-foreground">
-                    Note: route_id must be unique (one location per route).
-                  </p>
                 </div>
               </DialogContent>
             </Dialog>
