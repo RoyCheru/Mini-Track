@@ -231,6 +231,10 @@ export default function SchoolLocationManagement() {
                   <Button className="w-full mt-6" onClick={handleAdd}>
                     Create Location
                   </Button>
+
+                  <p className="text-xs text-muted-foreground">
+                    Note: route_id must be unique (one location per route).
+                  </p>
                 </div>
               </DialogContent>
             </Dialog>
@@ -283,15 +287,35 @@ export default function SchoolLocationManagement() {
 
                     <td className="py-4 px-6 text-muted-foreground">{l.gps_coordinates}</td>
 
-                    <td className="py-4 px-6">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(l)}>
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDelete(l.id)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                 <td className="py-4 px-6">
+                  <div className="flex items-center gap-3">
+                    {/* Edit */}
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => openEdit(l)}
+                      className="h-9 w-9 rounded-lg border-border text-foreground
+                                hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label="Edit location"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
 
-                    </td>
+                    {/* Delete */}
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => handleDelete(l.id)}
+                      className="h-9 w-9 rounded-lg border-border text-foreground
+                                hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label="Delete location"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </td>
                   </tr>
                 ))}
 
