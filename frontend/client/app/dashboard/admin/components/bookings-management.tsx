@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,14 +56,6 @@ type RouteOption = {
   name?: string
   starting_point?: string
   ending_point?: string
-}
-
-type UserOption = {
-  id: Id
-  name?: string
-  username?: string
-  email?: string
-  phone_number?: string
 }
 
 type PickupLocation = {
@@ -133,9 +126,8 @@ const routeLabel = (r?: RouteOption) => {
   return `Route #${toId(r.id)}`
 }
 
-const userLabel = (u?: UserOption, fallbackId?: string) => {
-  if (!u) return fallbackId ? `User #${fallbackId}` : '—'
-  return u.name ?? u.username ?? u.email ?? (fallbackId ? `User #${fallbackId}` : `User #${toId(u.id)}`)
+const userLabel = (userId?: string) => {
+  return userId ? `User #${userId}` : '—'
 }
 
 const normalizeBooking = (raw: BookingApi): Booking => {
@@ -151,10 +143,9 @@ const normalizeBooking = (raw: BookingApi): Booking => {
     id,
     user_id,
     route_id,
-    pickup_location_id:
-      raw.pickup_location_id !== undefined && raw.pickup_location_id !== null ? toId(raw.pickup_location_id) : undefined,
-    dropoff_location_id:
-      raw.dropoff_location_id !== undefined && raw.dropoff_location_id !== null ? toId(raw.dropoff_location_id) : undefined,
+
+    pickup_location_id: raw.pickup_location_id != null ? toId(raw.pickup_location_id) : undefined,
+    dropoff_location_id: raw.dropoff_location_id != null ? toId(raw.dropoff_location_id) : undefined,
     pickup_location: raw.pickup_location ? String(raw.pickup_location) : undefined,
     dropoff_location: raw.dropoff_location ? String(raw.dropoff_location) : undefined,
 
@@ -168,12 +159,13 @@ const normalizeBooking = (raw: BookingApi): Booking => {
 }
 
 export default function BookingsManagement() {
+  const router = useRouter()
+
   const [searchTerm, setSearchTerm] = useState('')
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'inactive' | 'cancelled'>('all')
 
   const [bookings, setBookings] = useState<Booking[]>([])
   const [routes, setRoutes] = useState<RouteOption[]>([])
-  const [users, setUsers] = useState<UserOption[]>([])
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([])
   const [schoolLocations, setSchoolLocations] = useState<SchoolLocation[]>([])
 
@@ -201,21 +193,27 @@ export default function BookingsManagement() {
 
     try {
       const token = localStorage.getItem('token')
-      const headers: HeadersInit = { 'Content-Type': 'application/json' }
-      if (token) headers.Authorization = `Bearer ${token}`
+      if (!token) {
+        router.replace('/auth/signin')
+        return
+      }
 
-      const [bookingsRes, routesRes, usersRes, pickupsRes, schoolsRes] = await Promise.all([
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      }
+
+      // ✅ Removed /users call (admin-only), so no “limited access”
+      const [bookingsRes, routesRes, pickupsRes, schoolsRes] = await Promise.all([
         apiFetch('/bookings', { headers }),
         apiFetch('/routes', { headers }),
-        apiFetch('/users', { headers }),
         apiFetch('/pickup_locations', { headers }).catch(() => null as any),
         apiFetch('/school-locations/all', { headers }).catch(() => null as any),
       ])
 
-      const [bookingsJson, routesJson, usersJson, pickupsJson, schoolsJson] = await Promise.all([
+      const [bookingsJson, routesJson, pickupsJson, schoolsJson] = await Promise.all([
         bookingsRes.json().catch(() => null),
         routesRes.json().catch(() => null),
-        usersRes.json().catch(() => null),
         pickupsRes?.json?.().catch(() => null),
         schoolsRes?.json?.().catch(() => null),
       ])
@@ -225,21 +223,18 @@ export default function BookingsManagement() {
 
       const bookingsArr: BookingApi[] = toArray(bookingsJson)
       const routesArr: RouteOption[] = toArray(routesJson)
-      const usersArr: UserOption[] = usersRes.ok ? toArray(usersJson) : []
 
       const pickupArr: PickupLocation[] = pickupsRes && pickupsRes.ok ? toArray(pickupsJson) : []
       const schoolArr: SchoolLocation[] = schoolsRes && schoolsRes.ok ? toArray(schoolsJson) : []
 
       setBookings(bookingsArr.map(normalizeBooking))
       setRoutes(routesArr)
-      setUsers(usersArr)
       setPickupLocations(pickupArr)
       setSchoolLocations(schoolArr)
     } catch (e: any) {
       console.error(e)
       setBookings([])
       setRoutes([])
-      setUsers([])
       setPickupLocations([])
       setSchoolLocations([])
       setError(e?.message || 'Failed to load bookings')
@@ -250,6 +245,7 @@ export default function BookingsManagement() {
 
   useEffect(() => {
     fetchAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const routeById = useMemo(() => {
@@ -257,12 +253,6 @@ export default function BookingsManagement() {
     for (const r of routes) m.set(toId(r.id), r)
     return m
   }, [routes])
-
-  const userById = useMemo(() => {
-    const m = new Map<string, UserOption>()
-    for (const u of users) m.set(toId(u.id), u)
-    return m
-  }, [users])
 
   const pickupById = useMemo(() => {
     const m = new Map<string, PickupLocation>()
@@ -293,10 +283,9 @@ export default function BookingsManagement() {
 
     return bookings.filter(b => {
       const r = routeById.get(b.route_id)
-      const u = userById.get(b.user_id)
 
       const routeName = routeLabel(r).toLowerCase()
-      const name = userLabel(u, b.user_id).toLowerCase()
+      const name = userLabel(b.user_id).toLowerCase()
 
       const pickup = pickupName(b).toLowerCase()
       const dropoff = dropoffName(b).toLowerCase()
@@ -323,7 +312,7 @@ export default function BookingsManagement() {
 
       return matchesSearch && matchesTab
     })
-  }, [bookings, searchTerm, activeTab, routeById, userById, pickupById, schoolById])
+  }, [bookings, searchTerm, activeTab, routeById, pickupById, schoolById])
 
   const stats = useMemo(() => {
     const total = bookings.length
@@ -343,9 +332,8 @@ export default function BookingsManagement() {
     try {
       const rows = filteredBookings.map(b => {
         const r = routeById.get(b.route_id)
-        const u = userById.get(b.user_id)
         return {
-          user: userLabel(u, b.user_id),
+          user: userLabel(b.user_id),
           route: routeLabel(r),
           pickup_location: pickupName(b),
           dropoff_location: dropoffName(b),
@@ -423,7 +411,7 @@ export default function BookingsManagement() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
+        {/* <Card className="border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -437,7 +425,7 @@ export default function BookingsManagement() {
               <span className="font-medium text-foreground">{loading ? '—' : stats.uniqueRoutes}</span>
             </p>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       <Card className="border-border/50">
@@ -529,19 +517,14 @@ export default function BookingsManagement() {
                     {!loading &&
                       filteredBookings.map(b => {
                         const r = routeById.get(b.route_id)
-                        const u = userById.get(b.user_id)
                         const svc = getServiceBadge(b.service_type)
 
                         return (
                           <tr key={b.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                             <td className="py-4 px-6">
                               <div>
-                                <p className="font-medium text-foreground">{userLabel(u, b.user_id)}</p>
-                                {u?.phone_number ? (
-                                  <p className="text-xs text-muted-foreground">{u.phone_number}</p>
-                                ) : (
-                                  <p className="text-xs text-muted-foreground">User #{b.user_id}</p>
-                                )}
+                                <p className="font-medium text-foreground">{userLabel(b.user_id)}</p>
+                                <p className="text-xs text-muted-foreground">User #{b.user_id}</p>
                               </div>
                             </td>
 
