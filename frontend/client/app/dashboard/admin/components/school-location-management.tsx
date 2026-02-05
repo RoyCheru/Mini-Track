@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState, useEffect} from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useMemo, useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -17,17 +17,22 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 
+type Route = {
+  id: number
+  name: string // 🔧 if backend uses different field, change here
+}
+
 type SchoolLocation = {
   id: number
   name: string
-  route_id: string
+  route_id: number | string
   gps_coordinates: string
 }
 
-
 export default function SchoolLocationManagement() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [locations, setLocations] = useState<any[]>([]);
+  const [locations, setLocations] = useState<SchoolLocation[]>([])
+  const [routes, setRoutes] = useState<Route[]>([])
 
   const [addOpen, setAddOpen] = useState(false)
   const [form, setForm] = useState({
@@ -35,147 +40,161 @@ export default function SchoolLocationManagement() {
     route_id: '',
     gps_coordinates: '',
   })
-   const [editOpen, setEditOpen] = useState(false)
-    const [editing, setEditing] = useState<SchoolLocation | null>(null)
-    const [editForm, setEditForm] = useState({
+
+  const [editOpen, setEditOpen] = useState(false)
+  const [editing, setEditing] = useState<SchoolLocation | null>(null)
+  const [editForm, setEditForm] = useState({
     name: '',
     route_id: '',
     gps_coordinates: '',
-    })
+  })
+
+  const normalizeToArray = <T,>(data: any, keys: string[] = []): T[] => {
+    if (Array.isArray(data)) return data as T[]
+    for (const k of keys) {
+      if (Array.isArray(data?.[k])) return data[k] as T[]
+    }
+    if (Array.isArray(data?.data)) return data.data as T[]
+    return []
+  }
+
+  const fetchRoutes = async () => {
+    try {
+      const res = await apiFetch('/routes')
+      const data = await res.json()
+      const arr = normalizeToArray<Route>(data, ['routes'])
+      setRoutes(arr)
+    } catch (err) {
+      console.error('Failed to fetch routes', err)
+      setRoutes([])
+    }
+  }
 
   const fetchLocations = async () => {
-        const token = localStorage.getItem("token");
-        console.log (token)
-      try {
-        const res = await apiFetch("/school-locations/all");
-    
-        const data = await res.json();
-        setLocations(data);
-      } catch (err) {
-        console.error("Failed to fetch locations", err);
-      }
-      };
-      useEffect(() => {
-      fetchLocations();
-      }, []);
+    try {
+      const res = await apiFetch('/school-locations/all')
+      const data = await res.json()
+      const arr = normalizeToArray<SchoolLocation>(data, ['school_locations'])
+      setLocations(arr)
+    } catch (err) {
+      console.error('Failed to fetch locations', err)
+      setLocations([])
+    }
+  }
 
- const filtered = useMemo(() => {
+  useEffect(() => {
+    fetchRoutes()
+    fetchLocations()
+  }, [])
+
+  const routeNameById = useMemo(() => {
+    const map = new Map<number, string>()
+    routes.forEach(r => map.set(r.id, r.name))
+    return map
+  }, [routes])
+
+  const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
     if (!q) return locations
 
-    return locations.filter((l: any) =>
-      String(l.name ?? '').toLowerCase().includes(q) ||
-      String(l.route_id ?? '').toLowerCase().includes(q) ||
-      String(l.gps_coordinates ?? '').toLowerCase().includes(q)
-    )
-  }, [locations, searchTerm])
+    return locations.filter(l => {
+      const rid = Number(l.route_id)
+      const routeName = routeNameById.get(rid) || ''
+      return (
+        String(l.name ?? '').toLowerCase().includes(q) ||
+        String(routeName).toLowerCase().includes(q) ||
+        String(l.gps_coordinates ?? '').toLowerCase().includes(q)
+      )
+    })
+  }, [locations, searchTerm, routeNameById])
 
-  const handleAdd = async() => {
+  const handleAdd = async () => {
     if (!form.name || !form.route_id || !form.gps_coordinates) return
 
-    // Simple constraint: one school location per route_id
-    // const exists = locations.some(l => l.route_id === form.route_id)
-    // if (exists) return
+    const payload = {
+      name: form.name,
+      route_id: Number(form.route_id),
+      gps_coordinates: form.gps_coordinates,
+    }
 
-    const token = localStorage.getItem("token");
-    
-         const res = await apiFetch("/school-locations", {
-          method: "POST",
-          body: JSON.stringify(form)
-          });
-    
-        if (res.ok) {
-          fetchLocations();   
-        }
+    const res = await apiFetch('/school-locations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
 
-    // setLocations(prev => [{ ...form }, ...prev])
+    if (res.ok) {
+      fetchLocations()
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || data.message || 'Create failed')
+    }
+
     setForm({ name: '', route_id: '', gps_coordinates: '' })
     setAddOpen(false)
   }
 
-    const openEdit = (s: SchoolLocation) => {
+  const openEdit = (s: SchoolLocation) => {
     setEditing(s)
     setEditForm({
       name: s.name,
-      route_id: s.route_id,
-      gps_coordinates: s.gps_coordinates
+      route_id: String(s.route_id),
+      gps_coordinates: s.gps_coordinates,
     })
     setEditOpen(true)
   }
 
-  const handleSave = async() => {
+  const handleSave = async () => {
     if (!editing) return
     if (!editForm.name || !editForm.route_id || !editForm.gps_coordinates) return
 
     const payload = {
-    name: editForm.name,
-    route_id: editForm.route_id,
-    gps_coordinates: editForm.gps_coordinates,
-
-  }
-
-  
-  try {
-    const token = localStorage.getItem("token")
-
-    const res = await apiFetch(`/school-locations/${editing.id}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      }
-    )
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      alert(data.error || "Update failed")
-      return
+      name: editForm.name,
+      route_id: Number(editForm.route_id),
+      gps_coordinates: editForm.gps_coordinates,
     }
 
-    // Update UI AFTER backend success
+    try {
+      const res = await apiFetch(`/school-locations/${editing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
 
-    setLocations(prev =>
-      prev.map(s =>
-        s.id === editing.id ? { ...s, ...payload } : s
-      )
-    )
-    setEditOpen(false)
-    setEditing(null)
+      const data = await res.json()
+
+      if (!res.ok) {
+        alert(data.error || 'Update failed')
+        return
+      }
+
+      setLocations(prev => prev.map(s => (s.id === editing.id ? { ...s, ...payload } : s)))
+      setEditOpen(false)
+      setEditing(null)
+    } catch (err) {
+      console.error(err)
+      alert('Server error')
+    }
   }
-  catch (err) {
-    console.error(err)
-    alert("Server error")
-  }
-}
 
   const handleDelete = async (id: number) => {
     try {
-    const res = await apiFetch(
-      `/school-locations/${id}`,
-      {
-        method: "DELETE"
+      const res = await apiFetch(`/school-locations/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+
+      if (!res.ok) {
+        alert(data.message || 'Delete failed')
+        return
       }
-    )
 
-    const data = await res.json()
-
-    if (!res.ok) {
-      alert(data.message || "Delete failed")
-      return
+      setLocations(prev => prev.filter(s => s.id !== id))
+    } catch (err) {
+      console.error(err)
+      alert('Server error')
     }
-
-    setLocations(prev => prev.filter(s => s.id !== id))
-
-  } catch (err) {
-    console.error(err)
-    alert("Server error")
   }
-}
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <Card className="border-border/50">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -209,13 +228,19 @@ export default function SchoolLocationManagement() {
                   </div>
 
                   <div>
-                    <Label>Route ID</Label>
-                    <Input
+                    <Label>Route</Label>
+                    <select
+                      className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                       value={form.route_id}
                       onChange={e => setForm({ ...form, route_id: e.target.value })}
-                      className="mt-1"
-                      placeholder="1"
-                    />
+                    >
+                      <option value="">Select a route</option>
+                      {routes.map(r => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
@@ -228,7 +253,7 @@ export default function SchoolLocationManagement() {
                     />
                   </div>
 
-                  <Button className="w-full mt-6" onClick={handleAdd}>
+                  <Button className="w-full mt-6" onClick={handleAdd} disabled={!routes.length}>
                     Create Location
                   </Button>
 
@@ -242,13 +267,12 @@ export default function SchoolLocationManagement() {
         </CardHeader>
       </Card>
 
-      {/* Search */}
       <Card className="border-border/50">
         <CardContent className="pt-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, route_id, GPS..."
+              placeholder="Search by school name, route, GPS..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -257,7 +281,6 @@ export default function SchoolLocationManagement() {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card className="border-border/50 overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -265,59 +288,43 @@ export default function SchoolLocationManagement() {
               <thead className="bg-muted/50 border-b border-border/50">
                 <tr>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">School</th>
-                  <th className="text-left py-4 px-6 font-semibold text-foreground">Route ID</th>
+                  <th className="text-left py-4 px-6 font-semibold text-foreground">Route</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">GPS</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filtered.map(l => (
-                  <tr key={l.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-4 px-6">
-                      <p className="font-semibold text-foreground flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        {l.name}
-                      </p>
-                    </td>
+                {filtered.map(l => {
+                  const routeName = routeNameById.get(Number(l.route_id)) || `Route #${l.route_id}`
+                  return (
+                    <tr key={l.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                      <td className="py-4 px-6">
+                        <p className="font-semibold text-foreground flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          {l.name}
+                        </p>
+                      </td>
 
-                    <td className="py-4 px-6">
-                      <Badge variant="outline">{l.route_id}</Badge>
-                    </td>
+                      <td className="py-4 px-6">
+                        <Badge variant="outline">{routeName}</Badge>
+                      </td>
 
-                    <td className="py-4 px-6 text-muted-foreground">{l.gps_coordinates}</td>
+                      <td className="py-4 px-6 text-muted-foreground">{l.gps_coordinates}</td>
 
-                 <td className="py-4 px-6">
-                  <div className="flex items-center gap-3">
-                    {/* Edit */}
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => openEdit(l)}
-                      className="h-9 w-9 rounded-lg border-border text-foreground
-                                hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label="Edit location"
-                      title="Edit"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-
-                    {/* Delete */}
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => handleDelete(l.id)}
-                      className="h-9 w-9 rounded-lg border-border text-foreground
-                                hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label="Delete location"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </td>
-                  </tr>
-                ))}
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          <Button size="icon" variant="outline" onClick={() => openEdit(l)} className="h-9 w-9 rounded-lg">
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="outline" onClick={() => handleDelete(l.id)} className="h-9 w-9 rounded-lg">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
 
                 {filtered.length === 0 && (
                   <tr>
@@ -331,8 +338,8 @@ export default function SchoolLocationManagement() {
           </div>
         </CardContent>
       </Card>
-        {/* Edit Dialog */}
-     <Dialog open={editOpen} onOpenChange={setEditOpen}>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit School Location</DialogTitle>
@@ -344,15 +351,29 @@ export default function SchoolLocationManagement() {
               <Label>School Name</Label>
               <Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
             </div>
+
             <div>
-              <Label>Route ID</Label>
-              <Input value={editForm.route_id} onChange={e => setEditForm({ ...editForm, route_id: e.target.value })} />
+              <Label>Route</Label>
+              <select
+                className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={editForm.route_id}
+                onChange={e => setEditForm({ ...editForm, route_id: e.target.value })}
+              >
+                <option value="">Select a route</option>
+                {routes.map(r => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
             </div>
+
             <div>
               <Label>GPS Coordinates</Label>
               <Input value={editForm.gps_coordinates} onChange={e => setEditForm({ ...editForm, gps_coordinates: e.target.value })} />
             </div>
-            <Button className="w-full" onClick={handleSave}>
+
+            <Button className="w-full" onClick={handleSave} disabled={!routes.length}>
               Save Changes
             </Button>
           </div>

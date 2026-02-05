@@ -1,43 +1,52 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { apiFetch } from '@/lib/api'
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, MapPin, Car, Users, Clock, Navigation, Bell, CheckCircle, AlertCircle, UserCheck, Sun, Moon, Menu, X } from 'lucide-react'
+
+import {
+  Calendar,
+  Navigation,
+  Bell,
+  CheckCircle,
+  AlertCircle,
+  UserCheck,
+  Sun,
+  Moon,
+  Menu,
+  X,
+  LogOut,
+  Car,
+  MapPin,
+} from 'lucide-react'
+
 import ScheduleView from './components/ScheduleView'
-import PassengerTracking from './components/PassengerTracking'
 import RouteMap from './components/RouteMap'
 import TripManagement from './components/TripManagement'
+import VehicleStatus from './components/VehicleStatus'
+import DriverPassengers from './components/DriverPassengers'
 
-interface DriverSchedule {
+type TripStatus = 'scheduled' | 'picked_up' | 'completed' | 'cancelled'
+type ServiceType = 'morning' | 'evening'
+type TabKey = 'dashboard' | 'passengers' | 'schedule'
+
+interface DriverTrip {
   id: number
-  user_id: number
   vehicle_id: number
   pickup_location: string
   dropoff_location: string
   start_date: string
-  end_date: string
-  days_of_week: string
-  service_type: 'morning' | 'evening' | 'both'
+  service_type: ServiceType
   seats_booked: number
-  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
+  status: TripStatus
   trip_time?: string
-  passengers?: Passenger[]
-}
-
-interface Passenger {
-  id: number
-  name: string
-  parent_name: string
-  parent_phone: string
-  pickup_location: string
-  dropoff_location: string
-  status: 'pending' | 'picked-up' | 'dropped-off' | 'absent'
-  checked_in_time?: string
-  checked_out_time?: string
-  trip_type: 'morning' | 'evening'
+  child_name?: string
+  booking_id?: number
 }
 
 interface VehicleInfo {
@@ -45,10 +54,10 @@ interface VehicleInfo {
   license_plate: string
   model: string
   capacity: number
-  current_passengers: number
-  fuel_level: number
-  status: 'active' | 'maintenance' | 'offline'
-  next_service: string
+  status?: string
+  route_id?: number
+  route_name?: string
+  driver_name?: string
 }
 
 interface AlertMessage {
@@ -57,231 +66,280 @@ interface AlertMessage {
   id: number
 }
 
-// Mock data with morning and evening trips
-const MOCK_SCHEDULE: DriverSchedule[] = [
-  {
-    id: 1,
-    user_id: 1,
-    vehicle_id: 1,
-    pickup_location: "Freedom Heights Mall, Langatta, Nairobi",
-    dropoff_location: "Nairobi School",
-    start_date: "2024-02-15",
-    end_date: "2024-02-20",
-    days_of_week: "1,2,3,4,5",
-    service_type: "morning",
-    seats_booked: 4,
-    status: 'in-progress',
-    trip_time: "07:00 AM",
-    passengers: [
-      { id: 1, name: "Heeba Hassan", parent_name: "Hassan", parent_phone: "+254 712 345 678", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'picked-up', checked_in_time: "07:30", trip_type: 'morning' },
-      { id: 2, name: "Kamau Joseph", parent_name: "Micheal Njeri", parent_phone: "+254 723 456 789", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'picked-up', checked_in_time: "07:32", trip_type: 'morning' },
-      { id: 3, name: "Dan Rotich", parent_name: "Michael Doe", parent_phone: "+254 734 567 890", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'pending', trip_type: 'morning' },
-      { id: 4, name: "Fourtune", parent_name: "James Kamau", parent_phone: "+254 745 678 901", pickup_location: "Freedom Heights Mall", dropoff_location: "Nairobi School", status: 'pending', trip_type: 'morning' },
-    ]
-  },
-  {
-    id: 2,
-    user_id: 1,
-    vehicle_id: 1,
-    pickup_location: "Nairobi School",
-    dropoff_location: "Freedom Heights Mall, Langatta, Nairobi",
-    start_date: "2024-02-15",
-    end_date: "2024-02-20",
-    days_of_week: "1,2,3,4,5",
-    service_type: "evening",
-    seats_booked: 4,
-    status: 'scheduled',
-    trip_time: "03:30 PM",
-    passengers: [
-      { id: 5, name: "Heeba Hassan", parent_name: "Hassan", parent_phone: "+254 712 345 678", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
-      { id: 6, name: "Kamau Joseph", parent_name: "Micheal Njeri", parent_phone: "+254 723 456 789", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
-      { id: 7, name: "Dan Rotich", parent_name: "Michael Doe", parent_phone: "+254 734 567 890", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
-      { id: 8, name: "Fourtune", parent_name: "James Kamau", parent_phone: "+254 745 678 901", pickup_location: "Nairobi School", dropoff_location: "Freedom Heights Mall", status: 'pending', trip_type: 'evening' },
-    ]
-  },
-  {
-    id: 3,
-    user_id: 1,
-    vehicle_id: 1,
-    pickup_location: "Westgate Mall, Nairobi",
-    dropoff_location: "St. Mary's School",
-    start_date: "2024-02-15",
-    end_date: "2024-02-20",
-    days_of_week: "1,3,5",
-    service_type: "morning",
-    seats_booked: 3,
-    status: 'scheduled',
-    trip_time: "07:15 AM",
-    passengers: [
-      { id: 9, name: "Sophia Benard", parent_name: "Robert Njoroge", parent_phone: "+254 756 789 012", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
-      { id: 10, name: "Mason Otieno", parent_name: "Lisa Awino", parent_phone: "+254 767 890 123", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
-      { id: 11, name: "Abdul Abdi", parent_name: "Samira said", parent_phone: "+254 778 901 234", pickup_location: "Westgate Mall", dropoff_location: "St. Mary's School", status: 'pending', trip_type: 'morning' },
-    ]
-  },
-  {
-    id: 4,
-    user_id: 1,
-    vehicle_id: 1,
-    pickup_location: "St. Mary's School",
-    dropoff_location: "Westgate Mall, Nairobi",
-    start_date: "2024-02-15",
-    end_date: "2024-02-20",
-    days_of_week: "1,3,5",
-    service_type: "evening",
-    seats_booked: 3,
-    status: 'scheduled',
-    trip_time: "04:00 PM",
-    passengers: [
-      { id: 12, name: "Sophia Benard", parent_name: "Robert Njoroge", parent_phone: "+254 756 789 012", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
-      { id: 13, name: "Mason Otieno", parent_name: "Lisa Awino", parent_phone: "+254 767 890 123", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
-      { id: 14, name: "Abdul Abdi", parent_name: "Samira said", parent_phone: "+254 778 901 234", pickup_location: "St. Mary's School", dropoff_location: "Westgate Mall", status: 'pending', trip_type: 'evening' },
-    ]
-  }
-]
+function safeString(v: any, fallback = ''): string {
+  if (v === null || v === undefined) return fallback
+  return String(v)
+}
 
-const MOCK_VEHICLE: VehicleInfo = {
-  id: 1,
-  license_plate: 'KDC 123X',
-  model: 'Scania Coach',
-  capacity: 42,
-  current_passengers: 2,
-  fuel_level: 85,
-  status: 'active',
-  next_service: '2024-03-15'
+function normalizeTripStatus(raw: any): TripStatus {
+  const s = safeString(raw, 'scheduled').toLowerCase()
+  if (s === 'picked_up' || s === 'picked-up') return 'picked_up'
+  if (s === 'completed' || s === 'complete') return 'completed'
+  if (s === 'cancelled' || s === 'canceled') return 'cancelled'
+  return 'scheduled'
+}
+
+function normalizeServiceTime(raw: any): ServiceType {
+  const s = safeString(raw, 'morning').toLowerCase()
+  return s === 'evening' ? 'evening' : 'morning'
+}
+
+function pickLocationName(v: any): string {
+  if (!v) return '—'
+  if (typeof v === 'string') return v
+  return String(v.name ?? v.location_name ?? v.address ?? v.id ?? '—')
+}
+
+function authHeaders(token: string | null) {
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 export default function DriverDashboardPage() {
-  const [activeTab, setActiveTab] = useState('dashboard')
-  const [schedule, setSchedule] = useState<DriverSchedule[]>(MOCK_SCHEDULE)
-  const [vehicle, setVehicle] = useState<VehicleInfo>(MOCK_VEHICLE)
-  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard')
+  const [trips, setTrips] = useState<DriverTrip[]>([])
+  const [vehicle, setVehicle] = useState<VehicleInfo | null>(null)
+
+  const [loading, setLoading] = useState(true)
   const [alerts, setAlerts] = useState<AlertMessage[]>([])
-  const [showProfile, setShowProfile] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  
-  // read after mount to avoid hydration mismatch
+
   const [username, setUsername] = useState<string | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
 
+  const tripsRef = useRef<DriverTrip[]>([])
   useEffect(() => {
-    setUsername(localStorage.getItem('username'))
-  }, [])
+    tripsRef.current = trips
+  }, [trips])
 
-  const addAlert = (type: 'success' | 'error' | 'info', message: string) => {
+  const addAlert = (type: AlertMessage['type'], message: string) => {
     const id = Date.now()
     setAlerts(prev => [...prev, { type, message, id }])
-    
-    // Auto-remove after 4 seconds
-    setTimeout(() => {
-      setAlerts(prev => prev.filter(alert => alert.id !== id))
-    }, 4000)
+    setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== id)), 4000)
   }
 
-  const fetchDriverData = async () => {
+  const handleLogout = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+
     try {
-      setLoading(true)
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      addAlert('success', 'Schedule loaded successfully')
-    } catch (error) {
-      addAlert('error', 'Failed to load data')
+      const token = localStorage.getItem('token')
+      await apiFetch('/logout', {
+        method: 'POST',
+        headers: authHeaders(token),
+      })
+    } catch (err) {
+      console.error('Logout error:', err)
+    } finally {
+      localStorage.removeItem('token')
+      localStorage.removeItem('username')
+      localStorage.removeItem('vehicle_id')
+      localStorage.removeItem('user_id')
+      setLoggingOut(false)
+      router.replace('/auth/signin')
+    }
+  }
+
+  const fetchVehicle = async (vehicleId: number, token: string) => {
+    const res = await apiFetch(`/vehicles/${vehicleId}`, {
+      method: 'GET',
+      headers: authHeaders(token),
+    })
+    const data = await res.json().catch(() => ({}))
+
+    const v: VehicleInfo = {
+      id: Number(data.id ?? vehicleId),
+      license_plate: safeString(data.license_plate, '—'),
+      model: safeString(data.model, '—'),
+      capacity: Number(data.capacity ?? 0),
+      status: data.status,
+      route_id: data.route_id,
+      route_name: data.route_name,
+      driver_name: data.driver_name,
+    }
+
+    return v
+  }
+
+  const sanitizeTrip = (t: any, vehicleId: number): DriverTrip => {
+    return {
+      id: Number(t.trip_id ?? t.id),
+      booking_id: t.booking_id ? Number(t.booking_id) : undefined,
+      vehicle_id: Number(t.vehicle_id ?? vehicleId),
+
+      start_date: safeString(t.trip_date ?? t.start_date ?? t.date ?? '', ''),
+      service_type: normalizeServiceTime(t.service_time ?? t.service_type),
+
+      status: normalizeTripStatus(t.status),
+      seats_booked: Number(t.seats_booked ?? 0),
+
+      pickup_location: pickLocationName(t.pickup_location),
+      dropoff_location: pickLocationName(t.dropoff_location),
+
+      child_name: t.child_name ? safeString(t.child_name) : undefined,
+      trip_time: t.pickup_time ? safeString(t.pickup_time) : undefined,
+    }
+  }
+
+  const extractTripsArray = (json: any): any[] => {
+    if (Array.isArray(json)) return json
+    if (Array.isArray(json?.trips)) return json.trips
+    return []
+  }
+
+  const fetchTripsForToday = async (vehicleId: number, token: string) => {
+    const [morningRes, eveningRes] = await Promise.all([
+      apiFetch(`/trips/today?vehicle_id=${vehicleId}&service_time=morning`, {
+        method: 'GET',
+        headers: authHeaders(token),
+      }),
+      apiFetch(`/trips/today?vehicle_id=${vehicleId}&service_time=evening`, {
+        method: 'GET',
+        headers: authHeaders(token),
+      }),
+    ])
+
+    const morningJson = await morningRes.json().catch(() => ({}))
+    const eveningJson = await eveningRes.json().catch(() => ({}))
+
+    const morningTripsRaw = extractTripsArray(morningJson)
+    const eveningTripsRaw = extractTripsArray(eveningJson)
+
+    const morning = morningTripsRaw.map((t: any) => sanitizeTrip(t, vehicleId))
+    const evening = eveningTripsRaw.map((t: any) => sanitizeTrip(t, vehicleId))
+
+    const uniq = new Map<number, DriverTrip>()
+    ;[...morning, ...evening].forEach(t => {
+      if (Number.isFinite(t.id)) uniq.set(t.id, t)
+    })
+
+    return Array.from(uniq.values())
+  }
+
+  const reloadAll = async () => {
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        addAlert('error', 'Session expired. Please sign in again.')
+        setTrips([])
+        setVehicle(null)
+        router.replace('/auth/signin')
+        return
+      }
+
+      setUsername(localStorage.getItem('username'))
+
+      const vehicleIdRaw = localStorage.getItem('vehicle_id')
+      if (!vehicleIdRaw) {
+        addAlert('error', 'No vehicle assigned for this driver. Please sign in again.')
+        setTrips([])
+        setVehicle(null)
+        return
+      }
+
+      const vehicleId = Number(vehicleIdRaw)
+      if (!Number.isFinite(vehicleId)) {
+        addAlert('error', 'Invalid vehicle assignment. Please sign in again.')
+        setTrips([])
+        setVehicle(null)
+        return
+      }
+
+      const [v, t] = await Promise.all([fetchVehicle(vehicleId, token), fetchTripsForToday(vehicleId, token)])
+      setVehicle(v)
+      setTrips(t)
+
+      addAlert('info', `Loaded ${t.length} trip(s) for today.`)
+    } catch (err: any) {
+      console.error(err)
+      addAlert('error', err?.message || 'Failed to load driver data')
+      setTrips([])
+      setVehicle(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleStartTrip = (tripId: number) => {
-    setSchedule(prev => prev.map(trip => 
-      trip.id === tripId ? { ...trip, status: 'in-progress' } : trip
-    ))
-    const trip = schedule.find(t => t.id === tripId)
-    addAlert('success', `${trip?.service_type} trip started successfully`)
-  }
+  useEffect(() => {
+    reloadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const handleCompleteTrip = (tripId: number) => {
-    setSchedule(prev => prev.map(trip => 
-      trip.id === tripId ? { ...trip, status: 'completed' } : trip
-    ))
-    const trip = schedule.find(t => t.id === tripId)
-    addAlert('success', `${trip?.service_type} trip completed successfully`)
-    
-    // If morning trip completed, check if there's an evening trip to auto-start
-    if (trip?.service_type === 'morning') {
-      const eveningTrip = schedule.find(t => 
-        t.status === 'scheduled' && 
-        t.service_type === 'evening' &&
-        t.start_date === trip.start_date
-      )
-      if (eveningTrip) {
-        setTimeout(() => {
-          addAlert('info', `Evening trip to ${eveningTrip.dropoff_location} is ready to start`)
-        }, 2000)
-      }
+  // ✅ IMPORTANT: /trips/today is already today. Do NOT re-filter by date client-side.
+  const todayTrips = useMemo(() => trips, [trips])
+
+  const currentTrip = useMemo(() => todayTrips.find(t => t.status === 'picked_up') || null, [todayTrips])
+  const morningTrips = useMemo(() => todayTrips.filter(t => t.service_type === 'morning'), [todayTrips])
+  const eveningTrips = useMemo(() => todayTrips.filter(t => t.service_type === 'evening'), [todayTrips])
+  const completedTrips = useMemo(() => todayTrips.filter(t => t.status === 'completed'), [todayTrips])
+
+  const upcomingTrip = useMemo(() => {
+    if (currentTrip) return null
+    return todayTrips.find(t => t.status === 'scheduled') || null
+  }, [todayTrips, currentTrip])
+
+  const onboardCount = useMemo(() => {
+    return todayTrips
+      .filter(t => t.status === 'picked_up')
+      .reduce((sum, t) => sum + (Number.isFinite(t.seats_booked) ? t.seats_booked : 0), 0)
+  }, [todayTrips])
+
+  const startTrip = async (tripId: number) => {
+    const snapshot = tripsRef.current
+    setTrips(prev => prev.map(t => (t.id === tripId ? { ...t, status: 'picked_up' } : t)))
+
+    try {
+      const token = localStorage.getItem('token')
+      await apiFetch(`/trips/${tripId}/pickup`, {
+        method: 'PATCH',
+        headers: {
+          ...authHeaders(token),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      })
+      addAlert('success', 'Trip started')
+    } catch (e: any) {
+      console.error(e)
+      setTrips(snapshot)
+      addAlert('error', e?.message || 'Server error starting trip')
     }
   }
 
-  const handleMarkPassenger = (tripId: number, passengerId: number, status: 'picked-up' | 'dropped-off' | 'absent') => {
-    setSchedule(prev => prev.map(trip => {
-      if (trip.id === tripId && trip.passengers) {
-        const updatedPassengers = trip.passengers.map(passenger => {
-          if (passenger.id === passengerId) {
-            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            return {
-              ...passenger,
-              status,
-              ...(status === 'picked-up' ? { checked_in_time: time } : {}),
-              ...(status === 'dropped-off' ? { checked_out_time: time } : {})
-            }
-          }
-          return passenger
-        })
-        
-        // Update vehicle passenger count
-        if (status === 'picked-up') {
-          setVehicle(prev => ({ ...prev, current_passengers: prev.current_passengers + 1 }))
-        } else if (status === 'dropped-off') {
-          setVehicle(prev => ({ ...prev, current_passengers: Math.max(0, prev.current_passengers - 1) }))
-        }
-        
-        return { ...trip, passengers: updatedPassengers }
-      }
-      return trip
-    }))
-    
-    const action = status === 'picked-up' ? 'picked up' : status === 'dropped-off' ? 'dropped off' : 'marked absent'
-    addAlert('success', `Passenger ${action} successfully`)
+  const completeTrip = async (tripId: number) => {
+    const snapshot = tripsRef.current
+    setTrips(prev => prev.map(t => (t.id === tripId ? { ...t, status: 'completed' } : t)))
+
+    try {
+      const token = localStorage.getItem('token')
+      await apiFetch(`/trips/${tripId}/dropoff`, {
+        method: 'PATCH',
+        headers: {
+          ...authHeaders(token),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      })
+      addAlert('success', 'Trip completed')
+    } catch (e: any) {
+      console.error(e)
+      setTrips(snapshot)
+      addAlert('error', e?.message || 'Server error completing trip')
+    }
   }
-
-  const currentTrip = schedule.find(trip => trip.status === 'in-progress')
-  const today = new Date().toISOString().split('T')[0]
-  const todaySchedule = schedule.filter(trip => trip.start_date === today)
-  
-  // Separate morning and evening trips
-  const morningTrips = todaySchedule.filter(trip => trip.service_type === 'morning')
-  const eveningTrips = todaySchedule.filter(trip => trip.service_type === 'evening')
-  const completedTrips = todaySchedule.filter(trip => trip.status === 'completed')
-
-  // Days mapping
-  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-  // Get upcoming trips
-  const getUpcomingTrip = () => {
-    if (currentTrip) return null
-    return todaySchedule.find(trip => trip.status === 'scheduled')
-  }
-
-  const upcomingTrip = getUpcomingTrip()
 
   return (
     <div className="min-h-screen bg-linear-to-br from-background via-background to-muted/20">
-      {/* Alert Banner */}
       {alerts.length > 0 && (
         <div className="sticky top-0 z-50 px-4 py-2 space-y-2">
           {alerts.map(alert => (
             <div
               key={alert.id}
               className={`rounded-lg border p-4 animate-in slide-in-from-top duration-300 ${
-                alert.type === 'success' 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
+                alert.type === 'success'
+                  ? 'bg-green-50 border-green-200 text-green-800'
                   : alert.type === 'error'
                   ? 'bg-red-50 border-red-200 text-red-800'
                   : 'bg-blue-50 border-blue-200 text-blue-800'
@@ -290,6 +348,7 @@ export default function DriverDashboardPage() {
               <div className="flex items-center gap-2">
                 {alert.type === 'success' && <CheckCircle className="w-4 h-4" />}
                 {alert.type === 'error' && <AlertCircle className="w-4 h-4" />}
+                {alert.type === 'info' && <Bell className="w-4 h-4" />}
                 <p className="text-sm font-medium">{alert.message}</p>
               </div>
             </div>
@@ -300,142 +359,110 @@ export default function DriverDashboardPage() {
       {/* Header */}
       <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-4">
-              {/* Mobile Menu Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="lg:hidden"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              >
+              <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileMenuOpen(v => !v)}>
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </Button>
-              
-               <div className="relative">
-  <div className="absolute -left-3 top-0 h-full w-1 bg-gradient-to-b from-blue-400 to-blue-300 rounded-full"></div>
-  <div className="pl-2">
-    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
-      Driver Dashboard
-    </h1>
-    <p className="text-sm text-blue-700/70 mt-0.5">
-      Welcome back, <span className="font-medium text-blue-800">{username || 'Driver'}</span>
-    </p>
-  </div>
-</div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              {currentTrip && (
-                <Badge className={`gap-2 px-3 py-1.5 ${
-                  currentTrip.service_type === 'morning' 
-                    ? 'bg-amber-500 hover:bg-amber-600 text-white' 
-                    : 'bg-indigo-500 hover:bg-indigo-600 text-white'
-                }`}>
-                  {currentTrip.service_type === 'morning' ? (
-                    <Sun className="w-3 h-3" />
-                  ) : (
-                    <Moon className="w-3 h-3" />
-                  )}
-                  {currentTrip.service_type.toUpperCase()} TRIP
-                </Badge>
-              )}
-              
-              {/* Profile Avatar Button */}
-              <Button
-                size="icon"
-                variant="ghost"
-                className="rounded-full h-10 w-10 hover:bg-blue-50 transition-colors"
-                onClick={() => setShowProfile(true)}
-              >
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                  <span className="text-white font-medium text-sm">
-                    {(username || 'D').charAt(0)}
-                  </span>
+
+              <div className="relative">
+                <div className="absolute -left-3 top-0 h-full w-1 bg-gradient-to-b from-blue-400 to-blue-300 rounded-full" />
+                <div className="pl-2">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+                    Driver Dashboard
+                  </h1>
+                  <p className="text-sm text-blue-700/70 mt-0.5">
+                    Welcome back, <span className="font-medium text-blue-800">{username || 'Driver'}</span>
+                  </p>
                 </div>
-              </Button>
-              
-              <Button 
-                size="icon" 
-                variant="ghost" 
-                className="gap-2 hover:bg-blue-50 transition-colors"
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                className="gap-2 bg-transparent border-slate-200 hover:bg-blue-50"
+                onClick={handleLogout}
+                disabled={loggingOut}
               >
-                <Bell className="w-5 h-5" />
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">{loggingOut ? 'Logging out...' : 'Logout'}</span>
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
-          <div className="absolute right-0 top-16 h-full w-64 bg-card border-l shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                  <span className="text-white font-medium text-lg">
-                    {(username || 'D').charAt(0)}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900">{username || 'Driver'}</h3>
-                  <p className="text-sm text-slate-600">Professional Driver</p>
-                </div>
-              </div>
-              
-              <div className="space-y-1">
-                <Button 
-                  variant="ghost" 
-                  className="w-full justify-start hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors"
-                  onClick={() => {
-                    setActiveTab('dashboard')
-                    setMobileMenuOpen(false)
-                  }}
-                >
-                  <Navigation className="w-4 h-4 mr-2" />
-                  Dashboard
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  className="w-full justify-start hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors"
-                  onClick={() => {
-                    setActiveTab('passengers')
-                    setMobileMenuOpen(false)
-                  }}
-                >
-                  <UserCheck className="w-4 h-4 mr-2" />
-                  Passengers
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  className="w-full justify-start hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors"
-                  onClick={() => {
-                    setActiveTab('schedule')
-                    setMobileMenuOpen(false)
-                  }}
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Schedule
-                </Button>
-              </div>
+          <div className="absolute right-0 top-16 h-full w-64 bg-card border-l shadow-lg" onClick={e => e.stopPropagation()}>
+            <div className="p-6 space-y-3">
+              <Button
+                variant="ghost"
+                className="w-full justify-start hover:bg-blue-50 hover:text-blue-700"
+                onClick={() => {
+                  setActiveTab('dashboard')
+                  setMobileMenuOpen(false)
+                }}
+              >
+                <Navigation className="w-4 h-4 mr-2" />
+                Dashboard
+              </Button>
+
+              <Button
+                variant="ghost"
+                className="w-full justify-start hover:bg-blue-50 hover:text-blue-700"
+                onClick={() => {
+                  setActiveTab('passengers')
+                  setMobileMenuOpen(false)
+                }}
+              >
+                <UserCheck className="w-4 h-4 mr-2" />
+                Passengers
+              </Button>
+
+              <Button
+                variant="ghost"
+                className="w-full justify-start hover:bg-blue-50 hover:text-blue-700"
+                onClick={() => {
+                  setActiveTab('schedule')
+                  setMobileMenuOpen(false)
+                }}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Schedule
+              </Button>
+
+              <Button
+                variant="ghost"
+                className="w-full justify-start hover:bg-red-50 hover:text-red-700"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  handleLogout()
+                }}
+                disabled={loggingOut}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                {loggingOut ? 'Logging out...' : 'Logout'}
+              </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Main Content  */}
+      {/* Main */}
       <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {loading ? (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center space-y-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto" />
               <p className="text-slate-600">Loading dashboard...</p>
             </div>
           </div>
         ) : (
           <>
-            {/* Today's Summary */}
+            {/* Overview */}
             <div className="mb-8">
               <Card className="border-slate-200 bg-white shadow-sm">
                 <CardContent className="p-6">
@@ -446,7 +473,7 @@ export default function DriverDashboardPage() {
                         {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                       </p>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       <div className="text-center bg-amber-50 p-3 rounded-lg">
                         <div className="text-2xl font-bold text-amber-700">{morningTrips.length}</div>
@@ -461,7 +488,7 @@ export default function DriverDashboardPage() {
                         <div className="text-sm text-emerald-600">Completed</div>
                       </div>
                       <div className="text-center bg-blue-50 p-3 rounded-lg">
-                        <div className="text-2xl font-bold text-blue-700">{vehicle.current_passengers}</div>
+                        <div className="text-2xl font-bold text-blue-700">{onboardCount}</div>
                         <div className="text-sm text-blue-600">On Board</div>
                       </div>
                     </div>
@@ -470,418 +497,166 @@ export default function DriverDashboardPage() {
               </Card>
             </div>
 
-            {/* Tabs Navigation */}
+            {/* Tabs */}
             <div className="mb-8">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <Tabs value={activeTab} onValueChange={v => setActiveTab(v as TabKey)} className="w-full">
                 <TabsList className="w-full grid grid-cols-3 bg-slate-50 border border-slate-200 rounded-xl p-1">
-                  <TabsTrigger 
-                    value="dashboard" 
-                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border-slate-300 data-[state=active]:border hover:text-slate-700 transition-all duration-200"
-                  >
+                  <TabsTrigger value="dashboard" className="rounded-lg">
                     <Navigation className="w-4 h-4 mr-2" />
                     Dashboard
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="passengers" 
-                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border-slate-300 data-[state=active]:border hover:text-slate-700 transition-all duration-200"
-                  >
+                  <TabsTrigger value="passengers" className="rounded-lg">
                     <UserCheck className="w-4 h-4 mr-2" />
                     Passengers
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="schedule" 
-                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border-slate-300 data-[state=active]:border hover:text-slate-700 transition-all duration-200"
-                  >
+                  <TabsTrigger value="schedule" className="rounded-lg">
                     <Calendar className="w-4 h-4 mr-2" />
                     Schedule
                   </TabsTrigger>
                 </TabsList>
-              </Tabs>
-            </div>
 
-            {/* Tab Content */}
-            <div>
-              {/* DASHBOARD TAB */}
-              {activeTab === 'dashboard' && (
-                <div className="space-y-8">
-                  {/* Current Trip Management OR Upcoming Trip */}
-                  {currentTrip ? (
-                    <TripManagement 
-                      trip={currentTrip}
-                      onCompleteTrip={() => handleCompleteTrip(currentTrip.id)}
-                      onMarkPassenger={(passengerId, status) => 
-                        handleMarkPassenger(currentTrip.id, passengerId, status)
-                      }
-                    />
-                  ) : upcomingTrip ? (
-                    <Card className="border-slate-200 bg-white shadow-sm">
-                      <CardContent className="pt-6">
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                          <div className="flex items-center gap-4">
-                            <div className={`p-4 rounded-full ${
-                              upcomingTrip.service_type === 'morning' 
-                                ? 'bg-amber-100 text-amber-600' 
-                                : 'bg-indigo-100 text-indigo-600'
-                            }`}>
-                              {upcomingTrip.service_type === 'morning' ? (
-                                <Sun className="w-8 h-8" />
-                              ) : (
-                                <Moon className="w-8 h-8" />
-                              )}
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-lg text-slate-900">
-                                Next {upcomingTrip.service_type} Trip Ready
-                              </h3>
-                              <p className="text-slate-600">
-                                {upcomingTrip.pickup_location.split(',')[0]} → {upcomingTrip.dropoff_location.split(',')[0]}
-                              </p>
-                              <p className="text-sm text-slate-500 mt-1">
-                                {upcomingTrip.seats_booked} passengers • {upcomingTrip.trip_time}
-                              </p>
-                            </div>
-                          </div>
-                          <Button 
-                            onClick={() => handleStartTrip(upcomingTrip.id)}
-                            className={`px-6 ${
-                              upcomingTrip.service_type === 'morning' 
-                                ? 'bg-amber-600 hover:bg-amber-700 text-white' 
-                                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                            }`}
-                          >
-                            Start {upcomingTrip.service_type} Trip
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card className="border-slate-200 bg-white shadow-sm">
-                      <CardContent className="pt-6">
-                        <div className="text-center py-6">
-                          <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
-                          <h3 className="font-semibold text-slate-900 mb-2">All Trips Completed</h3>
-                          <p className="text-slate-600">Great job! All scheduled trips for today are completed.</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Today's Trips Grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Morning Trips */}
-                    <Card className="border-slate-200 bg-white shadow-sm">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-slate-900">
-                          <div className="p-2 bg-amber-100 rounded-lg">
-                            <Sun className="w-5 h-5 text-amber-600" />
-                          </div>
-                          Morning Trips
-                          <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200">
-                            {morningTrips.length}
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription className="text-slate-600">Pickup from home to school</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {morningTrips.length > 0 ? (
-                          <ScheduleView 
-                            schedule={morningTrips}
-                            onStartTrip={handleStartTrip}
-                            onCompleteTrip={handleCompleteTrip}
-                          />
-                        ) : (
-                          <div className="text-center py-6">
-                            <p className="text-slate-500">No morning trips scheduled</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    {/* Evening Trips */}
-                    <Card className="border-slate-200 bg-white shadow-sm">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-slate-900">
-                          <div className="p-2 bg-indigo-100 rounded-lg">
-                            <Moon className="w-5 h-5 text-indigo-600" />
-                          </div>
-                          Evening Trips
-                          <Badge variant="outline" className="ml-2 bg-indigo-50 text-indigo-700 border-indigo-200">
-                            {eveningTrips.length}
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription className="text-slate-600">Dropoff from school to home</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {eveningTrips.length > 0 ? (
-                          <ScheduleView 
-                            schedule={eveningTrips}
-                            onStartTrip={handleStartTrip}
-                            onCompleteTrip={handleCompleteTrip}
-                          />
-                        ) : (
-                          <div className="text-center py-6">
-                            <p className="text-slate-500">No evening trips scheduled</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Vehicle & Route Info */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Vehicle Status */}
-                    <Card className="border-slate-200 bg-white shadow-sm">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-slate-900">
-                          <Car className="w-5 h-5" />
-                          Vehicle Status
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-6">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-sm text-slate-600 mb-1">License Plate</p>
-                              <p className="font-bold text-lg text-slate-900">{vehicle.license_plate}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-slate-600 mb-1">Model</p>
-                              <p className="font-medium text-slate-900">{vehicle.model}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-4">
-                            <div>
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="text-sm text-slate-600">Passenger Occupancy</span>
-                                <span className="text-sm font-medium text-slate-900">{vehicle.current_passengers}/{vehicle.capacity}</span>
-                              </div>
-                              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-blue-500 rounded-full"
-                                  style={{ width: `${(vehicle.current_passengers / vehicle.capacity) * 100}%` }}
-                                />
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="text-sm text-slate-600">Fuel Level</span>
-                                <span className="text-sm font-medium text-slate-900">{vehicle.fuel_level}%</span>
-                              </div>
-                              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full ${
-                                    vehicle.fuel_level > 60 ? 'bg-emerald-500' : 
-                                    vehicle.fuel_level > 30 ? 'bg-amber-500' : 'bg-red-500'
-                                  }`}
-                                  style={{ width: `${vehicle.fuel_level}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-600">Next Service</span>
-                            <span className="font-medium text-slate-900">{vehicle.next_service}</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Route Map */}
-                    <Card className="border-slate-200 bg-white shadow-sm">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-slate-900">
-                          <MapPin className="w-5 h-5" />
-                          Today's Routes
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <RouteMap schedule={todaySchedule} />
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              )}
-
-              {/* PASSENGERS TAB */}
-              {activeTab === 'passengers' && (
-                <div>
-                  {currentTrip ? (
-                    <PassengerTracking 
-                      trip={currentTrip}
-                      onMarkPassenger={(passengerId, status) => 
-                        handleMarkPassenger(currentTrip.id, passengerId, status)
-                      }
-                    />
-                  ) : (
-                    <Card className="border-slate-200 bg-white shadow-sm">
-                      <CardContent className="pt-6">
-                        <div className="text-center py-8">
-                          <UserCheck className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                          <h3 className="font-semibold text-slate-900 mb-2">No Active Trip</h3>
-                          <p className="text-slate-600 mb-4">Start a trip to begin passenger tracking</p>
-                          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            {upcomingTrip && (
-                              <Button 
-                                onClick={() => handleStartTrip(upcomingTrip.id)}
-                                className={upcomingTrip.service_type === 'morning' 
-                                  ? 'bg-amber-600 hover:bg-amber-700 text-white' 
-                                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                                }
+                <TabsContent value="dashboard" className="mt-6">
+                  <div className="space-y-8">
+                    {currentTrip ? (
+                      <TripManagement trip={currentTrip} onCompleteTrip={() => completeTrip(currentTrip.id)} onMarkPassenger={() => {}} />
+                    ) : upcomingTrip ? (
+                      <Card className="border-slate-200 bg-white shadow-sm">
+                        <CardContent className="pt-6">
+                          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                              <div
+                                className={`p-4 rounded-full ${
+                                  upcomingTrip.service_type === 'morning'
+                                    ? 'bg-amber-100 text-amber-600'
+                                    : 'bg-indigo-100 text-indigo-600'
+                                }`}
                               >
-                                Start {upcomingTrip.service_type} Trip
-                              </Button>
-                            )}
-                            <Button 
-                              variant="outline" 
-                              className="border-slate-300 text-slate-700 hover:bg-slate-50"
-                              onClick={() => setActiveTab('schedule')}
+                                {upcomingTrip.service_type === 'morning' ? <Sun className="w-8 h-8" /> : <Moon className="w-8 h-8" />}
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-lg text-slate-900">Next {upcomingTrip.service_type} Trip</h3>
+                                <p className="text-slate-600">
+                                  {upcomingTrip.pickup_location.split(',')[0]} → {upcomingTrip.dropoff_location.split(',')[0]}
+                                </p>
+                                <p className="text-sm text-slate-500 mt-1">{upcomingTrip.seats_booked} seat(s)</p>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => startTrip(upcomingTrip.id)}
+                              className={`px-6 ${
+                                upcomingTrip.service_type === 'morning'
+                                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                              }`}
                             >
-                              View Schedule
+                              Start Trip
                             </Button>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              )}
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="border-slate-200 bg-white shadow-sm">
+                        <CardContent className="pt-6">
+                          <div className="text-center py-6">
+                            <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
+                            <h3 className="font-semibold text-slate-900 mb-2">No Trip In Progress</h3>
+                            <Button className="mt-4" variant="outline" onClick={reloadAll}>
+                              Refresh
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
 
-              {/* SCHEDULE TAB */}
-              {activeTab === 'schedule' && (
-                <div className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <Card className="border-slate-200 bg-white shadow-sm">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-slate-900">
+                            <div className="p-2 bg-amber-100 rounded-lg">
+                              <Sun className="w-5 h-5 text-amber-600" />
+                            </div>
+                            Morning Trips
+                            <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-200">
+                              {morningTrips.length}
+                            </Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ScheduleView schedule={morningTrips} onStartTrip={startTrip} onCompleteTrip={completeTrip} />
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-slate-200 bg-white shadow-sm">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-slate-900">
+                            <div className="p-2 bg-indigo-100 rounded-lg">
+                              <Moon className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            Evening Trips
+                            <Badge variant="outline" className="ml-2 bg-indigo-50 text-indigo-700 border-indigo-200">
+                              {eveningTrips.length}
+                            </Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ScheduleView schedule={eveningTrips} onStartTrip={startTrip} onCompleteTrip={completeTrip} />
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {vehicle ? (
+                        <VehicleStatus vehicle={vehicle as any} />
+                      ) : (
+                        <Card className="border-slate-200 bg-white shadow-sm">
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Car className="w-5 h-5" />
+                              Vehicle Status
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <Button variant="outline" onClick={reloadAll}>
+                              Refresh
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      <Card className="border-slate-200 bg-white shadow-sm">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-slate-900">
+                            <MapPin className="w-5 h-5" />
+                            Today's Routes
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <RouteMap schedule={todayTrips as any} />
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="passengers" className="mt-6">
+                  <DriverPassengers trips={todayTrips} onRefresh={reloadAll} />
+                </TabsContent>
+
+                <TabsContent value="schedule" className="mt-6">
                   <Card className="border-slate-200 bg-white shadow-sm">
                     <CardHeader>
                       <CardTitle className="text-slate-900">My Schedule</CardTitle>
-                      <CardDescription className="text-slate-600">All your scheduled morning and evening trips</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-8">
-                        {/* Morning Trips Section */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-4">
-                            <Sun className="w-5 h-5 text-amber-600" />
-                            <h3 className="font-semibold text-lg text-slate-900">Morning Trips</h3>
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                              {morningTrips.length} scheduled
-                            </Badge>
-                          </div>
-                          {morningTrips.length > 0 ? (
-                            <ScheduleView 
-                              schedule={morningTrips}
-                              onStartTrip={handleStartTrip}
-                              onCompleteTrip={handleCompleteTrip}
-                              showAll={true}
-                            />
-                          ) : (
-                            <div className="text-center py-6 border border-slate-200 rounded-lg bg-slate-50">
-                              <p className="text-slate-500">No morning trips scheduled</p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Evening Trips Section */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-4">
-                            <Moon className="w-5 h-5 text-indigo-600" />
-                            <h3 className="font-semibold text-lg text-slate-900">Evening Trips</h3>
-                            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
-                              {eveningTrips.length} scheduled
-                            </Badge>
-                          </div>
-                          {eveningTrips.length > 0 ? (
-                            <ScheduleView 
-                              schedule={eveningTrips}
-                              onStartTrip={handleStartTrip}
-                              onCompleteTrip={handleCompleteTrip}
-                              showAll={true}
-                            />
-                          ) : (
-                            <div className="text-center py-6 border border-slate-200 rounded-lg bg-slate-50">
-                              <p className="text-slate-500">No evening trips scheduled</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      <ScheduleView schedule={todayTrips} onStartTrip={startTrip} onCompleteTrip={completeTrip} showAll />
                     </CardContent>
                   </Card>
-                </div>
-              )}
+                </TabsContent>
+              </Tabs>
             </div>
           </>
         )}
       </div>
-
-      {/* Profile Modal */}
-      {showProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900">Driver Profile</h2>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="hover:bg-slate-100 text-slate-600"
-                  onClick={() => setShowProfile(false)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="flex flex-col items-center text-center">
-                  <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-4 shadow-lg">
-                    <span className="text-white font-medium text-2xl">
-                      {(username || 'D').charAt(0)}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900">{username || 'Driver'}</h3>
-                  <p className="text-sm text-slate-600">Professional Driver</p>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-3 rounded-lg">
-                      <p className="text-sm text-slate-500 mb-1">License Number</p>
-                      <p className="font-medium text-slate-900">DL-001234</p>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-lg">
-                      <p className="text-sm text-slate-500 mb-1">Phone</p>
-                      <p className="font-medium text-slate-900">+254 712 345 678</p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-slate-50 p-3 rounded-lg">
-                    <p className="text-sm text-slate-500 mb-1">Email</p>
-                    <p className="font-medium text-slate-900">driver@example.com</p>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
-                    <div className="text-center bg-amber-50 p-3 rounded-lg">
-                      <div className="text-2xl font-bold text-amber-700">4.8</div>
-                      <div className="text-xs text-amber-600">Rating</div>
-                    </div>
-                    <div className="text-center bg-blue-50 p-3 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-700">156</div>
-                      <div className="text-xs text-blue-600">Total Trips</div>
-                    </div>
-                  </div>
-                </div>
-                
-                <Button 
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-6"
-                  onClick={() => setShowProfile(false)}
-                >
-                  Close Profile
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
