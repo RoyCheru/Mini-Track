@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, MapPin, Users, Clock, Car, Play, CheckCircle } from 'lucide-react'
+import { Calendar, MapPin, Users, Clock, Play, CheckCircle } from 'lucide-react'
 
 interface ScheduleViewProps {
   schedule: Array<{
@@ -20,8 +20,9 @@ interface ScheduleViewProps {
 
 export default function ScheduleView({ schedule, onStartTrip, onCompleteTrip, showAll = false }: ScheduleViewProps) {
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const safeSchedule = Array.isArray(schedule) ? schedule : []
 
-  if (schedule.length === 0) {
+  if (safeSchedule.length === 0) {
     return (
       <div className="text-center py-8">
         <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -32,9 +33,12 @@ export default function ScheduleView({ schedule, onStartTrip, onCompleteTrip, sh
 
   return (
     <div className="space-y-4">
-      {schedule.map(trip => {
-        const days = trip.days_of_week.split(',').map(d => dayNames[parseInt(d) - 1])
-        
+      {safeSchedule.map(trip => {
+        const days = String(trip.days_of_week || '')
+          .split(',')
+          .map(d => dayNames[parseInt(d, 10) - 1])
+          .filter(Boolean)
+
         return (
           <div key={trip.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -43,17 +47,16 @@ export default function ScheduleView({ schedule, onStartTrip, onCompleteTrip, sh
                   <h4 className="font-semibold">
                     {trip.pickup_location.split(',')[0]} → {trip.dropoff_location.split(',')[0]}
                   </h4>
-                  <Badge 
-                    variant={trip.status === 'in-progress' ? 'default' : 'outline'} 
-                    className="capitalize"
-                  >
+
+                  <Badge variant={trip.status === 'in-progress' ? 'default' : 'outline'} className="capitalize">
                     {trip.status}
                   </Badge>
+
                   <Badge variant="outline" className="capitalize">
                     {trip.service_type}
                   </Badge>
                 </div>
-                
+
                 <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
@@ -65,7 +68,7 @@ export default function ScheduleView({ schedule, onStartTrip, onCompleteTrip, sh
                   </span>
                   <span className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                    {days.join(', ')}
+                    {days.join(', ') || '—'}
                   </span>
                   <span className="flex items-center gap-1">
                     <MapPin className="w-4 h-4" />
@@ -73,32 +76,23 @@ export default function ScheduleView({ schedule, onStartTrip, onCompleteTrip, sh
                   </span>
                 </div>
               </div>
-              
+
               <div className="flex gap-2">
                 {trip.status === 'scheduled' && (
-                  <Button 
-                    size="sm" 
-                    onClick={() => onStartTrip(trip.id)}
-                    className="gap-1"
-                  >
+                  <Button size="sm" onClick={() => onStartTrip(trip.id)} className="gap-1">
                     <Play className="w-4 h-4" />
                     Start Trip
                   </Button>
                 )}
                 {trip.status === 'in-progress' && (
-                  <Button 
-                    size="sm" 
-                    onClick={() => onCompleteTrip(trip.id)}
-                    className="gap-1 bg-emerald-600 hover:bg-emerald-700"
-                  >
+                  <Button size="sm" onClick={() => onCompleteTrip(trip.id)} className="gap-1 bg-emerald-600 hover:bg-emerald-700">
                     <CheckCircle className="w-4 h-4" />
                     Complete Trip
                   </Button>
                 )}
               </div>
             </div>
-            
-            {/* Passenger Count Preview */}
+
             {showAll && (
               <div className="mt-3 pt-3 border-t text-sm text-muted-foreground">
                 <span>{trip.seats_booked} children assigned for {trip.service_type} service</span>
