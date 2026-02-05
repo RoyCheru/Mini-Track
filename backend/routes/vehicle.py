@@ -8,7 +8,9 @@ def serialize_vehicle(vehicle):
     return {
         "id": vehicle.id,
         "route_id": vehicle.route_id,
+        "route_name": vehicle.route.name,
         "user_id": vehicle.user_id,
+        "driver_name": vehicle.user.name,
         "license_plate": vehicle.license_plate,
         "model": vehicle.model,
         "capacity": vehicle.capacity
@@ -156,22 +158,27 @@ class VehicleDetail(Resource):
         return response, 200
     
     def delete(self, vehicle_id):
-        # Delete vehicle
-
+        """
+        Delete vehicle
+        Note: Cannot delete if its route has active bookings
+        """
         vehicle = Vehicle.query.get(vehicle_id)
         
         if not vehicle:
             return {"error": "Vehicle not found"}, 404
         
-        # Check if vehicle has active bookings
+        # Check if vehicle's route has active bookings
         from models import Booking
         active_bookings = Booking.query.filter_by(
-            vehicle_id=vehicle_id,
+            route_id=vehicle.route_id,
             status='active'
         ).count()
         
         if active_bookings > 0:
-            return {"error": f"Cannot delete vehicle. It has {active_bookings} active booking(s)"}, 409
+            return {
+                "error": f"Cannot delete vehicle. Its route has {active_bookings} active booking(s)",
+                "suggestion": "Cancel all active bookings on this route first"
+            }, 409
         
         db.session.delete(vehicle)
         db.session.commit()
