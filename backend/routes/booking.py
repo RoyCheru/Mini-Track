@@ -19,6 +19,12 @@ def generate_trips_for_booking(booking):
     - days_of_week pattern (e.g., '1,3,5' for Mon/Wed/Fri)
     - service_type ('morning', 'evening', 'both')
     
+    IMPORTANT LOGIC:
+    - Morning trips: Home (pickup_location) → School (dropoff_location)
+    - Evening trips: School (dropoff_location) → Home (pickup_location) [SWAPPED]
+    
+    The swap is handled in serialize_trip() function when displaying trip details.
+    
     Returns: number of trips created
     """
     trips = []
@@ -30,6 +36,7 @@ def generate_trips_for_booking(booking):
         if current_date.isoweekday() in days_of_week:
             
             # Create morning trip if needed
+            # Morning: Home → School (uses booking locations as-is)
             if booking.service_type in ['morning', 'both']:
                 trips.append(Trip(
                     booking_id=booking.id,
@@ -39,6 +46,7 @@ def generate_trips_for_booking(booking):
                 ))
             
             # Create evening trip if needed
+            # Evening: School → Home (locations swapped in serialization)
             if booking.service_type in ['evening', 'both']:
                 trips.append(Trip(
                     booking_id=booking.id,
@@ -191,14 +199,38 @@ def serialize_trip(trip):
     """
     Serialize trip object to dictionary
     
+    IMPORTANT: Automatically swaps pickup/dropoff for evening trips
+    - Morning: Home (pickup) → School (dropoff)
+    - Evening: School (pickup) → Home (dropoff)
+    
     Returns: dict
     """
+    booking = trip.booking
+    
+    # For evening trips, swap the locations
+    # Evening trip goes from School back to Home
+    if trip.service_time == 'evening':
+        pickup_location = booking.dropoff_location  # School becomes pickup
+        dropoff_location = booking.pickup_location  # Home becomes dropoff
+    else:  # morning
+        pickup_location = booking.pickup_location   # Home is pickup
+        dropoff_location = booking.dropoff_location # School is dropoff
+    
     return {
         "trip_id": trip.id,
         "booking_id": trip.booking_id,
         "trip_date": trip.trip_date.isoformat(),
         "service_time": trip.service_time,
         "status": trip.status,
+        # Pickup location (swapped for evening)
+        "pickup_location_id": pickup_location.id,
+        "pickup_location_name": pickup_location.name,
+        "pickup_location_gps": pickup_location.gps_coordinates,
+        # Dropoff location (swapped for evening)
+        "dropoff_location_id": dropoff_location.id,
+        "dropoff_location_name": dropoff_location.name,
+        "dropoff_location_gps": dropoff_location.gps_coordinates,
+        # Times
         "pickup_time": trip.pickup_time.isoformat() if trip.pickup_time else None,
         "actual_pickup_time": trip.actual_pickup_time.isoformat() if trip.actual_pickup_time else None,
         "actual_dropoff_time": trip.actual_dropoff_time.isoformat() if trip.actual_dropoff_time else None,
