@@ -118,7 +118,7 @@ export default function OverviewSection() {
 
         // Optional bookings: if endpoint exists use it; otherwise keep empty list.
         try {
-          const bookingsRes = await apiFetch('/bookings/recent', { headers })
+          const bookingsRes = await apiFetch('/bookings', { headers })
           if (bookingsRes.ok) {
             const bookingsJson = await bookingsRes.json()
             setRecentBookings(toArray(bookingsJson))
@@ -396,9 +396,9 @@ export default function OverviewSection() {
                 <Clock className="w-5 h-5" />
                 Recent Bookings
               </CardTitle>
-              <CardDescription>
+              {/* <CardDescription>
                 {recentBookings.length ? 'Loaded from database' : 'No recent bookings endpoint / no data'}
-              </CardDescription>
+              </CardDescription> */}
             </CardHeader>
             <CardContent className="space-y-3">
               {recentBookings.length === 0 ? (
