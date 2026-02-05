@@ -1,127 +1,79 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { CalendarCheck, Map, Truck } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Calendar, Bus, Clock, TrendingUp } from 'lucide-react'
 
-const BASE_URL = 'http://localhost:5555'
-
-interface Summary {
-  totalBookings: number
-  activeRoutes: number
-  upcomingTrips: number
+interface QuickActionsProps {
+  summary: {
+    totalBookings: number
+    activeRoutes: number
+    upcomingTrips: number
+  }
 }
 
-export default function QuickActions() {
-  const [summary, setSummary] = useState<Summary>({
-    totalBookings: 0,
-    activeRoutes: 0,
-    upcomingTrips: 0,
-  })
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
-
-  // ---------------- FETCH SUMMARY ----------------
-  useEffect(() => {
-    const fetchSummary = async () => {
-      try {
-        const resBookings = await fetch(`${BASE_URL}/bookings?user_id=1`, {
-          credentials: 'include',
-        })
-        const bookingsData = await resBookings.json()
-
-        const totalBookings = Array.isArray(bookingsData) ? bookingsData.length : 0
-        const activeRoutes = Array.isArray(bookingsData)
-          ? bookingsData.filter(b => b.status === 'active').length
-          : 0
-        const upcomingTrips = Array.isArray(bookingsData)
-          ? bookingsData.filter(b => new Date(b.start_date) >= new Date()).length
-          : 0
-
-        setSummary({ totalBookings, activeRoutes, upcomingTrips })
-      } catch (err) {
-        console.error('Failed to fetch quick actions summary:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchSummary()
-  }, [])
-
-  if (loading) {
-    return <p className="text-center text-muted-foreground">Loading quick actions…</p>
-  }
-
+export default function QuickActions({ summary }: QuickActionsProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-      {/* TOTAL BOOKINGS */}
-      <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-500/10 to-emerald-600/20 hover:shadow-xl hover:-translate-y-1 transition-all">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-emerald-700">
-              Total Bookings
-            </CardTitle>
-            <div className="p-2 rounded-lg bg-emerald-500/20">
-              <CalendarCheck className="w-5 h-5 text-emerald-600" />
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Card 1 - Total Bookings (Purple) */}
+      <Card className="border-0 shadow-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12" />
+        <CardContent className="p-6 relative z-10">
+          <div className="flex items-start justify-between mb-4">
+            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+              <Calendar className="w-6 h-6" />
             </div>
+            <TrendingUp className="w-5 h-5 opacity-70" />
           </div>
-        </CardHeader>
-
-        <CardContent>
-          <p className="text-3xl font-bold text-emerald-900">
-            {summary.totalBookings}
-          </p>
-          <p className="text-xs text-emerald-700 mt-1">
-            All bookings made so far
-          </p>
+          <div className="space-y-1">
+            <p className="text-sm font-medium opacity-90">Total Bookings</p>
+            <p className="text-4xl font-bold">{summary.totalBookings}</p>
+            <p className="text-xs opacity-75">All bookings made</p>
+          </div>
         </CardContent>
       </Card>
 
-      {/* ACTIVE ROUTES */}
-      <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-500/10 to-blue-600/20 hover:shadow-xl hover:-translate-y-1 transition-all">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-blue-700">
-              Active Trips
-            </CardTitle>
-            <div className="p-2 rounded-lg bg-blue-500/20">
-              <Map className="w-5 h-5 text-blue-600" />
+      {/* Card 2 - Active Bookings (White with green accent) */}
+      <Card className="border-0 shadow-lg bg-white dark:bg-card">
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between mb-3">
+            <div className="p-3 bg-emerald-100 dark:bg-emerald-950 rounded-xl">
+              <Bus className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
             </div>
           </div>
-        </CardHeader>
-
-        <CardContent>
-          <p className="text-3xl font-bold text-blue-900">
-            {summary.activeRoutes}
-          </p>
-          <p className="text-xs text-blue-700 mt-1">
-            Trips currently running
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Active Now</p>
+            <p className="text-4xl font-bold text-foreground">{summary.activeRoutes}</p>
+            <div className="h-2 bg-emerald-100 dark:bg-emerald-950 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full transition-all duration-500"
+                style={{ width: summary.activeRoutes > 0 ? '75%' : '0%' }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Currently running</p>
+          </div>
         </CardContent>
       </Card>
 
-      {/* UPCOMING TRIPS */}
-      <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500/10 to-amber-600/20 hover:shadow-xl hover:-translate-y-1 transition-all">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-amber-700">
-              Upcoming Trips
-            </CardTitle>
-            <div className="p-2 rounded-lg bg-amber-500/20">
-              <Truck className="w-5 h-5 text-amber-600" />
+      {/* Card 3 - Total Trips (Orange-red gradient) */}
+      <Card className="border-0 shadow-xl bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 text-white overflow-hidden relative">
+        <CardContent className="p-6 relative z-10">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-3 bg-white/30 backdrop-blur-md rounded-xl">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold">
+              Upcoming
             </div>
           </div>
-        </CardHeader>
-
-        <CardContent>
-          <p className="text-3xl font-bold text-amber-900">
-            {summary.upcomingTrips}
-          </p>
-          <p className="text-xs text-amber-700 mt-1">
-            Scheduled future rides
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm font-medium opacity-90">Scheduled Trips</p>
+            <p className="text-5xl font-black">{summary.upcomingTrips}</p>
+            <div className="flex items-center gap-2 text-xs opacity-75 mt-2">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              Ready to go
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
