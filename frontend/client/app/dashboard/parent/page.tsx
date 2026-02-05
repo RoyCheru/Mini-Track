@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { LayoutDashboard, Bus, History, Navigation } from 'lucide-react'
+import { 
+  LayoutDashboard, 
+  Bus, 
+  History, 
+  Navigation,
+  Sparkles
+} from 'lucide-react'
 
 import QuickActions from './components/quick-actions'
 import RecentBookings from './components/recent-bookings'
@@ -10,106 +16,165 @@ import BookingFlow from './components/booking-flow'
 import BookingHistory, { Booking } from './components/booking-history'
 import TrackingSection from './components/tracking-section'
 
+const BASE_URL = 'http://127.0.0.1:5555'
+
 export default function ParentDashboardPage() {
   // ---------------- STATE ----------------
   const [summary, setSummary] = useState({
     total_bookings: 0,
-    active_routes: 0,
+    active_bookings: 0,
     upcoming_trips: 0,
   })
-
-  const [recentBookings, setRecentBookings] = useState<Booking[]>([])
-  const [historyTrips, setHistoryTrips] = useState<Booking[]>([])
+  const [userName, setUserName] = useState('Guest')
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('overview')
+  const [trackingBookingId, setTrackingBookingId] = useState<number | null>(null)
 
   // ---------------- LOAD DATA ----------------
   useEffect(() => {
-    // TODO: Replace with real API calls
-    // fetch('/api/parent/dashboard/summary')
-    //   .then(res => res.json())
-    //   .then(data => setSummary(data))
-    //   .catch(console.error)
-
-    // Safe fallback for now
-    setSummary({
-      total_bookings: 0,
-      active_routes: 0,
-      upcoming_trips: 0,
-    })
-
-    // Fetch recent bookings
-    // TODO: Replace with JWT fetch
-    // fetch('/api/bookings/recent')
-    //   .then(res => res.json())
-    //   .then(data => setRecentBookings(data))
-    //   .catch(console.error)
-
-    setRecentBookings([]) // default safe empty array
-
-    // Fetch booking history
-    // TODO: Replace with JWT fetch
-    // fetch('/api/bookings/history')
-    //   .then(res => res.json())
-    //   .then(data => setHistoryTrips(data))
-    //   .catch(console.error)
-
-    setHistoryTrips([]) // default safe empty array
+    fetchUserData()
+    fetchDashboardSummary()
   }, [])
 
+  const fetchUserData = () => {
+    try {
+      // Get username directly from localStorage (it's already stored there)
+      const fullName = localStorage.getItem('username') || 'Guest'
+      
+      // Extract first name if full name is provided
+      const firstName = fullName.split(' ')[0]
+      setUserName(firstName)
+    } catch (err) {
+      console.error('User data error:', err)
+      setUserName('Guest')
+    }
+  }
+
+  const fetchDashboardSummary = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/bookings?user_id=1`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+      })
+
+      if (!res.ok) throw new Error('Failed to fetch bookings')
+
+      const data: Booking[] = await res.json()
+      
+      setSummary({
+        total_bookings: data.length,
+        active_bookings: data.filter(b => b.status === 'active').length,
+        upcoming_trips: data.filter(b => {
+          const startDate = new Date(b.start_date)
+          const today = new Date()
+          return b.status === 'active' && startDate >= today
+        }).length,
+      })
+    } catch (err) {
+      console.error('Dashboard summary error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Handle tracking from history
+  const handleTrackBooking = (bookingId: number) => {
+    setTrackingBookingId(bookingId)
+    setActiveTab('track')
+  }
+
+  // Get greeting based on time
+  const getGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good morning'
+    if (hour < 18) return 'Good afternoon'
+    return 'Good evening'
+  }
+
   return (
-    <div className="space-y-6">
-      {/* ---------------- TABS ---------------- */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid grid-cols-4 w-full">
-          <TabsTrigger value="overview" className="gap-2">
-            <LayoutDashboard className="w-4 h-4" />
-            Overview
-          </TabsTrigger>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      <div className="container mx-auto px-4 py-8 space-y-8">
+        {/* ---------------- HEADER WITH WELCOME ---------------- */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-primary" />
+            <h1 className="text-4xl font-bold tracking-tight">
+              Parent Dashboard
+            </h1>
+          </div>
+          <p className="text-2xl font-semibold text-muted-foreground">
+            {getGreeting()}, <span className="text-primary">{userName}</span>! 👋
+          </p>
+        </div>
 
-          <TabsTrigger value="book" className="gap-2">
-            <Bus className="w-4 h-4" />
-            Book Ride
-          </TabsTrigger>
+        {/* ---------------- TABS ---------------- */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid grid-cols-4 w-full h-14 bg-muted/50 p-1 rounded-xl">
+            <TabsTrigger 
+              value="overview" 
+              className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md rounded-lg transition-all"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span className="hidden sm:inline">Overview</span>
+            </TabsTrigger>
 
-          <TabsTrigger value="track" className="gap-2">
-            <Navigation className="w-4 h-4" />
-            Track
-          </TabsTrigger>
+            <TabsTrigger 
+              value="book" 
+              className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md rounded-lg transition-all"
+            >
+              <Bus className="w-4 h-4" />
+              <span className="hidden sm:inline">Book Ride</span>
+            </TabsTrigger>
 
-          <TabsTrigger value="history" className="gap-2">
-            <History className="w-4 h-4" />
-            History
-          </TabsTrigger>
-        </TabsList>
+            <TabsTrigger 
+              value="track" 
+              className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md rounded-lg transition-all"
+            >
+              <Navigation className="w-4 h-4" />
+              <span className="hidden sm:inline">Track</span>
+            </TabsTrigger>
 
-        {/* ---------------- OVERVIEW ---------------- */}
-        <TabsContent value="overview" className="space-y-6">
-          <QuickActions
-            summary={{
-              totalBookings: summary.total_bookings,
-              activeRoutes: summary.active_routes,
-              upcomingTrips: summary.upcoming_trips,
-            }}
-          />
+            <TabsTrigger 
+              value="history" 
+              className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md rounded-lg transition-all"
+            >
+              <History className="w-4 h-4" />
+              <span className="hidden sm:inline">History</span>
+            </TabsTrigger>
+          </TabsList>
 
-          <RecentBookings bookings={recentBookings} />
-        </TabsContent>
+          {/* ---------------- OVERVIEW ---------------- */}
+          <TabsContent value="overview" className="space-y-6 mt-6">
+            <QuickActions
+              summary={{
+                totalBookings: summary.total_bookings,
+                activeRoutes: summary.active_bookings,
+                upcomingTrips: summary.upcoming_trips,
+              }}
+            />
 
-        {/* ---------------- BOOKING ---------------- */}
-        <TabsContent value="book">
-          <BookingFlow />
-        </TabsContent>
+            <RecentBookings />
+          </TabsContent>
 
-        {/* ---------------- TRACKING ---------------- */}
-        <TabsContent value="track">
-          <TrackingSection />
-        </TabsContent>
+          {/* ---------------- BOOKING ---------------- */}
+          <TabsContent value="book" className="mt-6">
+            <BookingFlow />
+          </TabsContent>
 
-        {/* ---------------- HISTORY ---------------- */}
-        <TabsContent value="history">
-          <BookingHistory trips={historyTrips} />
-        </TabsContent>
-      </Tabs>
+          {/* ---------------- TRACKING ---------------- */}
+          <TabsContent value="track" className="mt-6">
+            <TrackingSection initialBookingId={trackingBookingId} />
+          </TabsContent>
+
+          {/* ---------------- HISTORY ---------------- */}
+          <TabsContent value="history" className="mt-6">
+            <BookingHistory onTrack={handleTrackBooking} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   )
 }
-
