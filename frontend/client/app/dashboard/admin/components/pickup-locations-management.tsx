@@ -1,4 +1,3 @@
-// app/dashboard/admin/components/pickup-locations-management.tsx
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
@@ -18,16 +17,22 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 
+type Route = {
+  id: number
+  name: string // 🔧 if backend uses a different field, change here
+}
+
 type PickupLocation = {
   id: number
   name: string
-  route_id: string
+  route_id: number | string
   gps_coordinates: string
 }
 
 export default function PickupLocationsManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [locations, setLocations] = useState<PickupLocation[]>([])
+  const [routes, setRoutes] = useState<Route[]>([])
 
   const [addOpen, setAddOpen] = useState(false)
   const [form, setForm] = useState({
@@ -44,22 +49,32 @@ export default function PickupLocationsManagement() {
     gps_coordinates: '',
   })
 
-  const normalizeToArray = (data: any): PickupLocation[] => {
-    // backend might return: [] OR {data: []} OR {pickup_locations: []}
-    if (Array.isArray(data)) return data
-    if (Array.isArray(data?.data)) return data.data
-    if (Array.isArray(data?.pickup_locations)) return data.pickup_locations
+  const normalizeToArray = <T,>(data: any, keys: string[] = []): T[] => {
+    if (Array.isArray(data)) return data as T[]
+    for (const k of keys) {
+      if (Array.isArray(data?.[k])) return data[k] as T[]
+    }
+    if (Array.isArray(data?.data)) return data.data as T[]
     return []
   }
 
-  const fetchLocations = async () => {
-    const token = localStorage.getItem('token')
-    console.log('token:', token)
+  const fetchRoutes = async () => {
+    try {
+      const res = await apiFetch('/routes')
+      const data = await res.json()
+      const arr = normalizeToArray<Route>(data, ['routes'])
+      setRoutes(arr)
+    } catch (err) {
+      console.error('Failed to fetch routes', err)
+      setRoutes([])
+    }
+  }
 
+  const fetchLocations = async () => {
     try {
       const res = await apiFetch('/pickup_locations')
       const data = await res.json()
-      const arr = normalizeToArray(data)
+      const arr = normalizeToArray<PickupLocation>(data, ['pickup_locations'])
       setLocations(arr)
     } catch (err) {
       console.error('Failed to fetch pickup locations', err)
@@ -68,31 +83,47 @@ export default function PickupLocationsManagement() {
   }
 
   useEffect(() => {
+    fetchRoutes()
     fetchLocations()
   }, [])
+
+  const routeNameById = useMemo(() => {
+    const map = new Map<number, string>()
+    routes.forEach(r => map.set(r.id, r.name))
+    return map
+  }, [routes])
 
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
     if (!q) return locations
 
-    return locations.filter((l: PickupLocation) =>
-      String(l.name ?? '').toLowerCase().includes(q) ||
-      String(l.route_id ?? '').toLowerCase().includes(q) ||
-      String(l.gps_coordinates ?? '').toLowerCase().includes(q)
-    )
-  }, [locations, searchTerm])
+    return locations.filter(l => {
+      const rid = Number(l.route_id)
+      const routeName = routeNameById.get(rid) || ''
+      return (
+        String(l.name ?? '').toLowerCase().includes(q) ||
+        String(routeName).toLowerCase().includes(q) ||
+        String(l.gps_coordinates ?? '').toLowerCase().includes(q)
+      )
+    })
+  }, [locations, searchTerm, routeNameById])
 
   const handleAdd = async () => {
     if (!form.name || !form.route_id || !form.gps_coordinates) return
 
     try {
+      const payload = {
+        name: form.name,
+        route_id: Number(form.route_id),
+        gps_coordinates: form.gps_coordinates,
+      }
+
       const res = await apiFetch('/pickup_locations', {
         method: 'POST',
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json().catch(() => ({}))
-
       if (!res.ok) {
         alert(data.error || data.message || 'Create failed')
         return
@@ -123,19 +154,18 @@ export default function PickupLocationsManagement() {
 
     const payload = {
       name: editForm.name,
-      route_id: editForm.route_id,
+      route_id: Number(editForm.route_id),
       gps_coordinates: editForm.gps_coordinates,
     }
 
     try {
       const res = await apiFetch(`/pickup_locations/${editing.id}`, {
-        method: 'PUT', // backend supports PUT + PATCH; keep school-style PUT
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
 
       const data = await res.json().catch(() => ({}))
-
       if (!res.ok) {
         alert(data.error || data.message || 'Update failed')
         return
@@ -154,12 +184,10 @@ export default function PickupLocationsManagement() {
     try {
       const res = await apiFetch(`/pickup_locations/${id}`, { method: 'DELETE' })
       const data = await res.json().catch(() => ({}))
-
       if (!res.ok) {
         alert(data.error || data.message || 'Delete failed')
         return
       }
-
       setLocations(prev => prev.filter(p => p.id !== id))
     } catch (err) {
       console.error(err)
@@ -203,13 +231,19 @@ export default function PickupLocationsManagement() {
                   </div>
 
                   <div>
-                    <Label>Route ID</Label>
-                    <Input
+                    <Label>Route</Label>
+                    <select
+                      className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                       value={form.route_id}
                       onChange={e => setForm({ ...form, route_id: e.target.value })}
-                      className="mt-1"
-                      placeholder="1"
-                    />
+                    >
+                      <option value="">Select a route</option>
+                      {routes.map(r => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
@@ -222,9 +256,15 @@ export default function PickupLocationsManagement() {
                     />
                   </div>
 
-                  <Button className="w-full mt-6" onClick={handleAdd}>
+                  <Button className="w-full mt-6" onClick={handleAdd} disabled={!routes.length}>
                     Create Pickup
                   </Button>
+
+                  {!routes.length && (
+                    <p className="text-xs text-muted-foreground">
+                      No routes loaded yet — add routes first.
+                    </p>
+                  )}
                 </div>
               </DialogContent>
             </Dialog>
@@ -238,7 +278,7 @@ export default function PickupLocationsManagement() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, route_id, GPS..."
+              placeholder="Search by pickup name, route, GPS..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -255,40 +295,43 @@ export default function PickupLocationsManagement() {
               <thead className="bg-muted/50 border-b border-border/50">
                 <tr>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Pickup</th>
-                  <th className="text-left py-4 px-6 font-semibold text-foreground">Route ID</th>
+                  <th className="text-left py-4 px-6 font-semibold text-foreground">Route</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">GPS</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filtered.map((l: PickupLocation) => (
-                  <tr key={l.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-4 px-6">
-                      <p className="font-semibold text-foreground flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        {l.name}
-                      </p>
-                    </td>
+                {filtered.map(l => {
+                  const routeName = routeNameById.get(Number(l.route_id)) || `Route #${l.route_id}`
+                  return (
+                    <tr key={l.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                      <td className="py-4 px-6">
+                        <p className="font-semibold text-foreground flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          {l.name}
+                        </p>
+                      </td>
 
-                    <td className="py-4 px-6">
-                      <Badge variant="outline">{l.route_id}</Badge>
-                    </td>
+                      <td className="py-4 px-6">
+                        <Badge variant="outline">{routeName}</Badge>
+                      </td>
 
-                    <td className="py-4 px-6 text-muted-foreground">{l.gps_coordinates}</td>
+                      <td className="py-4 px-6 text-muted-foreground">{l.gps_coordinates}</td>
 
-                    <td className="py-4 px-6">
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openEdit(l)}>
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(l.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="py-4 px-6">
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openEdit(l)}>
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleDelete(l.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
 
                 {filtered.length === 0 && (
                   <tr>
@@ -316,10 +359,23 @@ export default function PickupLocationsManagement() {
               <Label>Pickup Name</Label>
               <Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
             </div>
+
             <div>
-              <Label>Route ID</Label>
-              <Input value={editForm.route_id} onChange={e => setEditForm({ ...editForm, route_id: e.target.value })} />
+              <Label>Route</Label>
+              <select
+                className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={editForm.route_id}
+                onChange={e => setEditForm({ ...editForm, route_id: e.target.value })}
+              >
+                <option value="">Select a route</option>
+                {routes.map(r => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
             </div>
+
             <div>
               <Label>GPS Coordinates</Label>
               <Input
@@ -328,7 +384,7 @@ export default function PickupLocationsManagement() {
               />
             </div>
 
-            <Button className="w-full" onClick={handleSave}>
+            <Button className="w-full" onClick={handleSave} disabled={!routes.length}>
               Save Changes
             </Button>
           </div>
