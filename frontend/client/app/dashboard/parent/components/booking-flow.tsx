@@ -1,333 +1,273 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { MapPin, Users, TrendingUp, CheckCircle2 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { CheckCircle2, CalendarDays, Clock, Bus } from 'lucide-react'
 
-const SAMPLE_ROUTES = [
-  { id: 1, name: 'Route A - Downtown', pickups: 5, cost: 200 },
-  { id: 2, name: 'Route B - Westside', pickups: 4, cost: 180 },
-  { id: 3, name: 'Route C - Eastside', pickups: 6, cost: 220 },
+const DAYS = [
+  { id: '1', name: 'Mon' },
+  { id: '2', name: 'Tue' },
+  { id: '3', name: 'Wed' },
+  { id: '4', name: 'Thu' },
+  { id: '5', name: 'Fri' },
+  { id: '6', name: 'Sat' },
+  { id: '7', name: 'Sun' },
 ]
+
+const BUS_SEATS = Array.from({ length: 24 }, (_, i) => i + 1)
+const BASE_URL = 'http://127.0.0.1:5555'
+
+async function apiFetch(path: string, options: RequestInit = {}) {
+  try {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
+        ...(options.headers || {}),
+      },
+    })
+
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(text || 'Network response was not ok')
+    }
+
+    return await response.json()
+  } catch (err) {
+    console.error('API fetch error:', err)
+    throw err
+  }
+}
 
 export default function BookingFlow() {
   const [step, setStep] = useState(1)
-  const [selectedRoute, setSelectedRoute] = useState('')
+  const [routes, setRoutes] = useState<{ id: number; name: string; vehicle_id: number }[]>([])
+  const [routeId, setRouteId] = useState('')
   const [pickup, setPickup] = useState('')
   const [dropoff, setDropoff] = useState('')
-  const [seats, setSeats] = useState(1)
-  const [bookingData, setBookingData] = useState<any>(null)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [serviceType, setServiceType] = useState('morning')
+  const [daysOfWeek, setDaysOfWeek] = useState<string[]>(['1','2','3','4','5'])
+  const [selectedSeats, setSelectedSeats] = useState<number[]>([])
+  const [confirmed, setConfirmed] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const getSelectedRoute = () => SAMPLE_ROUTES.find(r => r.id.toString() === selectedRoute)
-  const totalCost = selectedRoute ? (getSelectedRoute()?.cost || 0) * seats : 0
+  useEffect(() => {
+    const fetchRoutes = async () => {
+      try {
+        const data = await apiFetch('/routes')
+        setRoutes(data)
+      } catch (err) {
+        console.error('Failed to fetch routes:', err)
+      }
+    }
+    fetchRoutes()
+  }, [])
 
-  const handleStepOne = () => {
-    if (selectedRoute && pickup && dropoff) {
-      setStep(2)
+  const toggleDay = (id: string) => {
+    setDaysOfWeek(prev =>
+      prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]
+    )
+  }
+
+  const toggleSeat = (seat: number) => {
+    setSelectedSeats(prev =>
+      prev.includes(seat) ? prev.filter(s => s !== seat) : [...prev, seat]
+    )
+  }
+
+  const submitBooking = async () => {
+    setLoading(true)
+    setError('')
+    const userId = 1
+    const selectedRoute = routes.find(r => r.id.toString() === routeId)
+    const vehicleId = selectedRoute?.vehicle_id || 1
+
+    const payload = {
+      user_id: userId,
+      vehicle_id: vehicleId,
+      pickup_location: pickup,
+      dropoff_location: dropoff,
+      start_date: startDate,
+      end_date: endDate,
+      service_type: serviceType,
+      days_of_week: daysOfWeek.join(','),
+      seats_booked: selectedSeats.length,
+    }
+
+    try {
+      const data = await apiFetch('/bookings', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+      console.log('Booking created:', data)
+      setConfirmed(true)
+      setStep(3)
+    } catch (err: any) {
+      setError(err.message || 'Booking failed')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleBooking = () => {
-    const route = getSelectedRoute()
-    setBookingData({
-      route: route?.name,
-      pickup,
-      dropoff,
-      seats,
-      totalCost,
-      timestamp: new Date().toLocaleString(),
-    })
-    setStep(3)
-  }
-
-  const resetBooking = () => {
-    setStep(1)
-    setSelectedRoute('')
-    setPickup('')
-    setDropoff('')
-    setSeats(1)
-    setBookingData(null)
-  }
-
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Step Indicator */}
-      <div className="flex items-center justify-between mb-8">
-        {[1, 2, 3].map(s => (
-          <div key={s} className="flex items-center gap-2">
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
-                s <= step
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {s < step ? <CheckCircle2 className="w-5 h-5" /> : s}
+    <div className="max-w-3xl mx-auto space-y-6">
+
+      {/* STEP INDICATOR */}
+      <div className="flex justify-between items-center mb-4">
+        {[1,2,3].map(n => (
+          <div key={n} className="flex items-center gap-2">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold
+              ${step > n ? 'bg-emerald-500 text-white' : step === n ? 'bg-primary text-white' : 'bg-muted text-gray-500'} transition-colors`}>
+              {step > n ? <CheckCircle2 className="w-5 h-5" /> : n}
             </div>
-            {s < 3 && (
-              <div
-                className={`w-12 h-1 rounded-full ${
-                  s < step ? 'bg-primary' : 'bg-muted'
-                }`}
-              />
-            )}
+            {n < 3 && <div className="w-14 h-1 bg-muted rounded-full" />}
           </div>
         ))}
       </div>
 
-      {/* Step 1: Route & Location Selection */}
+      {/* STEP 1 */}
       {step === 1 && (
-        <Card className="border-border/50">
+        <Card className="shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
-              Select Route & Locations
-            </CardTitle>
-            <CardDescription>Choose your pickup and dropoff points</CardDescription>
+            <CardTitle>Select Route & Schedule</CardTitle>
+            <CardDescription>Choose transport details</CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-6">
-            {/* Route Selection */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Available Routes</Label>
-              <div className="grid grid-cols-1 gap-3">
-                {SAMPLE_ROUTES.map(route => (
-                  <button
-                    key={route.id}
-                    onClick={() => setSelectedRoute(route.id.toString())}
-                    className={`p-4 rounded-lg border-2 transition-all text-left ${
-                      selectedRoute === route.id.toString()
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border/30 bg-card hover:border-border/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-foreground">{route.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {route.pickups} stops • KES {route.cost}/seat
-                        </p>
-                      </div>
-                      {selectedRoute === route.id.toString() && (
-                        <Badge className="bg-primary">Selected</Badge>
-                      )}
-                    </div>
+
+            <div>
+              <Label>Route</Label>
+              <Select value={routeId} onValueChange={setRouteId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select route" />
+                </SelectTrigger>
+                <SelectContent>
+                  {routes.map(r => (
+                    <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Pickup Location</Label>
+                <Input value={pickup} onChange={e => setPickup(e.target.value)} />
+              </div>
+              <div>
+                <Label>Dropoff Location</Label>
+                <Input value={dropoff} onChange={e => setDropoff(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="flex items-center gap-2"><CalendarDays className="w-4 h-4" /> Start Date</Label>
+                <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="flex items-center gap-2"><CalendarDays className="w-4 h-4" /> End Date</Label>
+                <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div>
+              <Label className="flex items-center gap-2"><Clock className="w-4 h-4" /> Service Type</Label>
+              <Select value={serviceType} onValueChange={setServiceType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="morning">Morning</SelectItem>
+                  <SelectItem value="evening">Evening</SelectItem>
+                  <SelectItem value="both">Morning & Evening</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Days of the Week</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {DAYS.map(d => (
+                  <button key={d.id} onClick={() => toggleDay(d.id)}
+                    className={`px-3 py-1 rounded-full border transition
+                      ${daysOfWeek.includes(d.id) ? 'bg-primary text-white border-primary' : 'text-muted-foreground border-muted hover:bg-muted/20'}`}>
+                    {d.name}
                   </button>
                 ))}
               </div>
             </div>
 
-            <Separator />
+            {error && <p className="text-red-600">{error}</p>}
 
-            {/* Location Selection */}
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="pickup" className="text-base font-semibold">
-                  Pickup Location
-                </Label>
-                <Input
-                  id="pickup"
-                  placeholder="Enter pickup location"
-                  value={pickup}
-                  onChange={e => setPickup(e.target.value)}
-                  className="mt-2"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="dropoff" className="text-base font-semibold">
-                  Dropoff Location
-                </Label>
-                <Input
-                  id="dropoff"
-                  placeholder="Enter dropoff location"
-                  value={dropoff}
-                  onChange={e => setDropoff(e.target.value)}
-                  className="mt-2"
-                />
-              </div>
-            </div>
-
-            <Button
-              onClick={handleStepOne}
-              disabled={!selectedRoute || !pickup || !dropoff}
-              size="lg"
-              className="w-full"
-            >
+            <Button className="w-full" onClick={() => setStep(2)}
+              disabled={!routeId || !pickup || !dropoff || !startDate || !endDate}>
               Continue to Seat Selection
             </Button>
+
           </CardContent>
         </Card>
       )}
 
-      {/* Step 2: Seat Selection & Booking Confirmation */}
+      {/* STEP 2 */}
       {step === 2 && (
-        <Card className="border-border/50">
+        <Card className="shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Select Seats & Confirm
-            </CardTitle>
-            <CardDescription>Review your booking details</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Bus className="w-5 h-5" /> Select Seats</CardTitle>
           </CardHeader>
+
           <CardContent className="space-y-6">
-            {/* Booking Summary */}
-            <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Route</span>
-                <span className="font-semibold text-foreground">
-                  {getSelectedRoute()?.name}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Pickup</span>
-                <span className="font-semibold text-foreground">{pickup}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Dropoff</span>
-                <span className="font-semibold text-foreground">{dropoff}</span>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Seat Selection */}
-            <div className="space-y-4">
-              <Label className="text-base font-semibold">Number of Seats</Label>
-              <div className="flex items-center gap-4 bg-card border border-border/50 p-4 rounded-lg">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSeats(Math.max(1, seats - 1))}
-                >
-                  −
-                </Button>
-                <span className="text-2xl font-bold w-12 text-center">{seats}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSeats(seats + 1)}
-                >
-                  +
-                </Button>
-              </div>
-            </div>
-
-            {/* Price Breakdown */}
-            <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">
-                  Cost per seat
-                </span>
-                <span className="font-medium">
-                  KES {getSelectedRoute()?.cost}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Number of seats</span>
-                <span className="font-medium">{seats}</span>
-              </div>
-              <Separator />
-              <div className="flex justify-between text-lg">
-                <span className="font-semibold">Total Cost</span>
-                <span className="font-bold text-primary">
-                  KES {totalCost}
-                </span>
-              </div>
+            <div className="grid grid-cols-4 gap-3 max-w-xs mx-auto">
+              {BUS_SEATS.map(seat => (
+                <button key={seat} onClick={() => toggleSeat(seat)}
+                  className={`h-12 rounded-lg border font-semibold transition
+                    ${selectedSeats.includes(seat) ? 'bg-primary text-white border-primary' : 'bg-muted border-muted hover:bg-muted/50'}`}>
+                  {seat}
+                </button>
+              ))}
             </div>
 
             <div className="flex gap-3">
-              <Button
-                onClick={() => setStep(1)}
-                variant="outline"
-                className="flex-1"
-              >
-                Back
-              </Button>
-              <Button
-                onClick={handleBooking}
-                className="flex-1"
-              >
-                Confirm Booking
+              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+              <Button onClick={submitBooking} disabled={selectedSeats.length === 0 || loading}>
+                {loading ? 'Booking...' : 'Confirm Booking'}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 3: Booking Confirmation */}
-      {step === 3 && bookingData && (
-        <Card className="border-border/50 border-emerald-500/50 bg-emerald-500/5">
+      {/* STEP 3 */}
+      {step === 3 && confirmed && (
+        <Card className="border-emerald-500/40 bg-emerald-500/5 shadow-md">
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-              </div>
-              <div>
-                <CardTitle className="text-emerald-600">Booking Confirmed!</CardTitle>
-                <CardDescription>Your reservation has been successfully made</CardDescription>
-              </div>
-            </div>
+            <CardTitle className="text-emerald-600">Booking Confirmed</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Confirmation Details */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-                  Booking Details
-                </p>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Route</p>
-                    <p className="font-semibold text-foreground mt-1">
-                      {bookingData.route}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Seats</p>
-                    <p className="font-semibold text-foreground mt-1">
-                      {bookingData.seats}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Pickup</p>
-                    <p className="font-semibold text-foreground mt-1">
-                      {bookingData.pickup}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Dropoff</p>
-                    <p className="font-semibold text-foreground mt-1">
-                      {bookingData.dropoff}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="bg-card border border-border/50 p-4 rounded-lg flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Amount</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">
-                    KES {bookingData.totalCost}
-                  </p>
-                </div>
-                <Badge className="bg-emerald-600">Confirmed</Badge>
-              </div>
-            </div>
-
-            <Button
-              onClick={resetBooking}
-              className="w-full"
-            >
-              Make Another Booking
-            </Button>
+          <CardContent className="space-y-2">
+            <p><b>Route:</b> {routes.find(r => r.id.toString() === routeId)?.name}</p>
+            <p><b>Seats:</b> {selectedSeats.join(', ')}</p>
+            <p><b>Days:</b> {daysOfWeek.map(d => DAYS.find(x => x.id === d)?.name).join(', ')}</p>
           </CardContent>
         </Card>
       )}
