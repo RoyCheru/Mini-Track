@@ -6,7 +6,7 @@ import { ROUTES } from "@/lib/routes"
 
 export default function Navbar() {
   const pathname = usePathname()
-  if (pathname.startsWith("/dashboard/admin")) return null
+  if (pathname.startsWith("/dashboard")) return null
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur">
