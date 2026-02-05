@@ -7,36 +7,27 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { apiFetch } from '@/lib/api'
-import { Search, Calendar, Download } from 'lucide-react'
+import { Search, Calendar, Download, Users, Route, Car, CheckCircle2, XCircle, PauseCircle } from 'lucide-react'
 
-/**
- * Backend booking shape (now including status as you said):
- * {
- *   user_id: 2,
- *   route_id: 1,
- *   pickup_location: "...",
- *   dropoff_location: "...",
- *   start_date: "2026-02-05",
- *   end_date: "2026-02-20",
- *   days_of_week: "1,2,3,4,5",
- *   service_type: "both",
- *   seats_booked: 4,
- *   status: "Active"   // <-- per your message
- * }
- */
+type Id = number | string
+
 type BookingApi = {
-  user_id: number | string
-  route_id: number | string
-  pickup_location: string
-  dropoff_location: string
+  id?: Id
+  user_id: Id
+  route_id: Id
+
+  pickup_location_id?: Id
+  dropoff_location_id?: Id
+
+  pickup_location?: string
+  dropoff_location?: string
+
   start_date: string
   end_date: string
   days_of_week: string
   service_type: string
   seats_booked: number
   status?: string
-  // if your backend has an id later, it will be used automatically
-  id?: number | string
 }
 
 type BookingStatus = 'Active' | 'Inactive' | 'Cancelled'
@@ -45,29 +36,47 @@ type Booking = {
   id: string
   user_id: string
   route_id: string
-  pickup_location: string
-  dropoff_location: string
+
+  pickup_location_id?: string
+  dropoff_location_id?: string
+  pickup_location?: string
+  dropoff_location?: string
+
   start_date: string
   end_date: string
   days_of_week: string
-  service_type: string
+  service_type: 'morning' | 'evening' | 'both' | string
   seats_booked: number
   status: BookingStatus
 }
 
 type RouteOption = {
-  id: number | string
+  id: Id
   name?: string
   starting_point?: string
   ending_point?: string
 }
 
 type UserOption = {
-  id: number | string
+  id: Id
   name?: string
   username?: string
   email?: string
   phone_number?: string
+}
+
+type PickupLocation = {
+  id: Id
+  name?: string
+  route_id?: Id
+  gps_coordinates?: string
+}
+
+type SchoolLocation = {
+  id: Id
+  name?: string
+  route_id?: Id
+  gps_coordinates?: string
 }
 
 const toId = (v: any) => String(v ?? '')
@@ -78,7 +87,25 @@ const toArray = (x: any) => {
   if (Array.isArray(x?.results)) return x.results
   if (Array.isArray(x?.bookings)) return x.bookings
   if (Array.isArray(x?.items)) return x.items
+  if (Array.isArray(x?.pickup_locations)) return x.pickup_locations
+  if (Array.isArray(x?.school_locations)) return x.school_locations
   return []
+}
+
+const normalizeStatus = (s: any): BookingStatus => {
+  const v = String(s ?? '').trim().toLowerCase()
+  if (v === 'active') return 'Active'
+  if (v === 'inactive') return 'Inactive'
+  if (v === 'cancelled' || v === 'canceled') return 'Cancelled'
+  return 'Active'
+}
+
+const normalizeService = (s: any) => {
+  const v = String(s ?? '').trim().toLowerCase()
+  if (v === 'morning') return 'morning'
+  if (v === 'evening') return 'evening'
+  if (v === 'both') return 'both'
+  return String(s ?? '')
 }
 
 const formatDays = (csv: string) => {
@@ -99,15 +126,6 @@ const formatDays = (csv: string) => {
   return parts.length ? parts.map(p => map[p] ?? p).join(', ') : '—'
 }
 
-const normalizeStatus = (s: any): BookingStatus => {
-  const v = String(s ?? '').trim().toLowerCase()
-  if (v === 'active') return 'Active'
-  if (v === 'inactive') return 'Inactive'
-  if (v === 'cancelled' || v === 'canceled') return 'Cancelled'
-  // Default: if backend sends something unexpected, treat as Active-ish
-  return 'Active'
-}
-
 const routeLabel = (r?: RouteOption) => {
   if (!r) return '—'
   if (r.name) return r.name
@@ -124,22 +142,26 @@ const normalizeBooking = (raw: BookingApi): Booking => {
   const user_id = toId(raw.user_id)
   const route_id = toId(raw.route_id)
 
-  // Prefer real id if backend provides one; otherwise create a stable-ish key
   const id =
     raw.id !== undefined && raw.id !== null
       ? toId(raw.id)
-      : `${user_id}-${route_id}-${raw.start_date}-${raw.end_date}-${raw.pickup_location}`
+      : `${user_id}-${route_id}-${raw.start_date}-${raw.end_date}-${raw.pickup_location_id ?? raw.pickup_location ?? ''}`
 
   return {
     id,
     user_id,
     route_id,
-    pickup_location: String(raw.pickup_location ?? ''),
-    dropoff_location: String(raw.dropoff_location ?? ''),
+    pickup_location_id:
+      raw.pickup_location_id !== undefined && raw.pickup_location_id !== null ? toId(raw.pickup_location_id) : undefined,
+    dropoff_location_id:
+      raw.dropoff_location_id !== undefined && raw.dropoff_location_id !== null ? toId(raw.dropoff_location_id) : undefined,
+    pickup_location: raw.pickup_location ? String(raw.pickup_location) : undefined,
+    dropoff_location: raw.dropoff_location ? String(raw.dropoff_location) : undefined,
+
     start_date: String(raw.start_date ?? ''),
     end_date: String(raw.end_date ?? ''),
     days_of_week: String(raw.days_of_week ?? ''),
-    service_type: String(raw.service_type ?? ''),
+    service_type: normalizeService(raw.service_type),
     seats_booked: Number(raw.seats_booked ?? 0),
     status: normalizeStatus(raw.status),
   }
@@ -152,15 +174,25 @@ export default function BookingsManagement() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [routes, setRoutes] = useState<RouteOption[]>([])
   const [users, setUsers] = useState<UserOption[]>([])
+  const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([])
+  const [schoolLocations, setSchoolLocations] = useState<SchoolLocation[]>([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
   const getStatusClass = (status: BookingStatus) => {
-    if (status === 'Active') return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
-    if (status === 'Inactive') return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30'
-    return 'bg-red-500/10 text-red-600 border-red-500/30'
+    if (status === 'Active') return 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30'
+    if (status === 'Inactive') return 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30'
+    return 'bg-red-500/10 text-red-700 border-red-500/30'
+  }
+
+  const getServiceBadge = (service: Booking['service_type']) => {
+    const s = String(service).toLowerCase()
+    if (s === 'morning') return { label: 'Morning', className: 'bg-amber-500/10 text-amber-700 border-amber-500/30' }
+    if (s === 'evening') return { label: 'Evening', className: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/30' }
+    if (s === 'both') return { label: 'Both', className: 'bg-blue-600/10 text-blue-700 border-blue-600/30' }
+    return { label: String(service || '—'), className: '' }
   }
 
   const fetchAll = async () => {
@@ -172,34 +204,44 @@ export default function BookingsManagement() {
       const headers: HeadersInit = { 'Content-Type': 'application/json' }
       if (token) headers.Authorization = `Bearer ${token}`
 
-      const [bookingsRes, routesRes, usersRes] = await Promise.all([
+      const [bookingsRes, routesRes, usersRes, pickupsRes, schoolsRes] = await Promise.all([
         apiFetch('/bookings', { headers }),
         apiFetch('/routes', { headers }),
-        apiFetch('/users', { headers }), // used only to show user names
+        apiFetch('/users', { headers }),
+        apiFetch('/pickup_locations', { headers }).catch(() => null as any),
+        apiFetch('/school-locations/all', { headers }).catch(() => null as any),
       ])
 
-      const [bookingsJson, routesJson, usersJson] = await Promise.all([
+      const [bookingsJson, routesJson, usersJson, pickupsJson, schoolsJson] = await Promise.all([
         bookingsRes.json().catch(() => null),
         routesRes.json().catch(() => null),
         usersRes.json().catch(() => null),
+        pickupsRes?.json?.().catch(() => null),
+        schoolsRes?.json?.().catch(() => null),
       ])
 
       if (!bookingsRes.ok) throw new Error(bookingsJson?.error || bookingsJson?.message || `Bookings fetch failed (${bookingsRes.status})`)
       if (!routesRes.ok) throw new Error(routesJson?.error || routesJson?.message || `Routes fetch failed (${routesRes.status})`)
 
-      // Users is optional (if endpoint is protected / not returning parents). We’ll still work with fallback.
       const bookingsArr: BookingApi[] = toArray(bookingsJson)
       const routesArr: RouteOption[] = toArray(routesJson)
       const usersArr: UserOption[] = usersRes.ok ? toArray(usersJson) : []
 
+      const pickupArr: PickupLocation[] = pickupsRes && pickupsRes.ok ? toArray(pickupsJson) : []
+      const schoolArr: SchoolLocation[] = schoolsRes && schoolsRes.ok ? toArray(schoolsJson) : []
+
       setBookings(bookingsArr.map(normalizeBooking))
       setRoutes(routesArr)
       setUsers(usersArr)
+      setPickupLocations(pickupArr)
+      setSchoolLocations(schoolArr)
     } catch (e: any) {
       console.error(e)
       setBookings([])
       setRoutes([])
       setUsers([])
+      setPickupLocations([])
+      setSchoolLocations([])
       setError(e?.message || 'Failed to load bookings')
     } finally {
       setLoading(false)
@@ -222,6 +264,30 @@ export default function BookingsManagement() {
     return m
   }, [users])
 
+  const pickupById = useMemo(() => {
+    const m = new Map<string, PickupLocation>()
+    for (const p of pickupLocations) m.set(toId(p.id), p)
+    return m
+  }, [pickupLocations])
+
+  const schoolById = useMemo(() => {
+    const m = new Map<string, SchoolLocation>()
+    for (const s of schoolLocations) m.set(toId(s.id), s)
+    return m
+  }, [schoolLocations])
+
+  const pickupName = (b: Booking) => {
+    if (b.pickup_location && b.pickup_location.trim()) return b.pickup_location
+    if (b.pickup_location_id) return pickupById.get(b.pickup_location_id)?.name ?? `Pickup #${b.pickup_location_id}`
+    return '—'
+  }
+
+  const dropoffName = (b: Booking) => {
+    if (b.dropoff_location && b.dropoff_location.trim()) return b.dropoff_location
+    if (b.dropoff_location_id) return schoolById.get(b.dropoff_location_id)?.name ?? `School #${b.dropoff_location_id}`
+    return '—'
+  }
+
   const filteredBookings = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
 
@@ -232,28 +298,43 @@ export default function BookingsManagement() {
       const routeName = routeLabel(r).toLowerCase()
       const name = userLabel(u, b.user_id).toLowerCase()
 
+      const pickup = pickupName(b).toLowerCase()
+      const dropoff = dropoffName(b).toLowerCase()
+
       const matchesSearch =
-        b.id.toLowerCase().includes(q) ||
+        q.length === 0 ||
         name.includes(q) ||
         routeName.includes(q) ||
-        b.pickup_location.toLowerCase().includes(q) ||
-        b.dropoff_location.toLowerCase().includes(q) ||
+        pickup.includes(q) ||
+        dropoff.includes(q) ||
         b.start_date.toLowerCase().includes(q) ||
         b.end_date.toLowerCase().includes(q) ||
-        b.service_type.toLowerCase().includes(q)
+        String(b.service_type).toLowerCase().includes(q) ||
+        String(b.status).toLowerCase().includes(q)
 
       const matchesTab =
         activeTab === 'all'
           ? true
           : activeTab === 'active'
-            ? b.status === 'Active'
-            : activeTab === 'inactive'
-              ? b.status === 'Inactive'
-              : b.status === 'Cancelled'
+          ? b.status === 'Active'
+          : activeTab === 'inactive'
+          ? b.status === 'Inactive'
+          : b.status === 'Cancelled'
 
       return matchesSearch && matchesTab
     })
-  }, [bookings, searchTerm, activeTab, routeById, userById])
+  }, [bookings, searchTerm, activeTab, routeById, userById, pickupById, schoolById])
+
+  const stats = useMemo(() => {
+    const total = bookings.length
+    const active = bookings.filter(b => b.status === 'Active').length
+    const inactive = bookings.filter(b => b.status === 'Inactive').length
+    const cancelled = bookings.filter(b => b.status === 'Cancelled').length
+    const seats = bookings.reduce((sum, b) => sum + (Number.isFinite(b.seats_booked) ? b.seats_booked : 0), 0)
+    const uniqueUsers = new Set(bookings.map(b => b.user_id)).size
+    const uniqueRoutes = new Set(bookings.map(b => b.route_id)).size
+    return { total, active, inactive, cancelled, seats, uniqueUsers, uniqueRoutes }
+  }, [bookings])
 
   const exportCsv = async () => {
     if (exporting) return
@@ -264,11 +345,10 @@ export default function BookingsManagement() {
         const r = routeById.get(b.route_id)
         const u = userById.get(b.user_id)
         return {
-          booking_key: b.id,
           user: userLabel(u, b.user_id),
           route: routeLabel(r),
-          pickup_location: b.pickup_location,
-          dropoff_location: b.dropoff_location,
+          pickup_location: pickupName(b),
+          dropoff_location: dropoffName(b),
           start_date: b.start_date,
           end_date: b.end_date,
           days_of_week: formatDays(b.days_of_week),
@@ -278,7 +358,7 @@ export default function BookingsManagement() {
         }
       })
 
-      const headers = Object.keys(rows[0] ?? { booking_key: '' })
+      const headers = Object.keys(rows[0] ?? { user: '' })
       const escape = (v: any) => `"${String(v ?? '').replaceAll('"', '""')}"`
       const csv = [headers.join(','), ...rows.map(r => headers.map(h => escape((r as any)[h])).join(','))].join('\n')
 
@@ -298,7 +378,68 @@ export default function BookingsManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Search / Export */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Total Bookings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-2xl font-bold">{loading ? '—' : stats.total}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Seats booked: <span className="font-medium text-foreground">{loading ? '—' : stats.seats}</span>
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              Active
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-2xl font-bold">{loading ? '—' : stats.active}</div>
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+              <PauseCircle className="w-3.5 h-3.5" /> Inactive:{' '}
+              <span className="font-medium text-foreground">{loading ? '—' : stats.inactive}</span>
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <XCircle className="w-4 h-4" />
+              Cancelled
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-2xl font-bold">{loading ? '—' : stats.cancelled}</div>
+            <p className="text-xs text-muted-foreground mt-1">Status</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Coverage
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-2xl font-bold">{loading ? '—' : stats.uniqueUsers}</div>
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+              <Route className="w-3.5 h-3.5" /> Routes:{' '}
+              <span className="font-medium text-foreground">{loading ? '—' : stats.uniqueRoutes}</span>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card className="border-border/50">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -306,7 +447,7 @@ export default function BookingsManagement() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by user, route, pickup/dropoff, dates, service type..."
+                  placeholder="Search by user, route, pickup, school, dates, service, status…"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -320,7 +461,12 @@ export default function BookingsManagement() {
                 Refresh
               </Button>
 
-              <Button variant="outline" className="gap-2 bg-transparent" onClick={exportCsv} disabled={exporting || loading}>
+              <Button
+                variant="outline"
+                className="gap-2 bg-transparent"
+                onClick={exportCsv}
+                disabled={exporting || loading || filteredBookings.length === 0}
+              >
                 <Download className="w-4 h-4" />
                 {exporting ? 'Exporting…' : 'Export'}
               </Button>
@@ -329,7 +475,6 @@ export default function BookingsManagement() {
         </CardHeader>
       </Card>
 
-      {/* Bookings */}
       <Card className="border-border/50 overflow-hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -362,13 +507,13 @@ export default function BookingsManagement() {
                     <tr>
                       <th className="text-left py-4 px-6 font-semibold text-foreground">User</th>
                       <th className="text-left py-4 px-6 font-semibold text-foreground">Route</th>
-                      <th className="text-left py-4 px-6 font-semibold text-foreground">Pickup → Dropoff</th>
+                      <th className="text-left py-4 px-6 font-semibold text-foreground">Pickup Location</th>
+                      <th className="text-left py-4 px-6 font-semibold text-foreground">Dropoff Location</th>
                       <th className="text-left py-4 px-6 font-semibold text-foreground">Dates</th>
                       <th className="text-left py-4 px-6 font-semibold text-foreground">Days</th>
                       <th className="text-left py-4 px-6 font-semibold text-foreground">Service</th>
                       <th className="text-left py-4 px-6 font-semibold text-foreground">Seats</th>
                       <th className="text-left py-4 px-6 font-semibold text-foreground">Status</th>
-                      <th className="text-left py-4 px-6 font-semibold text-foreground">Actions</th>
                     </tr>
                   </thead>
 
@@ -385,26 +530,34 @@ export default function BookingsManagement() {
                       filteredBookings.map(b => {
                         const r = routeById.get(b.route_id)
                         const u = userById.get(b.user_id)
+                        const svc = getServiceBadge(b.service_type)
 
                         return (
                           <tr key={b.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                             <td className="py-4 px-6">
                               <div>
                                 <p className="font-medium text-foreground">{userLabel(u, b.user_id)}</p>
-                                <p className="text-xs text-muted-foreground">({b.user_id})</p>
+                                {u?.phone_number ? (
+                                  <p className="text-xs text-muted-foreground">{u.phone_number}</p>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">User #{b.user_id}</p>
+                                )}
                               </div>
                             </td>
 
                             <td className="py-4 px-6">
                               <div>
                                 <p className="font-medium text-foreground">{routeLabel(r)}</p>
-                                <p className="text-xs text-muted-foreground">(route {b.route_id})</p>
+                                <p className="text-xs text-muted-foreground">Route #{b.route_id}</p>
                               </div>
                             </td>
 
                             <td className="py-4 px-6">
-                              <p className="font-medium text-foreground">{b.pickup_location}</p>
-                              <p className="text-xs text-muted-foreground">{b.dropoff_location}</p>
+                              <p className="font-medium text-foreground">{pickupName(b)}</p>
+                            </td>
+
+                            <td className="py-4 px-6">
+                              <p className="text-foreground">{dropoffName(b)}</p>
                             </td>
 
                             <td className="py-4 px-6">
@@ -412,28 +565,29 @@ export default function BookingsManagement() {
                               <p className="text-xs text-muted-foreground">to {b.end_date}</p>
                             </td>
 
-                            <td className="py-4 px-6">{formatDays(b.days_of_week)}</td>
-
                             <td className="py-4 px-6">
-                              <Badge variant="outline">{b.service_type}</Badge>
+                              <Badge variant="outline" className="bg-transparent">
+                                {formatDays(b.days_of_week)}
+                              </Badge>
                             </td>
 
                             <td className="py-4 px-6">
-                              <Badge variant="outline">{b.seats_booked}</Badge>
+                              <Badge variant="outline" className={svc.className}>
+                                {svc.label}
+                              </Badge>
+                            </td>
+
+                            <td className="py-4 px-6">
+                              <Badge variant="outline" className="bg-transparent">
+                                <Car className="w-3.5 h-3.5 mr-1" />
+                                {b.seats_booked}
+                              </Badge>
                             </td>
 
                             <td className="py-4 px-6">
                               <Badge variant="outline" className={getStatusClass(b.status)}>
                                 {b.status}
                               </Badge>
-                            </td>
-
-                            <td className="py-4 px-6">
-                              <div className="flex gap-2">
-                                <Button size="sm" variant="outline">
-                                  View
-                                </Button>
-                              </div>
                             </td>
                           </tr>
                         )
