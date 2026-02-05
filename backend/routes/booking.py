@@ -6,7 +6,7 @@ Handles booking creation, listing, and management
 from flask import request
 from flask_restful import Resource
 from datetime import datetime, date, timedelta
-from models import db, Booking, Vehicle, User, Trip
+from models import db, Booking, Vehicle, User, Trip, Route, PickupLocation, SchoolLocation
 
 # ========================
 # HELPER FUNCTIONS
@@ -68,7 +68,7 @@ def validate_booking_capacity(vehicle_id, start_date, end_date, seats_requested)
     
     # Find all trips that overlap with this date range for this vehicle's route
     overlapping_trips = Trip.query.join(Booking).filter(
-        Booking.route_id == vehicle.route_id,  # Changed from vehicle_id to route_id
+        Booking.route_id == vehicle.route_id,
         Trip.trip_date >= start_date,
         Trip.trip_date <= end_date,
         Trip.status.in_(['scheduled', 'picked_up'])  # Active trips only
@@ -162,9 +162,13 @@ def serialize_booking(booking, include_trips=False):
         "user_id": booking.user_id,
         "user_name": booking.user.name,
         "route_id": booking.route_id,
-        "route_name": booking.routes.name,
-        "pickup_location": booking.pickup_location,
-        "dropoff_location": booking.dropoff_location,
+        "route_name": booking.route.name,
+        "pickup_location_id": booking.pickup_location_id,
+        "pickup_location_name": booking.pickup_location.name,
+        "pickup_location_gps": booking.pickup_location.gps_coordinates,
+        "dropoff_location_id": booking.dropoff_location_id,
+        "dropoff_location_name": booking.dropoff_location.name,
+        "dropoff_location_gps": booking.dropoff_location.gps_coordinates,
         "booking_date": booking.booking_date.isoformat(),
         "start_date": booking.start_date.isoformat(),
         "end_date": booking.end_date.isoformat(),
@@ -254,8 +258,8 @@ class BookingList(Resource):
         {
             "user_id": 1,
             "route_id": 5,
-            "pickup_location": "Westlands Mall",
-            "dropoff_location": "Brookhouse School",
+            "pickup_location_id": 3,
+            "dropoff_location_id": 2,
             "start_date": "2026-02-01",
             "end_date": "2026-02-28",
             "days_of_week": "1,3,5",
@@ -267,7 +271,7 @@ class BookingList(Resource):
         
         # Validate required fields
         required_fields = [
-            'user_id', 'route_id', 'pickup_location', 'dropoff_location',
+            'user_id', 'route_id', 'pickup_location_id', 'dropoff_location_id',
             'start_date', 'end_date', 'days_of_week', 'service_type', 'seats_booked'
         ]
         
@@ -281,10 +285,23 @@ class BookingList(Resource):
             return {"error": "User not found"}, 404
         
         # Validate route exists
-        from models import Route
         route = Route.query.get(data['route_id'])
         if not route:
             return {"error": "Route not found"}, 404
+        
+        # Validate pickup location exists and belongs to route
+        pickup_location = PickupLocation.query.get(data['pickup_location_id'])
+        if not pickup_location:
+            return {"error": "Pickup location not found"}, 404
+        if pickup_location.route_id != data['route_id']:
+            return {"error": "Pickup location does not belong to selected route"}, 400
+        
+        # Validate dropoff location exists and belongs to route
+        dropoff_location = SchoolLocation.query.get(data['dropoff_location_id'])
+        if not dropoff_location:
+            return {"error": "Dropoff location not found"}, 404
+        if dropoff_location.route_id != data['route_id']:
+            return {"error": "Dropoff location does not belong to selected route"}, 400
         
         # Auto-assign vehicle from route (get first available vehicle on this route)
         vehicle = Vehicle.query.filter_by(route_id=data['route_id']).first()
@@ -320,7 +337,7 @@ class BookingList(Resource):
         
         # Check vehicle capacity
         is_valid, available_seats, error_msg = validate_booking_capacity(
-            vehicle.id,  # Use auto-assigned vehicle
+            vehicle.id,
             start_date,
             end_date,
             seats_booked
@@ -332,8 +349,8 @@ class BookingList(Resource):
         booking = Booking(
             user_id=data['user_id'],
             route_id=data['route_id'],
-            pickup_location=data['pickup_location'],
-            dropoff_location=data['dropoff_location'],
+            pickup_location_id=data['pickup_location_id'],
+            dropoff_location_id=data['dropoff_location_id'],
             booking_date=datetime.utcnow(),
             start_date=start_date,
             end_date=end_date,
@@ -368,6 +385,7 @@ class BookingDetail(Resource):
     Handle single booking operations
     GET: Get booking details with trips
     PATCH: Update booking (cancel only for MVP)
+    DELETE: Delete completed or cancelled bookings
     """
     
     def get(self, booking_id):
@@ -425,3 +443,34 @@ class BookingDetail(Resource):
         response["message"] = "Booking cancelled successfully"
         
         return response, 200
+    
+    def delete(self, booking_id):
+        """
+        Delete a booking (only allowed for completed or cancelled bookings)
+        This helps clean up the database after bookings are done
+        """
+        booking = Booking.query.get(booking_id)
+        
+        if not booking:
+            return {"error": "Booking not found"}, 404
+        
+        # Only allow deletion of completed or cancelled bookings
+        if booking.status not in ['completed', 'cancelled']:
+            return {
+                "error": "Can only delete completed or cancelled bookings",
+                "current_status": booking.status
+            }, 400
+        
+        try:
+            # Trips will be deleted automatically due to cascade='all, delete-orphan'
+            db.session.delete(booking)
+            db.session.commit()
+            
+            return {
+                "message": "Booking deleted successfully",
+                "booking_id": booking_id
+            }, 200
+            
+        except Exception as e:
+            db.session.rollback()
+            return {"error": f"Failed to delete booking: {str(e)}"}, 500
