@@ -6,18 +6,35 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { History, Search, MapPin, Navigation } from 'lucide-react'
+import { 
+  History, 
+  Search, 
+  MapPin, 
+  Navigation, 
+  Calendar,
+  Users,
+  Clock,
+  X,
+  CheckCircle2,
+  XCircle,
+  AlertCircle
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 const BASE_URL = 'http://127.0.0.1:5555'
 
 export type Booking = {
   booking_id: number
-  pickup_location: string
-  dropoff_location: string
+  pickup_location?: string
+  pickup_location_name?: string
+  dropoff_location?: string
+  dropoff_location_name?: string
   start_date: string
   end_date: string
   seats_booked: number
+  selected_seats?: number[]
   service_type: string
+  days_of_week?: string
   status: 'active' | 'cancelled' | 'completed'
 }
 
@@ -28,66 +45,99 @@ interface Props {
 export default function BookingHistory({ onTrack }: Props) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] =
-    useState<'all' | 'active' | 'cancelled'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'cancelled'>('all')
   const [loading, setLoading] = useState(true)
+  const [cancellingId, setCancellingId] = useState<number | null>(null)
 
   // ---------------- FETCH BOOKINGS ----------------
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const res = await fetch(`${BASE_URL}/bookings?user_id=1`, {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
-          },
-        })
-
-        if (!res.ok) throw new Error('Failed to fetch booking history')
-
-        const data: Booking[] = await res.json()
-        setBookings(data)
-      } catch (err) {
-        console.error('Booking history error:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchBookings()
   }, [])
 
-  // ---------------- CANCEL BOOKING ----------------
-  const cancelBooking = async (bookingId: number) => {
+  const fetchBookings = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/bookings/${bookingId}/cancel`, {
-        method: 'PATCH',
+      const res = await fetch(`${BASE_URL}/bookings?user_id=1`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
         },
       })
-      if (!res.ok) throw new Error('Failed to cancel booking')
+
+      if (!res.ok) throw new Error('Failed to fetch booking history')
+
+      const data: Booking[] = await res.json()
+      setBookings(data)
+    } catch (err) {
+      console.error('Booking history error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ---------------- NORMALIZE LOCATION NAMES ----------------
+  const getPickup = (b: Booking) => b.pickup_location ?? b.pickup_location_name ?? 'Unknown'
+  const getDropoff = (b: Booking) => b.dropoff_location ?? b.dropoff_location_name ?? 'Unknown'
+
+  // ---------------- CANCEL BOOKING ----------------
+  const handleCancelBooking = async (booking: Booking) => {
+    const serviceLabel = getServiceTypeLabel(booking.service_type)
+    const dateRange = `${new Date(booking.start_date).toLocaleDateString()} - ${new Date(booking.end_date).toLocaleDateString()}`
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to cancel this booking?\n\n` +
+      `Booking ID: #${booking.booking_id}\n` +
+      `Service: ${serviceLabel}\n` +
+      `Seats: ${booking.seats_booked}\n` +
+      `Period: ${dateRange}\n\n` +
+      `This action cannot be undone.`
+    )
+
+    if (!confirmed) return
+
+    setCancellingId(booking.booking_id)
+    try {
+      const res = await fetch(`${BASE_URL}/bookings/${booking.booking_id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
+        },
+        body: JSON.stringify({ status: 'cancelled' })
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Failed to cancel booking')
+      }
 
       // Update local state
       setBookings(prev =>
         prev.map(b =>
-          b.booking_id === bookingId ? { ...b, status: 'cancelled' } : b
+          b.booking_id === booking.booking_id 
+            ? { ...b, status: 'cancelled' as const } 
+            : b
         )
       )
-    } catch (err) {
+
+      alert('Booking cancelled successfully!')
+    } catch (err: any) {
       console.error('Cancel booking error:', err)
-      alert('Failed to cancel booking')
+      alert(err.message || 'Failed to cancel booking. Please try again.')
+    } finally {
+      setCancellingId(null)
     }
   }
 
   // ---------------- FILTER ----------------
   const filteredBookings = bookings.filter(b => {
+    const pickup = getPickup(b).toLowerCase()
+    const dropoff = getDropoff(b).toLowerCase()
+
     const matchesSearch =
-      b.pickup_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.dropoff_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pickup.includes(searchTerm.toLowerCase()) ||
+      dropoff.includes(searchTerm.toLowerCase()) ||
       b.booking_id.toString().includes(searchTerm)
 
     if (activeTab === 'active') return b.status === 'active' && matchesSearch
@@ -96,132 +146,284 @@ export default function BookingHistory({ onTrack }: Props) {
   })
 
   // ---------------- STATUS STYLES ----------------
-  const getStatusColor = (status: Booking['status']) => {
+  const getStatusConfig = (status: Booking['status']) => {
     switch (status) {
       case 'active':
-        return 'bg-emerald-500/20 text-emerald-700 border-emerald-500/50'
+        return {
+          badge: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+          icon: CheckCircle2,
+          iconColor: 'text-emerald-600',
+        }
       case 'cancelled':
-        return 'bg-red-500/20 text-red-700 border-red-500/50'
+        return {
+          badge: 'bg-red-100 text-red-700 border-red-300',
+          icon: XCircle,
+          iconColor: 'text-red-600',
+        }
       case 'completed':
-        return 'bg-gray-500/20 text-gray-700 border-gray-500/50'
+        return {
+          badge: 'bg-gray-100 text-gray-700 border-gray-300',
+          icon: CheckCircle2,
+          iconColor: 'text-gray-600',
+        }
       default:
-        return ''
+        return {
+          badge: 'bg-gray-100 text-gray-700 border-gray-300',
+          icon: AlertCircle,
+          iconColor: 'text-gray-600',
+        }
     }
   }
 
-  const getCardColor = (index: number) => {
-    const colors = ['bg-blue-50', 'bg-purple-50', 'bg-pink-50', 'bg-green-50', 'bg-yellow-50']
-    return colors[index % colors.length]
+  const getServiceTypeLabel = (type: string) => {
+    switch (type) {
+      case 'morning': return '🌅 Morning'
+      case 'evening': return '🌆 Evening'
+      case 'both': return '🔄 Both Ways'
+      default: return type
+    }
+  }
+
+  const getDaysOfWeekLabel = (days?: string) => {
+    if (!days) return null
+    const dayMap: Record<string, string> = {
+      '1': 'Mon', '2': 'Tue', '3': 'Wed', '4': 'Thu', 
+      '5': 'Fri', '6': 'Sat', '7': 'Sun'
+    }
+    return days.split(',').map(d => dayMap[d] || d).join(', ')
   }
 
   if (loading) {
-    return <p className="text-muted-foreground text-center py-6">Loading booking history…</p>
+    return (
+      <div className="space-y-6">
+        <Card className="animate-pulse">
+          <CardContent className="h-20" />
+        </Card>
+        <Card className="animate-pulse">
+          <CardContent className="h-96" />
+        </Card>
+      </div>
+    )
+  }
+
+  const statusCounts = {
+    all: bookings.length,
+    active: bookings.filter(b => b.status === 'active').length,
+    cancelled: bookings.filter(b => b.status === 'cancelled').length,
   }
 
   return (
     <div className="space-y-6">
-      {/* SEARCH */}
-      <Card>
+      {/* SEARCH BAR */}
+      <Card className="border-0 shadow-lg bg-gradient-to-br from-background to-muted/20">
         <CardHeader>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
-              placeholder="Search by booking ID or location…"
+              placeholder="Search by booking ID, pickup or dropoff location..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-11 h-12 text-base shadow-sm"
             />
           </div>
         </CardHeader>
       </Card>
 
-      {/* HISTORY */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-            <History className="w-5 h-5 text-primary" />
+      {/* BOOKING HISTORY */}
+      <Card className="border-0 shadow-xl">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+          <CardTitle className="flex items-center gap-3 text-xl font-bold">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <History className="w-6 h-6 text-primary" />
+            </div>
             Booking History
+            <Badge variant="outline" className="ml-auto">
+              {filteredBookings.length} {filteredBookings.length === 1 ? 'booking' : 'bookings'}
+            </Badge>
           </CardTitle>
         </CardHeader>
 
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={v => setActiveTab(v as any)}>
-            <TabsList className="w-full rounded-none border-b">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="active">Active</TabsTrigger>
-              <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+            <TabsList className="w-full rounded-none border-b bg-muted/50 h-14">
+              <TabsTrigger value="all" className="flex-1 data-[state=active]:bg-background">
+                All
+                <Badge variant="secondary" className="ml-2">{statusCounts.all}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="active" className="flex-1 data-[state=active]:bg-background">
+                Active
+                <Badge variant="secondary" className="ml-2">{statusCounts.active}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="cancelled" className="flex-1 data-[state=active]:bg-background">
+                Cancelled
+                <Badge variant="secondary" className="ml-2">{statusCounts.cancelled}</Badge>
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value={activeTab}>
+            <TabsContent value={activeTab} className="p-6 space-y-4">
               {filteredBookings.length === 0 ? (
-                <div className="p-6 text-center text-muted-foreground">
-                  No bookings found
+                <div className="text-center py-16">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                    <History className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-lg font-medium text-foreground">No bookings found</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {searchTerm ? 'Try adjusting your search' : 'Create your first booking to get started'}
+                  </p>
                 </div>
               ) : (
-                filteredBookings.map((b, i) => (
-                  <div
-                    key={b.booking_id}
-                    className={`flex flex-col md:flex-row justify-between p-5 border border-border/50 rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 ${getCardColor(i)}`}
-                  >
-                    {/* Left: Booking info */}
-                    <div className="flex-1 space-y-1">
-                      <p className="font-semibold text-sm md:text-base text-gray-800 dark:text-gray-900">
-                        BK-{b.booking_id} • {b.service_type}
-                      </p>
-
-                      <div className="inline-flex items-center gap-2 mt-1">
-                        <div className="px-2 py-1 bg-primary text-white rounded-lg text-xs font-medium">
-                          {new Date(b.start_date).toLocaleDateString()}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          → {new Date(b.end_date).toLocaleDateString()}
-                        </p>
-                      </div>
-
-                      <div className="flex items-start gap-2 text-sm mt-1">
-                        <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                        <div>
-                          <p>{b.pickup_location}</p>
-                          <p className="text-muted-foreground">→ {b.dropoff_location}</p>
-                        </div>
-                      </div>
-
-                      <p className="text-sm mt-1">
-                        Seats: <b>{b.seats_booked}</b>
-                      </p>
-                    </div>
-
-                    {/* Right: Status & Track/Cancel */}
-                    <div className="flex flex-col items-end gap-2 mt-3 md:mt-0">
-                      <Badge variant="outline" className={getStatusColor(b.status)}>
-                        {b.status}
-                      </Badge>
-
-                      {b.status === 'active' && (
-                        <div className="flex flex-col gap-2 mt-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1"
-                            onClick={() => onTrack(b.booking_id)}
-                          >
-                            <Navigation className="w-4 h-4" />
-                            Track
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="gap-1"
-                            onClick={() => cancelBooking(b.booking_id)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
+                filteredBookings.map((booking) => {
+                  const statusConfig = getStatusConfig(booking.status)
+                  const StatusIcon = statusConfig.icon
+                  
+                  return (
+                    <Card
+                      key={booking.booking_id}
+                      className={cn(
+                        'border-2 transition-all duration-300 hover:shadow-lg',
+                        booking.status === 'active' && 'border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-white',
+                        booking.status === 'cancelled' && 'border-red-200 bg-gradient-to-br from-red-50/50 to-white opacity-75',
+                        booking.status === 'completed' && 'border-gray-200 bg-gradient-to-br from-gray-50/50 to-white'
                       )}
-                    </div>
-                  </div>
-                ))
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                          {/* LEFT SECTION */}
+                          <div className="flex-1 space-y-4">
+                            {/* Header */}
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="text-lg font-bold text-foreground">
+                                    Booking #{booking.booking_id}
+                                  </h3>
+                                  <Badge variant="outline" className={statusConfig.badge}>
+                                    <StatusIcon className={cn('w-3 h-3 mr-1', statusConfig.iconColor)} />
+                                    {booking.status}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {getServiceTypeLabel(booking.service_type)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Dates */}
+                            <div className="flex flex-wrap items-center gap-3">
+                              <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
+                                <Calendar className="w-4 h-4 text-primary" />
+                                <span className="text-sm font-medium">
+                                  {new Date(booking.start_date).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </span>
+                              </div>
+                              <span className="text-muted-foreground">→</span>
+                              <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
+                                <Calendar className="w-4 h-4 text-primary" />
+                                <span className="text-sm font-medium">
+                                  {new Date(booking.end_date).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Days of Week */}
+                            {booking.days_of_week && (
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">
+                                  {getDaysOfWeekLabel(booking.days_of_week)}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Locations */}
+                            <div className="space-y-2 pl-1">
+                              <div className="flex items-start gap-3">
+                                <div className="mt-1 p-1.5 rounded-full bg-blue-100">
+                                  <MapPin className="w-4 h-4 text-blue-600" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-0.5">Pickup</p>
+                                  <p className="text-sm font-medium text-foreground">{getPickup(booking)}</p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-start gap-3">
+                                <div className="mt-1 p-1.5 rounded-full bg-purple-100">
+                                  <MapPin className="w-4 h-4 text-purple-600" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-0.5">Dropoff</p>
+                                  <p className="text-sm font-medium text-foreground">{getDropoff(booking)}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Seats */}
+                            <div className="flex items-center gap-4 pt-2">
+                              <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                                <Users className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm font-medium">
+                                  {booking.seats_booked} {booking.seats_booked === 1 ? 'seat' : 'seats'}
+                                </span>
+                              </div>
+                              
+                              {booking.selected_seats && booking.selected_seats.length > 0 && (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {booking.selected_seats.map(seat => (
+                                    <Badge key={seat} variant="outline" className="font-mono text-xs">
+                                      {seat}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* RIGHT SECTION - ACTIONS */}
+                          {booking.status === 'active' && (
+                            <div className="flex lg:flex-col gap-2 lg:min-w-[140px]">
+                              <Button
+                                variant="outline"
+                                className="flex-1 lg:flex-none gap-2 hover:bg-primary hover:text-white transition-colors"
+                                onClick={() => onTrack(booking.booking_id)}
+                              >
+                                <Navigation className="w-4 h-4" />
+                                Track Bus
+                              </Button>
+
+                              <Button
+                                variant="destructive"
+                                className="flex-1 lg:flex-none gap-2"
+                                onClick={() => handleCancelBooking(booking)}
+                                disabled={cancellingId === booking.booking_id}
+                              >
+                                {cancellingId === booking.booking_id ? (
+                                  <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    Cancelling...
+                                  </>
+                                ) : (
+                                  <>
+                                    <X className="w-4 h-4" />
+                                    Cancel
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })
               )}
             </TabsContent>
           </Tabs>
