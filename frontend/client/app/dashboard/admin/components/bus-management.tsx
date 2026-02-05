@@ -1,12 +1,12 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { apiFetch } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { apiFetch } from '@/lib/api'
-import { Plus, Search, Edit2, Trash2, Truck } from 'lucide-react'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -15,132 +15,172 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Plus, Search, Edit2, Trash2, Car, Route as RouteIcon, User } from 'lucide-react'
+
+type Id = number | string
+
+type VehicleApi = {
+  id: Id
+  route_id: Id
+  user_id: Id // driver id
+  license_plate: string
+  model: string
+  capacity: number
+  status?: string
+}
 
 type Vehicle = {
-  id: number
+  id: string
   route_id: string
   user_id: string
   license_plate: string
   model: string
   capacity: number
-  status: 'Active' | 'Inactive'
+  status?: string
 }
 
-// Dropdown option types (kept minimal + defensive)
 type RouteOption = {
-  id: number | string
+  id: Id
   name?: string
   starting_point?: string
   ending_point?: string
+  status?: string
 }
 
-type UserOption = {
-  id: number | string
+type DriverOption = {
+  id: Id
   name?: string
-  username?: string
   email?: string
-  role?: string
+  phone_number?: string
 }
+
+const toId = (v: any) => String(v ?? '')
+
+const toArray = (x: any) => {
+  if (Array.isArray(x)) return x
+  if (Array.isArray(x?.data)) return x.data
+  if (Array.isArray(x?.results)) return x.results
+  if (Array.isArray(x?.items)) return x.items
+  if (Array.isArray(x?.vehicles)) return x.vehicles
+  if (Array.isArray(x?.routes)) return x.routes
+  if (Array.isArray(x?.drivers)) return x.drivers
+  return []
+}
+
+const routeLabel = (r?: RouteOption) => {
+  if (!r) return '—'
+  if (r.name) return r.name
+  if (r.starting_point && r.ending_point) return `${r.starting_point} → ${r.ending_point}`
+  return `Route #${toId(r.id)}`
+}
+
+const driverLabel = (d?: DriverOption, fallbackId?: string) => {
+  if (!d) return fallbackId ? `Driver #${fallbackId}` : '—'
+  return d.name ?? d.email ?? (fallbackId ? `Driver #${fallbackId}` : `Driver #${toId(d.id)}`)
+}
+
+const normalizeVehicle = (raw: VehicleApi): Vehicle => ({
+  id: toId(raw.id),
+  route_id: toId(raw.route_id),
+  user_id: toId(raw.user_id),
+  license_plate: String(raw.license_plate ?? ''),
+  model: String(raw.model ?? ''),
+  capacity: Number(raw.capacity ?? 0),
+  status: raw.status ? String(raw.status) : undefined,
+})
 
 export default function VehicleManagement() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [vehicles, setVehicles] = useState<any[]>([])
 
-  // Routes + Drivers for dropdowns + name lookups in table
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [routes, setRoutes] = useState<RouteOption[]>([])
-  const [drivers, setDrivers] = useState<UserOption[]>([])
-  const [loadingOptions, setLoadingOptions] = useState(false)
+  const [drivers, setDrivers] = useState<DriverOption[]>([])
 
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // dialogs
   const [addOpen, setAddOpen] = useState(false)
-  const [addForm, setAddForm] = useState({
-    route_id: '',
-    user_id: '',
-    license_plate: '',
-    model: '',
-    capacity: 0,
-  })
-
   const [editOpen, setEditOpen] = useState(false)
-  const [editing, setEditing] = useState<Vehicle | null>(null)
-  const [editForm, setEditForm] = useState({
-    route_id: '',
-    user_id: '',
-    license_plate: '',
-    model: '',
-    capacity: 0,
-    status: 'Active' as Vehicle['status'],
-  })
 
-  const toId = (v: unknown) => (v === null || v === undefined ? '' : String(v))
+  // add form
+  const [newLicensePlate, setNewLicensePlate] = useState('')
+  const [newModel, setNewModel] = useState('')
+  const [newCapacity, setNewCapacity] = useState<number>(14)
+  const [newRouteId, setNewRouteId] = useState<string>('')
+  const [newDriverId, setNewDriverId] = useState<string>('')
 
-  const routeLabel = (r: RouteOption) => {
-    const id = toId(r.id)
-    if (r.name) return r.name
-    if (r.starting_point && r.ending_point) return `${r.starting_point} → ${r.ending_point}`
-    return id ? `Route #${id}` : 'Route'
-  }
+  // edit form
+  const [editId, setEditId] = useState<string>('')
+  const [editLicensePlate, setEditLicensePlate] = useState('')
+  const [editModel, setEditModel] = useState('')
+  const [editCapacity, setEditCapacity] = useState<number>(14)
+  const [editRouteId, setEditRouteId] = useState<string>('')
+  const [editDriverId, setEditDriverId] = useState<string>('')
 
-  const userLabel = (u: UserOption) => {
-    const id = toId(u.id)
-    return u.name ?? u.username ?? u.email ?? (id ? `User #${id}` : 'User')
-  }
-
-  const fetchVehicles = async () => {
-    try {
-      const res = await apiFetch('/vehicles')
-      const data = await res.json()
-      setVehicles(Array.isArray(data) ? data : data?.data ?? [])
-    } catch (err) {
-      console.error('Failed to fetch vehicles', err)
-    }
-  }
-
-  const fetchOptions = async () => {
-    setLoadingOptions(true)
-    try {
-      // Adjust these if your backend endpoints differ
-      const [routesRes, usersRes] = await Promise.all([apiFetch('/routes'), apiFetch('/drivers')])
-
-      const routesData = await routesRes.json()
-      const usersData = await usersRes.json()
-      console.log("Users Data",usersData)
-      console.log("Routes Data", routesData)
-      const routeArr: RouteOption[] = Array.isArray(routesData) ? routesData : routesData?.data ?? []
-      const usersArr: UserOption[] = Array.isArray(usersData) ? usersData : usersData?.data ?? []
-
-      setRoutes(routeArr)
-
-      // Drivers filtering (if backend returns all users). If you already have /drivers, swap endpoint above.
-      const onlyDrivers = usersArr.filter(u => (u.role ? u.role === 'driver' : true))
-      setDrivers(onlyDrivers)
-    } catch (err) {
-      console.error('Failed to fetch route/driver options', err)
-    } finally {
-      setLoadingOptions(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchVehicles()
-    fetchOptions()
+  const authHeaders = useMemo(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    const headers: HeadersInit = { 'Content-Type': 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+    return headers
   }, [])
 
-  // Load dropdown options when Add dialog opens
-  useEffect(() => {
-    if (addOpen) fetchOptions()
-  }, [addOpen])
+  const fetchAll = async () => {
+    setLoading(true)
+    setError(null)
 
-  // Lookup maps so the table can show names instead of ids
+    try {
+      const [vehRes, routesRes, driversRes] = await Promise.all([
+        apiFetch('/vehicles', { headers: authHeaders }),
+        apiFetch('/routes', { headers: authHeaders }),
+        apiFetch('/drivers', { headers: authHeaders }),
+      ])
+
+      const [vehJson, routesJson, driversJson] = await Promise.all([
+        vehRes.json().catch(() => null),
+        routesRes.json().catch(() => null),
+        driversRes.json().catch(() => null),
+      ])
+
+      if (!vehRes.ok) throw new Error(vehJson?.error || vehJson?.message || `Vehicles fetch failed (${vehRes.status})`)
+      if (!routesRes.ok) throw new Error(routesJson?.error || routesJson?.message || `Routes fetch failed (${routesRes.status})`)
+      if (!driversRes.ok) throw new Error(driversJson?.error || driversJson?.message || `Drivers fetch failed (${driversRes.status})`)
+
+      setVehicles(toArray(vehJson).map(normalizeVehicle))
+      setRoutes(toArray(routesJson))
+      setDrivers(toArray(driversJson))
+    } catch (e: any) {
+      console.error(e)
+      setVehicles([])
+      setRoutes([])
+      setDrivers([])
+      setError(e?.message || 'Failed to load vehicles')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const routeById = useMemo(() => {
     const m = new Map<string, RouteOption>()
-    for (const r of routes) m.set(toId(r.id), r)
+    routes.forEach(r => m.set(toId(r.id), r))
     return m
   }, [routes])
 
   const driverById = useMemo(() => {
-    const m = new Map<string, UserOption>()
-    for (const u of drivers) m.set(toId(u.id), u)
+    const m = new Map<string, DriverOption>()
+    drivers.forEach(d => m.set(toId(d.id), d))
     return m
   }, [drivers])
 
@@ -149,307 +189,316 @@ export default function VehicleManagement() {
     if (!q) return vehicles
 
     return vehicles.filter(v => {
-      const routeId = toId(v.route_id)
-      const userId = toId(v.user_id)
-
-      const routeName = routeById.get(routeId) ? routeLabel(routeById.get(routeId)!) : ''
-      const driverName = driverById.get(userId) ? userLabel(driverById.get(userId)!) : ''
-
+      const r = routeById.get(v.route_id)
+      const d = driverById.get(v.user_id)
       return (
-        routeId.includes(q) ||
-        userId.includes(q) ||
-        routeName.toLowerCase().includes(q) ||
-        driverName.toLowerCase().includes(q) ||
-        v.license_plate?.toLowerCase().includes(q) ||
-        v.model?.toLowerCase().includes(q)
+        v.license_plate.toLowerCase().includes(q) ||
+        v.model.toLowerCase().includes(q) ||
+        routeLabel(r).toLowerCase().includes(q) ||
+        driverLabel(d, v.user_id).toLowerCase().includes(q) ||
+        String(v.capacity).includes(q)
       )
     })
   }, [vehicles, searchTerm, routeById, driverById])
 
-  const handleDelete = async (id: number) => {
-    try {
-      const res = await apiFetch(`/vehicles/${id}`, { method: 'DELETE' })
-      const data = await res.json().catch(() => null)
-
-      if (!res.ok) {
-        alert(data?.message || data?.error || 'Delete failed')
-        return
-      }
-
-      setVehicles(prev => prev.filter(v => v.id !== id))
-    } catch (err) {
-      console.error(err)
-      alert('Server error')
-    }
+  const resetAddForm = () => {
+    setNewLicensePlate('')
+    setNewModel('')
+    setNewCapacity(14)
+    setNewRouteId('')
+    setNewDriverId('')
   }
 
-  const handleAdd = async () => {
-    if (!addForm.route_id || !addForm.user_id || !addForm.license_plate || !addForm.model) return
-    if (addForm.capacity < 0) return
+  const openEdit = (v: Vehicle) => {
+    setEditId(v.id)
+    setEditLicensePlate(v.license_plate)
+    setEditModel(v.model)
+    setEditCapacity(v.capacity)
+    setEditRouteId(v.route_id)
+    setEditDriverId(v.user_id)
+    setEditOpen(true)
+  }
 
-    const payload = {
-      route_id: addForm.route_id, // still sending IDs
-      user_id: addForm.user_id,
-      license_plate: addForm.license_plate,
-      model: addForm.model,
-      capacity: Number(addForm.capacity) || 0,
-    }
+  const createVehicle = async () => {
+    setError(null)
+
+    if (!newRouteId) return setError('Please select a route')
+    if (!newDriverId) return setError('Please select a driver')
+    if (!newLicensePlate.trim()) return setError('License plate is required')
+    if (!newModel.trim()) return setError('Model is required')
+    if (!Number.isFinite(newCapacity) || newCapacity <= 0) return setError('Capacity must be a positive number')
 
     try {
       const res = await apiFetch('/vehicles', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        headers: authHeaders,
+        body: JSON.stringify({
+          route_id: Number.isFinite(Number(newRouteId)) ? Number(newRouteId) : newRouteId,
+          user_id: Number.isFinite(Number(newDriverId)) ? Number(newDriverId) : newDriverId,
+          license_plate: newLicensePlate.trim(),
+          model: newModel.trim(),
+          capacity: Number(newCapacity),
+        }),
       })
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        alert(data?.message || data?.error || 'Create failed')
-        return
-      }
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || json?.message || `Create failed (${res.status})`)
 
-      fetchVehicles()
-      setAddForm({ route_id: '', user_id: '', license_plate: '', model: '', capacity: 0 })
       setAddOpen(false)
-    } catch (err) {
-      console.error(err)
-      alert('Server error')
+      resetAddForm()
+      await fetchAll()
+    } catch (e: any) {
+      console.error(e)
+      setError(e?.message || 'Failed to create vehicle')
     }
   }
 
-  const openEdit = (v: Vehicle) => {
-    setEditing(v)
-    setEditForm({
-      route_id: toId(v.route_id),
-      user_id: toId(v.user_id),
-      license_plate: v.license_plate,
-      model: v.model,
-      capacity: v.capacity,
-      status: v.status,
-    })
-    setEditOpen(true)
-  }
+  const updateVehicle = async () => {
+    setError(null)
 
-  const handleSave = async () => {
-    if (!editing) return
-    if (!editForm.route_id || !editForm.user_id || !editForm.license_plate || !editForm.model) return
-    if (editForm.capacity < 0) return
-
-    const payload = {
-      route_id: editForm.route_id,
-      user_id: editForm.user_id,
-      license_plate: editForm.license_plate,
-      model: editForm.model,
-      capacity: Number(editForm.capacity) || 0,
-    }
+    if (!editId) return
+    if (!editRouteId) return setError('Please select a route')
+    if (!editDriverId) return setError('Please select a driver')
+    if (!editLicensePlate.trim()) return setError('License plate is required')
+    if (!editModel.trim()) return setError('Model is required')
+    if (!Number.isFinite(editCapacity) || editCapacity <= 0) return setError('Capacity must be a positive number')
 
     try {
-      const res = await apiFetch(`/vehicles/${editing.id}`, {
+      const res = await apiFetch(`/vehicles/${editId}`, {
         method: 'PATCH',
-        body: JSON.stringify(payload),
+        headers: authHeaders,
+        body: JSON.stringify({
+          route_id: Number.isFinite(Number(editRouteId)) ? Number(editRouteId) : editRouteId,
+          user_id: Number.isFinite(Number(editDriverId)) ? Number(editDriverId) : editDriverId,
+          license_plate: editLicensePlate.trim(),
+          model: editModel.trim(),
+          capacity: Number(editCapacity),
+        }),
       })
 
-      const data = await res.json().catch(() => null)
-
-      if (!res.ok) {
-        alert(data?.error || data?.message || 'Update failed')
-        return
-      }
-
-      setVehicles(prev =>
-        prev.map(v =>
-          v.id === editing.id ? { ...v, ...editForm, capacity: Number(editForm.capacity) || 0 } : v
-        )
-      )
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || json?.message || `Update failed (${res.status})`)
 
       setEditOpen(false)
-      setEditing(null)
-    } catch (err) {
-      console.error(err)
-      alert('Server error')
+      await fetchAll()
+    } catch (e: any) {
+      console.error(e)
+      setError(e?.message || 'Failed to update vehicle')
+    }
+  }
+
+  const deleteVehicle = async (id: string) => {
+    if (!confirm('Delete this vehicle?')) return
+    setError(null)
+
+    try {
+      const res = await apiFetch(`/vehicles/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || json?.message || `Delete failed (${res.status})`)
+
+      await fetchAll()
+    } catch (e: any) {
+      console.error(e)
+      setError(e?.message || 'Failed to delete vehicle')
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Vehicle Management</h2>
+          <p className="text-sm text-muted-foreground">Assign vehicles to routes and drivers.</p>
+        </div>
+
+        <Dialog open={addOpen} onOpenChange={open => (setAddOpen(open), !open && resetAddForm())}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Vehicle
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[520px]">
+            <DialogHeader>
+              <DialogTitle>Add Vehicle</DialogTitle>
+              <DialogDescription>Select a route and driver, then fill vehicle details.</DialogDescription>
+            </DialogHeader>
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label>Route</Label>
+                <Select value={newRouteId} onValueChange={setNewRouteId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a route" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {routes.map(r => (
+                      <SelectItem key={toId(r.id)} value={toId(r.id)}>
+                        {routeLabel(r)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Driver</Label>
+                <Select value={newDriverId} onValueChange={setNewDriverId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a driver" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {drivers.map(d => (
+                      <SelectItem key={toId(d.id)} value={toId(d.id)}>
+                        {driverLabel(d, toId(d.id))}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>License Plate</Label>
+                <Input value={newLicensePlate} onChange={e => setNewLicensePlate(e.target.value)} placeholder="KDC 123X" />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Model</Label>
+                <Input value={newModel} onChange={e => setNewModel(e.target.value)} placeholder="Toyota Hiace" />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Capacity</Label>
+                <Input
+                  type="number"
+                  value={String(newCapacity)}
+                  onChange={e => setNewCapacity(Number(e.target.value))}
+                  min={1}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" className="bg-transparent" onClick={() => setAddOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={createVehicle}>Create</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
       <Card className="border-border/50">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <CardTitle>Vehicle Management</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Car className="w-5 h-5" />
+              Vehicles
+            </CardTitle>
+
+            <div className="relative w-full sm:w-[360px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                className="pl-10"
+                placeholder="Search plate, model, route, driver…"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
             </div>
-
-            <Dialog open={addOpen} onOpenChange={setAddOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Vehicle
-                </Button>
-              </DialogTrigger>
-
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Vehicle</DialogTitle>
-                  <DialogDescription>Enter vehicle details</DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4">
-                  {/* Route dropdown */}
-                  <div>
-                    <Label>Route</Label>
-                    <select
-                      value={addForm.route_id}
-                      onChange={e => setAddForm({ ...addForm, route_id: e.target.value })}
-                      className="mt-1 w-full h-10 rounded-md border border-border bg-background px-3 text-sm"
-                      disabled={loadingOptions}
-                    >
-                      <option value="">{loadingOptions ? 'Loading routes...' : 'Select a route'}</option>
-                      {routes.map(r => {
-                        const id = toId(r.id)
-                        return (
-                          <option key={id} value={id}>
-                            {routeLabel(r)}
-                          </option>
-                        )
-                      })}
-                    </select>
-                  </div>
-
-                  {/* Driver dropdown */}
-                  <div>
-                    <Label>Driver</Label>
-                    <select
-                      value={addForm.user_id}
-                      onChange={e => setAddForm({ ...addForm, user_id: e.target.value })}
-                      className="mt-1 w-full h-10 rounded-md border border-border bg-background px-3 text-sm"
-                      disabled={loadingOptions}
-                    >
-                      <option value="">{loadingOptions ? 'Loading drivers...' : 'Select a driver'}</option>
-                      {drivers.map(u => {
-                        const id = toId(u.id)
-                        return (
-                          <option key={id} value={id}>
-                            {userLabel(u)}
-                          </option>
-                        )
-                      })}
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label>License Plate</Label>
-                    <Input
-                      value={addForm.license_plate}
-                      onChange={e => setAddForm({ ...addForm, license_plate: e.target.value })}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Model</Label>
-                    <Input
-                      value={addForm.model}
-                      onChange={e => setAddForm({ ...addForm, model: e.target.value })}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Capacity</Label>
-                    <Input
-                      type="number"
-                      value={addForm.capacity}
-                      onChange={e => setAddForm({ ...addForm, capacity: Number(e.target.value) })}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <Button className="w-full mt-6" onClick={handleAdd} disabled={loadingOptions}>
-                    Create Vehicle
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
+
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         </CardHeader>
-      </Card>
 
-      {/* Search */}
-      <Card className="border-border/50">
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by plate, model, route, driver..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
-      <Card className="border-border/50 overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b border-border/50">
                 <tr>
-                  <th className="text-left py-4 px-6 font-semibold text-foreground">Vehicle</th>
-                  <th className="text-left py-4 px-6 font-semibold text-foreground">Route</th>
-                  <th className="text-left py-4 px-6 font-semibold text-foreground">Driver</th>
-                  <th className="text-left py-4 px-6 font-semibold text-foreground">Capacity</th>
-                  <th className="text-left py-4 px-6 font-semibold text-foreground">Status</th>
-                  <th className="text-left py-4 px-6 font-semibold text-foreground">Actions</th>
+                  <th className="text-left py-4 px-6 font-semibold">Vehicle</th>
+                  <th className="text-left py-4 px-6 font-semibold">Route</th>
+                  <th className="text-left py-4 px-6 font-semibold">Driver</th>
+                  <th className="text-left py-4 px-6 font-semibold">Capacity</th>
+                  <th className="text-left py-4 px-6 font-semibold">Status</th>
+                  <th className="text-right py-4 px-6 font-semibold">Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredVehicles.map(v => {
-                  const routeId = toId(v.route_id)
-                  const userId = toId(v.user_id)
+                {loading && (
+                  <tr>
+                    <td colSpan={6} className="py-10 px-6 text-center text-muted-foreground">
+                      Loading vehicles…
+                    </td>
+                  </tr>
+                )}
 
-                  const r = routeById.get(routeId)
-                  const d = driverById.get(userId)
+                {!loading &&
+                  filteredVehicles.map(v => {
+                    const r = routeById.get(v.route_id)
+                    const d = driverById.get(v.user_id)
 
-                  return (
-                    <tr key={v.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                      <td className="py-4 px-6">
-                        <p className="font-semibold text-foreground flex items-center gap-2">
-                          <Truck className="w-4 h-4" />
-                          {v.license_plate}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">{v.model}</p>
-                      </td>
+                    return (
+                      <tr key={v.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                        <td className="py-4 px-6">
+                          <div>
+                            <p className="font-medium">{v.license_plate}</p>
+                            <p className="text-xs text-muted-foreground">{v.model}</p>
+                          </div>
+                        </td>
 
-                      {/* NOW shows names (with fallback to ID) */}
-                      <td className="py-4 px-6">{r ? routeLabel(r) : routeId || '—'}</td>
-                      <td className="py-4 px-6">{d ? userLabel(d) : userId || '—'}</td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <RouteIcon className="w-4 h-4 text-muted-foreground" />
+                            <span>{routeLabel(r)}</span>
+                          </div>
+                        </td>
 
-                      <td className="py-4 px-6">
-                        <Badge variant="outline">{v.capacity}</Badge>
-                      </td>
-                      <td className="py-4 px-6">
-                        <Badge className={v.status === 'Active' ? 'bg-emerald-600' : 'bg-gray-500'}>
-                          {v.status}
-                        </Badge>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openEdit(v)}>
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDelete(v.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-muted-foreground" />
+                            <span>{driverLabel(d, v.user_id)}</span>
+                          </div>
+                        </td>
 
-                {filteredVehicles.length === 0 && (
+                        <td className="py-4 px-6">
+                          <Badge variant="outline" className="bg-transparent">
+                            {v.capacity}
+                          </Badge>
+                        </td>
+
+                        <td className="py-4 px-6">
+                          <Badge variant="outline" className="bg-transparent">
+                            {v.status ?? '—'}
+                          </Badge>
+                        </td>
+
+                        <td className="py-4 px-6">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="icon" className="bg-transparent" onClick={() => openEdit(v)}>
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="bg-transparent"
+                              onClick={() => deleteVehicle(v.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+
+                {!loading && filteredVehicles.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-10 px-6 text-center text-muted-foreground">
                       No vehicles found.
@@ -462,64 +511,70 @@ export default function VehicleManagement() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog (kept as your original: still uses ids in inputs) */}
+      {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle>Edit Vehicle</DialogTitle>
-            <DialogDescription>Update vehicle details</DialogDescription>
+            <DialogDescription>Update route/driver assignment and vehicle details.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label>Route ID</Label>
-              <Input
-                value={editForm.route_id}
-                onChange={e => setEditForm({ ...editForm, route_id: e.target.value })}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>User ID (Driver)</Label>
-              <Input
-                value={editForm.user_id}
-                onChange={e => setEditForm({ ...editForm, user_id: e.target.value })}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>License Plate</Label>
-              <Input
-                value={editForm.license_plate}
-                onChange={e => setEditForm({ ...editForm, license_plate: e.target.value })}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Model</Label>
-              <Input value={editForm.model} onChange={e => setEditForm({ ...editForm, model: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label>Capacity</Label>
-              <Input
-                type="number"
-                value={editForm.capacity}
-                onChange={e => setEditForm({ ...editForm, capacity: Number(e.target.value) })}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Input
-                value={editForm.status}
-                onChange={e => setEditForm({ ...editForm, status: e.target.value as any })}
-                className="mt-1"
-              />
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label>Route</Label>
+              <Select value={editRouteId} onValueChange={setEditRouteId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a route" />
+                </SelectTrigger>
+                <SelectContent>
+                  {routes.map(r => (
+                    <SelectItem key={toId(r.id)} value={toId(r.id)}>
+                      {routeLabel(r)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <Button className="w-full mt-6" onClick={handleSave}>
-              Save Changes
-            </Button>
+            <div className="grid gap-2">
+              <Label>Driver</Label>
+              <Select value={editDriverId} onValueChange={setEditDriverId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a driver" />
+                </SelectTrigger>
+                <SelectContent>
+                  {drivers.map(d => (
+                    <SelectItem key={toId(d.id)} value={toId(d.id)}>
+                      {driverLabel(d, toId(d.id))}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>License Plate</Label>
+              <Input value={editLicensePlate} onChange={e => setEditLicensePlate(e.target.value)} />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Model</Label>
+              <Input value={editModel} onChange={e => setEditModel(e.target.value)} />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Capacity</Label>
+              <Input type="number" value={String(editCapacity)} onChange={e => setEditCapacity(Number(e.target.value))} min={1} />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" className="bg-transparent" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={updateVehicle}>Save</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
