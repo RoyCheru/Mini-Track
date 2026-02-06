@@ -23,6 +23,14 @@ import { cn } from '@/lib/utils'
 
 const BASE_URL = 'http://127.0.0.1:5555'
 
+// Helper function to get current user ID
+function getCurrentUserId(): number | null {
+  if (typeof window === 'undefined') return null
+  
+  const userId = localStorage.getItem('user_id')
+  return userId ? parseInt(userId, 10) : null
+}
+
 export type Booking = {
   booking_id: number
   pickup_location?: string
@@ -56,7 +64,16 @@ export default function BookingHistory({ onTrack }: Props) {
 
   const fetchBookings = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/bookings?user_id=1`, {
+      const userId = getCurrentUserId()
+      
+      // If no user ID found, don't fetch
+      if (!userId) {
+        console.error('No user ID found')
+        setLoading(false)
+        return
+      }
+
+      const res = await fetch(`${BASE_URL}/bookings?user_id=${userId}`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
