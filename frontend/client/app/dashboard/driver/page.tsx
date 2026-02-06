@@ -27,7 +27,7 @@ import {
 
 import ScheduleView from './components/ScheduleView'
 import RouteMap from './components/RouteMap'
-import TripManagement from './components/TripManagement'
+// import TripManagement from './components/TripManagement'
 import VehicleStatus from './components/VehicleStatus'
 import DriverPassengers from './components/DriverPassengers'
 
@@ -81,7 +81,6 @@ function normalizeTripStatus(raw: any): TripStatus {
 
 function normalizeServiceTime(raw: any): ServiceType {
   const s = safeString(raw, 'morning').toLowerCase().trim()
-  // if backend ever returns "both", default to morning in driver dashboard contexts
   return s === 'evening' ? 'evening' : 'morning'
 }
 
@@ -304,7 +303,6 @@ export default function DriverDashboardPage() {
       .reduce((sum, t) => sum + (Number.isFinite(t.seats_booked) ? t.seats_booked : 0), 0)
   }, [todayTrips])
 
-  // ✅ One source of truth for starting trips
   const startTrip = async (tripId: number) => {
     if (startingTripId) return
 
@@ -542,18 +540,47 @@ export default function DriverDashboardPage() {
 
                 <TabsContent value="dashboard" className="mt-6">
                   <div className="space-y-8">
+                    {/* ✅ Removed TripManagement. Simple Current Trip card instead */}
                     {currentTrip ? (
-                      <TripManagement trip={currentTrip} onCompleteTrip={() => completeTrip(currentTrip.id)} onMarkPassenger={() => {}} />
+                      <Card className="border-slate-200 bg-white shadow-sm">
+                        <CardContent className="pt-6">
+                          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                              <div className={`p-4 rounded-full ${currentTrip.service_type === 'morning' ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                                {currentTrip.service_type === 'morning' ? <Sun className="w-8 h-8" /> : <Moon className="w-8 h-8" />}
+                              </div>
+
+                              <div>
+                                <h3 className="font-semibold text-lg text-slate-900">Trip In Progress</h3>
+                                <p className="text-slate-600">
+                                  {(() => {
+                                    const leg = displayLeg(currentTrip)
+                                    return (
+                                      <>
+                                        {shortPlace(leg.from)} → {shortPlace(leg.to)}
+                                      </>
+                                    )
+                                  })()}
+                                </p>
+                                <p className="text-sm text-slate-500 mt-1">{currentTrip.seats_booked} seat(s)</p>
+                              </div>
+                            </div>
+
+                            <Button
+                              onClick={() => completeTrip(currentTrip.id)}
+                              className="px-6 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                              Complete Trip
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
                     ) : upcomingTrip ? (
                       <Card className="border-slate-200 bg-white shadow-sm">
                         <CardContent className="pt-6">
                           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                             <div className="flex items-center gap-4">
-                              <div
-                                className={`p-4 rounded-full ${
-                                  upcomingTrip.service_type === 'morning' ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'
-                                }`}
-                              >
+                              <div className={`p-4 rounded-full ${upcomingTrip.service_type === 'morning' ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'}`}>
                                 {upcomingTrip.service_type === 'morning' ? <Sun className="w-8 h-8" /> : <Moon className="w-8 h-8" />}
                               </div>
                               <div>
@@ -614,12 +641,7 @@ export default function DriverDashboardPage() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <ScheduleView
-                            schedule={morningTrips as any}
-                            onStartTrip={startTrip}
-                            onCompleteTrip={completeTrip}
-                            startingTripId={startingTripId}
-                          />
+                          <ScheduleView schedule={morningTrips as any} onStartTrip={startTrip} onCompleteTrip={completeTrip} startingTripId={startingTripId} />
                         </CardContent>
                       </Card>
 
@@ -636,12 +658,7 @@ export default function DriverDashboardPage() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <ScheduleView
-                            schedule={eveningTrips as any}
-                            onStartTrip={startTrip}
-                            onCompleteTrip={completeTrip}
-                            startingTripId={startingTripId}
-                          />
+                          <ScheduleView schedule={eveningTrips as any} onStartTrip={startTrip} onCompleteTrip={completeTrip} startingTripId={startingTripId} />
                         </CardContent>
                       </Card>
                     </div>
@@ -690,13 +707,7 @@ export default function DriverDashboardPage() {
                       <CardTitle className="text-slate-900">My Schedule</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <ScheduleView
-                        schedule={todayTrips as any}
-                        onStartTrip={startTrip}
-                        onCompleteTrip={completeTrip}
-                        showAll
-                        startingTripId={startingTripId}
-                      />
+                      <ScheduleView schedule={todayTrips as any} onStartTrip={startTrip} onCompleteTrip={completeTrip} showAll startingTripId={startingTripId} />
                     </CardContent>
                   </Card>
                 </TabsContent>
