@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { UserCheck, Phone, MapPin, RefreshCw } from 'lucide-react'
+import { UserCheck, Phone, MapPin, RefreshCw, Play } from 'lucide-react'
 
 type TripStatus = 'scheduled' | 'picked_up' | 'completed' | 'cancelled'
 type ServiceType = 'morning' | 'evening'
@@ -33,12 +33,23 @@ function statusBadge(status: TripStatus) {
   }
 }
 
+function displayLeg(trip: Pick<DriverTrip, 'pickup_location' | 'dropoff_location' | 'service_type'>) {
+  const pickup = String(trip.pickup_location || '').trim()
+  const dropoff = String(trip.dropoff_location || '').trim()
+  if (trip.service_type === 'evening') return { from: dropoff || '—', to: pickup || '—' }
+  return { from: pickup || '—', to: dropoff || '—' }
+}
+
 export default function DriverPassengers({
   trips,
   onRefresh,
+  onStartTrip,
+  startingTripId,
 }: {
   trips: DriverTrip[]
   onRefresh: () => void
+  onStartTrip: (tripId: number) => void
+  startingTripId: number | null
 }) {
   if (!trips || trips.length === 0) {
     return (
@@ -70,44 +81,54 @@ export default function DriverPassengers({
         </CardHeader>
 
         <CardContent className="space-y-3">
-          {trips.map(t => (
-            <div
-              key={t.id}
-              className="rounded-xl border border-slate-200 p-4 hover:bg-slate-50 transition"
-            >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-900">
-                      {t.child_name || 'Student'}
-                    </span>
-                    {statusBadge(t.status)}
-                    <Badge variant="outline" className="border-slate-200 text-slate-700">
-                      {t.service_type.toUpperCase()}
-                    </Badge>
+          {trips.map(t => {
+            const canStart = t.status === 'scheduled'
+            const isStarting = startingTripId === t.id
+            const leg = displayLeg(t)
+
+            return (
+              <div key={t.id} className="rounded-xl border border-slate-200 p-4 hover:bg-slate-50 transition">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-slate-900">{t.child_name || 'Student'}</span>
+                      {statusBadge(t.status)}
+                      <Badge variant="outline" className="border-slate-200 text-slate-700">
+                        {t.service_type.toUpperCase()}
+                      </Badge>
+                    </div>
+
+                    <div className="text-sm text-slate-600 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      {leg.from} → {leg.to}
+                    </div>
+
+                    <div className="text-sm text-slate-600 flex items-center gap-2">
+                      <Phone className="w-4 h-4" />
+                      Seats booked: <span className="font-medium text-slate-900">{t.seats_booked}</span>
+                    </div>
+
+                    {t.booking_id && (
+                      <div className="text-xs text-slate-500">Booking #{t.booking_id} • Trip #{t.id}</div>
+                    )}
                   </div>
 
-                  <div className="text-sm text-slate-600 flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    {t.pickup_location} → {t.dropoff_location}
+                  <div className="flex items-center gap-3">
+                    <div className="text-sm text-slate-600">
+                      {t.status === 'scheduled' ? 'Pending pickup' : t.status === 'picked_up' ? 'On route' : 'Trip closed'}
+                    </div>
+
+                    {canStart && (
+                      <Button size="sm" className="gap-2" disabled={isStarting} onClick={() => onStartTrip(t.id)}>
+                        <Play className="w-4 h-4" />
+                        {isStarting ? 'Starting...' : 'Start Trip'}
+                      </Button>
+                    )}
                   </div>
-
-                  <div className="text-sm text-slate-600 flex items-center gap-2">
-                    <Phone className="w-4 h-4" />
-                    Seats booked: <span className="font-medium text-slate-900">{t.seats_booked}</span>
-                  </div>
-
-                  {t.booking_id && (
-                    <div className="text-xs text-slate-500">Booking #{t.booking_id} • Trip #{t.id}</div>
-                  )}
-                </div>
-
-                <div className="text-sm text-slate-600">
-                  {t.status === 'scheduled' ? 'Pending pickup' : t.status === 'picked_up' ? 'On route' : 'Trip closed'}
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </CardContent>
       </Card>
     </div>

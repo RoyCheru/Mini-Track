@@ -72,15 +72,16 @@ function safeString(v: any, fallback = ''): string {
 }
 
 function normalizeTripStatus(raw: any): TripStatus {
-  const s = safeString(raw, 'scheduled').toLowerCase()
-  if (s === 'picked_up' || s === 'picked-up') return 'picked_up'
-  if (s === 'completed' || s === 'complete') return 'completed'
+  const s = safeString(raw, 'scheduled').toLowerCase().trim()
+  if (s === 'picked_up' || s === 'picked-up' || s === 'in-progress' || s === 'in_progress') return 'picked_up'
+  if (s === 'completed' || s === 'complete' || s === 'done') return 'completed'
   if (s === 'cancelled' || s === 'canceled') return 'cancelled'
   return 'scheduled'
 }
 
 function normalizeServiceTime(raw: any): ServiceType {
-  const s = safeString(raw, 'morning').toLowerCase()
+  const s = safeString(raw, 'morning').toLowerCase().trim()
+  // if backend ever returns "both", default to morning in driver dashboard contexts
   return s === 'evening' ? 'evening' : 'morning'
 }
 
@@ -88,6 +89,19 @@ function pickLocationName(v: any): string {
   if (!v) return '—'
   if (typeof v === 'string') return v
   return String(v.name ?? v.location_name ?? v.address ?? v.id ?? '—')
+}
+
+function shortPlace(v: string) {
+  const s = safeString(v, '—').trim()
+  return s ? s.split(',')[0] : '—'
+}
+
+// ✅ Display helper: evening shows School -> Home (swap)
+function displayLeg(trip: { pickup_location: string; dropoff_location: string; service_type: ServiceType }) {
+  const pickup = safeString(trip.pickup_location, '—')
+  const dropoff = safeString(trip.dropoff_location, '—')
+  if (trip.service_type === 'evening') return { from: dropoff, to: pickup }
+  return { from: pickup, to: dropoff }
 }
 
 function authHeaders(token: string | null) {
@@ -107,6 +121,9 @@ export default function DriverDashboardPage() {
 
   const [username, setUsername] = useState<string | null>(null)
   const [loggingOut, setLoggingOut] = useState(false)
+
+  // ✅ ensures Start Trip button is consistent in dashboard + passengers + schedule cards
+  const [startingTripId, setStartingTripId] = useState<number | null>(null)
 
   const tripsRef = useRef<DriverTrip[]>([])
   useEffect(() => {
@@ -163,13 +180,15 @@ export default function DriverDashboardPage() {
   }
 
   const sanitizeTrip = (t: any, vehicleId: number): DriverTrip => {
+    const service_type = normalizeServiceTime(t.service_time ?? t.service_type)
+
     return {
       id: Number(t.trip_id ?? t.id),
       booking_id: t.booking_id ? Number(t.booking_id) : undefined,
       vehicle_id: Number(t.vehicle_id ?? vehicleId),
 
       start_date: safeString(t.trip_date ?? t.start_date ?? t.date ?? '', ''),
-      service_type: normalizeServiceTime(t.service_time ?? t.service_type),
+      service_type,
 
       status: normalizeTripStatus(t.status),
       seats_booked: Number(t.seats_booked ?? 0),
@@ -267,7 +286,6 @@ export default function DriverDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ✅ IMPORTANT: /trips/today is already today. Do NOT re-filter by date client-side.
   const todayTrips = useMemo(() => trips, [trips])
 
   const currentTrip = useMemo(() => todayTrips.find(t => t.status === 'picked_up') || null, [todayTrips])
@@ -286,8 +304,13 @@ export default function DriverDashboardPage() {
       .reduce((sum, t) => sum + (Number.isFinite(t.seats_booked) ? t.seats_booked : 0), 0)
   }, [todayTrips])
 
+  // ✅ One source of truth for starting trips
   const startTrip = async (tripId: number) => {
+    if (startingTripId) return
+
     const snapshot = tripsRef.current
+    setStartingTripId(tripId)
+
     setTrips(prev => prev.map(t => (t.id === tripId ? { ...t, status: 'picked_up' } : t)))
 
     try {
@@ -305,6 +328,8 @@ export default function DriverDashboardPage() {
       console.error(e)
       setTrips(snapshot)
       addAlert('error', e?.message || 'Server error starting trip')
+    } finally {
+      setStartingTripId(null)
     }
   }
 
@@ -526,9 +551,7 @@ export default function DriverDashboardPage() {
                             <div className="flex items-center gap-4">
                               <div
                                 className={`p-4 rounded-full ${
-                                  upcomingTrip.service_type === 'morning'
-                                    ? 'bg-amber-100 text-amber-600'
-                                    : 'bg-indigo-100 text-indigo-600'
+                                  upcomingTrip.service_type === 'morning' ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'
                                 }`}
                               >
                                 {upcomingTrip.service_type === 'morning' ? <Sun className="w-8 h-8" /> : <Moon className="w-8 h-8" />}
@@ -536,20 +559,29 @@ export default function DriverDashboardPage() {
                               <div>
                                 <h3 className="font-semibold text-lg text-slate-900">Next {upcomingTrip.service_type} Trip</h3>
                                 <p className="text-slate-600">
-                                  {upcomingTrip.pickup_location.split(',')[0]} → {upcomingTrip.dropoff_location.split(',')[0]}
+                                  {(() => {
+                                    const leg = displayLeg(upcomingTrip)
+                                    return (
+                                      <>
+                                        {shortPlace(leg.from)} → {shortPlace(leg.to)}
+                                      </>
+                                    )
+                                  })()}
                                 </p>
                                 <p className="text-sm text-slate-500 mt-1">{upcomingTrip.seats_booked} seat(s)</p>
                               </div>
                             </div>
+
                             <Button
                               onClick={() => startTrip(upcomingTrip.id)}
+                              disabled={startingTripId === upcomingTrip.id}
                               className={`px-6 ${
                                 upcomingTrip.service_type === 'morning'
                                   ? 'bg-amber-600 hover:bg-amber-700 text-white'
                                   : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                               }`}
                             >
-                              Start Trip
+                              {startingTripId === upcomingTrip.id ? 'Starting...' : 'Start Trip'}
                             </Button>
                           </div>
                         </CardContent>
@@ -582,7 +614,12 @@ export default function DriverDashboardPage() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <ScheduleView schedule={morningTrips} onStartTrip={startTrip} onCompleteTrip={completeTrip} />
+                          <ScheduleView
+                            schedule={morningTrips as any}
+                            onStartTrip={startTrip}
+                            onCompleteTrip={completeTrip}
+                            startingTripId={startingTripId}
+                          />
                         </CardContent>
                       </Card>
 
@@ -599,7 +636,12 @@ export default function DriverDashboardPage() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <ScheduleView schedule={eveningTrips} onStartTrip={startTrip} onCompleteTrip={completeTrip} />
+                          <ScheduleView
+                            schedule={eveningTrips as any}
+                            onStartTrip={startTrip}
+                            onCompleteTrip={completeTrip}
+                            startingTripId={startingTripId}
+                          />
                         </CardContent>
                       </Card>
                     </div>
@@ -639,7 +681,7 @@ export default function DriverDashboardPage() {
                 </TabsContent>
 
                 <TabsContent value="passengers" className="mt-6">
-                  <DriverPassengers trips={todayTrips} onRefresh={reloadAll} />
+                  <DriverPassengers trips={todayTrips} onRefresh={reloadAll} onStartTrip={startTrip} startingTripId={startingTripId} />
                 </TabsContent>
 
                 <TabsContent value="schedule" className="mt-6">
@@ -648,7 +690,13 @@ export default function DriverDashboardPage() {
                       <CardTitle className="text-slate-900">My Schedule</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <ScheduleView schedule={todayTrips} onStartTrip={startTrip} onCompleteTrip={completeTrip} showAll />
+                      <ScheduleView
+                        schedule={todayTrips as any}
+                        onStartTrip={startTrip}
+                        onCompleteTrip={completeTrip}
+                        showAll
+                        startingTripId={startingTripId}
+                      />
                     </CardContent>
                   </Card>
                 </TabsContent>
