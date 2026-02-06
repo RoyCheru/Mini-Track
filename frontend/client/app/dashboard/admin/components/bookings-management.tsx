@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { apiFetch } from '@/lib/api'
-import { Search, Calendar, Download, Users, Route, Car, CheckCircle2, XCircle, PauseCircle } from 'lucide-react'
+import { Search, Calendar, Download, Car, CheckCircle2, XCircle, PauseCircle } from 'lucide-react'
 
 type Id = number | string
 
@@ -34,7 +34,12 @@ type BookingApi = {
 type BookingStatus = 'Active' | 'Inactive' | 'Cancelled'
 
 type Booking = {
+  // may not be unique if generated from composite fallback
   id: string
+
+  // ✅ ALWAYS UNIQUE — use this for React keys
+  rowKey: string
+
   user_id: string
   route_id: string
 
@@ -130,17 +135,27 @@ const userLabel = (userId?: string) => {
   return userId ? `User #${userId}` : '—'
 }
 
-const normalizeBooking = (raw: BookingApi): Booking => {
+const normalizeBooking = (raw: BookingApi, index: number): Booking => {
   const user_id = toId(raw.user_id)
   const route_id = toId(raw.route_id)
 
+  const composite =
+    `${user_id}-${route_id}-${raw.start_date}-${raw.end_date}-${raw.pickup_location_id ?? raw.pickup_location ?? ''}`
+
+  // "id" is what you show, prefer backend id if present
   const id =
-    raw.id !== undefined && raw.id !== null
+    raw.id !== undefined && raw.id !== null && String(raw.id).trim() !== ''
       ? toId(raw.id)
-      : `${user_id}-${route_id}-${raw.start_date}-${raw.end_date}-${raw.pickup_location_id ?? raw.pickup_location ?? ''}`
+      : composite
+
+  // ✅ rowKey must NEVER collide; add index as tie-breaker
+  const rowKey = raw.id !== undefined && raw.id !== null && String(raw.id).trim() !== ''
+    ? `booking-${toId(raw.id)}`
+    : `booking-${composite}-${index}`
 
   return {
     id,
+    rowKey,
     user_id,
     route_id,
 
@@ -203,7 +218,6 @@ export default function BookingsManagement() {
         Authorization: `Bearer ${token}`,
       }
 
-      // ✅ Removed /users call (admin-only), so no “limited access”
       const [bookingsRes, routesRes, pickupsRes, schoolsRes] = await Promise.all([
         apiFetch('/bookings', { headers }),
         apiFetch('/routes', { headers }),
@@ -227,7 +241,7 @@ export default function BookingsManagement() {
       const pickupArr: PickupLocation[] = pickupsRes && pickupsRes.ok ? toArray(pickupsJson) : []
       const schoolArr: SchoolLocation[] = schoolsRes && schoolsRes.ok ? toArray(schoolsJson) : []
 
-      setBookings(bookingsArr.map(normalizeBooking))
+      setBookings(bookingsArr.map((b, i) => normalizeBooking(b, i)))
       setRoutes(routesArr)
       setPickupLocations(pickupArr)
       setSchoolLocations(schoolArr)
@@ -410,22 +424,6 @@ export default function BookingsManagement() {
             <p className="text-xs text-muted-foreground mt-1">Status</p>
           </CardContent>
         </Card>
-
-        {/* <Card className="border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Coverage
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold">{loading ? '—' : stats.uniqueUsers}</div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <Route className="w-3.5 h-3.5" /> Routes:{' '}
-              <span className="font-medium text-foreground">{loading ? '—' : stats.uniqueRoutes}</span>
-            </p>
-          </CardContent>
-        </Card> */}
       </div>
 
       <Card className="border-border/50">
@@ -520,7 +518,10 @@ export default function BookingsManagement() {
                         const svc = getServiceBadge(b.service_type)
 
                         return (
-                          <tr key={b.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                          <tr
+                            key={b.rowKey} // ✅ FIX: guaranteed unique
+                            className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                          >
                             <td className="py-4 px-6">
                               <div>
                                 <p className="font-medium text-foreground">{userLabel(b.user_id)}</p>

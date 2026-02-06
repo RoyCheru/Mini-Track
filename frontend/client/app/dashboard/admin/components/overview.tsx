@@ -41,14 +41,21 @@ type Vehicle = {
   status?: 'Active' | 'Inactive' | string
 }
 
+// ✅ Backend-safe booking + stable key
 type Booking = {
-  id: string
-  parent: string
-  route: string
-  seats: number
-  amount: number
-  status: string
-  time: string
+  // backend may send id OR booking_id OR something else
+  id?: string | number
+  booking_id?: string | number
+
+  parent?: string
+  route?: string
+  seats?: number
+  amount?: number
+  status?: string
+  time?: string
+
+  // ✅ guaranteed unique key used for React list rendering
+  key: string
 }
 
 // If status is missing, assume "Active" so cards don’t show 0
@@ -69,6 +76,29 @@ const toArray = (x: any) => {
 }
 
 const safeStr = (v: any) => String(v ?? '')
+
+// ✅ Normalize bookings so keys never break
+const normalizeBookings = (raw: any[]): Booking[] => {
+  return raw.map((b: any, index: number) => {
+    const rawId = b?.id ?? b?.booking_id ?? b?.bookingId ?? b?.uuid
+    const stableKey =
+      rawId !== undefined && rawId !== null && String(rawId).trim() !== ''
+        ? `booking-${String(rawId)}`
+        : `booking-fallback-${index}-${Date.now()}`
+
+    return {
+      id: b?.id,
+      booking_id: b?.booking_id,
+      parent: b?.parent ?? b?.parent_name ?? b?.user_name ?? b?.user ?? '',
+      route: b?.route ?? b?.route_name ?? '',
+      seats: Number(b?.seats ?? b?.seats_booked ?? 0) || 0,
+      amount: Number(b?.amount ?? b?.price ?? 0) || 0,
+      status: b?.status ?? '',
+      time: b?.time ?? b?.created_at ?? b?.createdAt ?? '',
+      key: stableKey,
+    }
+  })
+}
 
 export default function OverviewSection() {
   const [drivers, setDrivers] = useState<Driver[]>([])
@@ -121,7 +151,8 @@ export default function OverviewSection() {
           const bookingsRes = await apiFetch('/bookings', { headers })
           if (bookingsRes.ok) {
             const bookingsJson = await bookingsRes.json()
-            setRecentBookings(toArray(bookingsJson))
+            const rawBookings = toArray(bookingsJson)
+            setRecentBookings(normalizeBookings(rawBookings))
           } else {
             setRecentBookings([])
           }
@@ -396,24 +427,31 @@ export default function OverviewSection() {
                 <Clock className="w-5 h-5" />
                 Recent Bookings
               </CardTitle>
-              {/* <CardDescription>
-                {recentBookings.length ? 'Loaded from database' : 'No recent bookings endpoint / no data'}
-              </CardDescription> */}
             </CardHeader>
+
             <CardContent className="space-y-3">
               {recentBookings.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No recent bookings.</div>
               ) : (
                 recentBookings.slice(0, 5).map(b => (
-                  <div key={b.id} className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                  <div
+                    key={b.key} // ✅ FIXED: always unique
+                    className="p-3 rounded-lg bg-muted/30 border border-border/50"
+                  >
                     <div className="flex items-center justify-between">
-                      <p className="font-semibold text-foreground text-sm">{b.id}</p>
-                      <Badge variant="outline">{b.status}</Badge>
+                      <p className="font-semibold text-foreground text-sm">
+                        {b.id ?? b.booking_id ?? '—'}
+                      </p>
+                      <Badge variant="outline">{b.status || '—'}</Badge>
                     </div>
+
                     <p className="text-xs text-muted-foreground mt-1">
-                      {b.parent} • {b.route} • {b.time}
+                      {b.parent || '—'} • {b.route || '—'} • {b.time || '—'}
                     </p>
-                    <p className="text-xs text-muted-foreground">Seats: {b.seats} • KES {b.amount}</p>
+
+                    <p className="text-xs text-muted-foreground">
+                      Seats: {b.seats ?? 0} • KES {b.amount ?? 0}
+                    </p>
                   </div>
                 ))
               )}
