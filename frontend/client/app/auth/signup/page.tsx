@@ -46,8 +46,10 @@ export default function SignUpPage() {
 
       alert("Account created successfully!");
 
+      if (data?.user?.name) localStorage.setItem("username", data.user.name);
+
       // optional redirect
-      window.location.href = "/auth/signin";
+      window.location.href = "/dashboard/parent";
     } catch (error) {
       console.error(error);
       alert("Server error");
