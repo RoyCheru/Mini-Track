@@ -3,9 +3,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { UserCheck } from 'lucide-react'
+import { UserCheck, Play } from 'lucide-react'
 
 type PassengerStatus = 'pending' | 'picked-up' | 'dropped-off' | 'absent'
+type TripStatus = 'scheduled' | 'picked_up' | 'completed' | 'cancelled'
 
 type Passenger = {
   id: number
@@ -22,25 +23,65 @@ type Trip = {
   pickup_location: string
   dropoff_location: string
   service_type: 'morning' | 'evening'
+  status: TripStatus
   passengers: Passenger[]
 }
 
 export default function PassengerTracking({
   trip,
   onMarkPassenger,
+  onStartTrip,
+  startingTripId,
 }: {
   trip: Trip
   onMarkPassenger: (passengerId: number, status: PassengerStatus) => void
+  onStartTrip?: (tripId: number) => void
+  startingTripId?: number | null
 }) {
   const passengers = Array.isArray(trip.passengers) ? trip.passengers : []
 
+  const canStart = trip.status === 'scheduled'
+  const isStarting = startingTripId === trip.id
+
   return (
     <Card className="border-slate-200 bg-white shadow-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-slate-900">
-          <UserCheck className="w-5 h-5" />
-          Passengers ({passengers.length})
-        </CardTitle>
+      <CardHeader className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2 text-slate-900">
+            <UserCheck className="w-5 h-5" />
+            Passengers ({passengers.length})
+          </CardTitle>
+
+          <Badge
+            variant="outline"
+            className={
+              trip.status === 'picked_up'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : trip.status === 'completed'
+                ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                : trip.status === 'cancelled'
+                ? 'border-rose-200 bg-rose-50 text-rose-700'
+                : 'border-slate-200 bg-slate-50 text-slate-700'
+            }
+          >
+            {trip.status}
+          </Badge>
+        </div>
+
+        {/* ✅ Start Trip button (Passengers page) */}
+        {onStartTrip && (
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              className="gap-2"
+              disabled={!canStart || isStarting}
+              onClick={() => onStartTrip(trip.id)}
+            >
+              <Play className="w-4 h-4" />
+              {isStarting ? 'Starting...' : canStart ? 'Start Trip' : 'Trip Started'}
+            </Button>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -93,6 +134,7 @@ export default function PassengerTracking({
                   >
                     Picked up
                   </Button>
+
                   <Button
                     size="sm"
                     variant="outline"
@@ -101,7 +143,13 @@ export default function PassengerTracking({
                   >
                     Dropped off
                   </Button>
-                  <Button size="sm" variant="outline" disabled={p.status === 'dropped-off'} onClick={() => onMarkPassenger(p.id, 'absent')}>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={p.status === 'dropped-off'}
+                    onClick={() => onMarkPassenger(p.id, 'absent')}
+                  >
                     Absent
                   </Button>
                 </div>
