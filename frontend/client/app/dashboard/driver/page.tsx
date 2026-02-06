@@ -108,6 +108,9 @@ export default function DriverDashboardPage() {
   const [username, setUsername] = useState<string | null>(null)
   const [loggingOut, setLoggingOut] = useState(false)
 
+  // ✅ added: track which trip is starting (so both buttons disable consistently)
+  const [startingTripId, setStartingTripId] = useState<number | null>(null)
+
   const tripsRef = useRef<DriverTrip[]>([])
   useEffect(() => {
     tripsRef.current = trips
@@ -286,8 +289,15 @@ export default function DriverDashboardPage() {
       .reduce((sum, t) => sum + (Number.isFinite(t.seats_booked) ? t.seats_booked : 0), 0)
   }, [todayTrips])
 
+  // ✅ ONE SOURCE OF TRUTH: both dashboard + passengers call this
   const startTrip = async (tripId: number) => {
+    // prevent double-submit from either button
+    if (startingTripId) return
+
     const snapshot = tripsRef.current
+    setStartingTripId(tripId)
+
+    // optimistic UI
     setTrips(prev => prev.map(t => (t.id === tripId ? { ...t, status: 'picked_up' } : t)))
 
     try {
@@ -305,6 +315,8 @@ export default function DriverDashboardPage() {
       console.error(e)
       setTrips(snapshot)
       addAlert('error', e?.message || 'Server error starting trip')
+    } finally {
+      setStartingTripId(null)
     }
   }
 
@@ -470,7 +482,12 @@ export default function DriverDashboardPage() {
                     <div>
                       <h2 className="text-xl font-bold text-slate-900">Today's Overview</h2>
                       <p className="text-sm text-slate-600 mt-1">
-                        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                        {new Date().toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
                       </p>
                     </div>
 
@@ -543,13 +560,14 @@ export default function DriverDashboardPage() {
                             </div>
                             <Button
                               onClick={() => startTrip(upcomingTrip.id)}
+                              disabled={startingTripId === upcomingTrip.id}
                               className={`px-6 ${
                                 upcomingTrip.service_type === 'morning'
                                   ? 'bg-amber-600 hover:bg-amber-700 text-white'
                                   : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                               }`}
                             >
-                              Start Trip
+                              {startingTripId === upcomingTrip.id ? 'Starting...' : 'Start Trip'}
                             </Button>
                           </div>
                         </CardContent>
@@ -639,7 +657,12 @@ export default function DriverDashboardPage() {
                 </TabsContent>
 
                 <TabsContent value="passengers" className="mt-6">
-                  <DriverPassengers trips={todayTrips} onRefresh={reloadAll} />
+                  <DriverPassengers
+                    trips={todayTrips}
+                    onRefresh={reloadAll}
+                    onStartTrip={startTrip}
+                    startingTripId={startingTripId}
+                  />
                 </TabsContent>
 
                 <TabsContent value="schedule" className="mt-6">
