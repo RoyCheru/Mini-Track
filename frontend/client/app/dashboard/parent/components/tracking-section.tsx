@@ -7,8 +7,16 @@ import type * as LeafletTypes from 'leaflet'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Navigation, Phone, MessageSquare, MapPin } from 'lucide-react'
+import { Navigation, Phone, MessageSquare, MapPin, Clock as ClockIcon } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
+
+// Helper function to get current user ID
+function getCurrentUserId(): number | null {
+  if (typeof window === 'undefined') return null
+  
+  const userId = localStorage.getItem('user_id')
+  return userId ? parseInt(userId, 10) : null
+}
 
 // ================= MAP IMPORTS =================
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false })
@@ -102,6 +110,10 @@ type Booking = {
   end_date: string
 }
 
+interface Props {
+  initialBookingId?: number | null
+}
+
 // ================= HELPER FUNCTIONS =================
 function parseGPS(gps: string): [number, number] | null {
   if (!gps) return null
@@ -142,31 +154,61 @@ function estimateETA(distance: number, speedKmh: number = 30): string {
 }
 
 /**
- * Get actual pickup and dropoff based on service type
- * Morning: pickup_location → dropoff_location (home → school)
- * Evening: dropoff_location → pickup_location (school → home)
+ * Get actual pickup and dropoff based on service type and current time
+ * 
+ * LOGIC:
+ * - Morning Service (service_type='morning'): 
+ *   Always home → school (pickup_location → dropoff_location)
+ *   Never reversed, regardless of time
+ * 
+ * - Evening Service (service_type='evening'): 
+ *   Always school → home (dropoff_location → pickup_location)
+ *   Always reversed, regardless of time
+ * 
+ * - Both Services (service_type='both'):
+ *   Morning time (6 AM - 12 PM): home → school (normal)
+ *   Evening time (12 PM - 8 PM): school → home (reversed)
  */
 function getActualLocations(booking: Booking) {
-  const isEvening = booking.service_type === 'evening' || booking.service_type === 'both'
   const currentHour = new Date().getHours()
   
-  // Determine if it's currently evening time (after 1 PM)
-  const isEveningTime = currentHour >= 13
+  // Define time ranges
+  const isMorningTime = currentHour >= 6 && currentHour < 12  // 6 AM - 12 PM
+  const isEveningTime = currentHour >= 12 && currentHour < 20 // 12 PM - 8 PM
   
-  // If it's evening service and evening time, swap the locations
-  const shouldSwap = isEvening && isEveningTime
+  // Determine if route should be reversed
+  let shouldSwap = false
+  let timeSlot = 'off-hours'
+  
+  if (booking.service_type === 'morning') {
+    shouldSwap = false
+    timeSlot = 'morning'
+  } else if (booking.service_type === 'evening') {
+    shouldSwap = true
+    timeSlot = 'evening'
+  } else if (booking.service_type === 'both') {
+    if (isMorningTime) {
+      shouldSwap = false
+      timeSlot = 'morning'
+    } else if (isEveningTime) {
+      shouldSwap = true
+      timeSlot = 'evening'
+    }
+  }
   
   return {
     actualPickup: shouldSwap ? booking.dropoff_location_gps : booking.pickup_location_gps,
     actualPickupName: shouldSwap ? booking.dropoff_location_name : booking.pickup_location_name,
     actualDropoff: shouldSwap ? booking.pickup_location_gps : booking.dropoff_location_gps,
     actualDropoffName: shouldSwap ? booking.pickup_location_name : booking.dropoff_location_name,
-    isReversed: shouldSwap
+    isReversed: shouldSwap,
+    currentTimeSlot: timeSlot,
+    serviceType: booking.service_type
   }
 }
 
 // ================= MAIN COMPONENT =================
-export default function TrackingSection() {
+export default function TrackingSection({ initialBookingId }: Props) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [route, setRoute] = useState<[number, number][]>([])
@@ -199,7 +241,18 @@ export default function TrackingSection() {
         
         console.log('Fetching bookings...')
         
-        const res = await apiFetch('/bookings')
+        // Get current user ID
+        const userId = getCurrentUserId()
+        
+        // If no user ID found, show error
+        if (!userId) {
+          setError('User not authenticated. Please log in.')
+          setLoading(false)
+          return
+        }
+        
+        // Fetch bookings filtered by user ID
+        const res = await apiFetch(`/bookings?user_id=${userId}`)
         
         if (!res.ok) {
           throw new Error(`Failed to fetch bookings: ${res.status}`)
@@ -234,7 +287,15 @@ export default function TrackingSection() {
         
         setBookings(activeBookings)
         
-        if (activeBookings.length > 0) {
+        // Handle initial booking ID from props
+        if (initialBookingId && activeBookings.length > 0) {
+          const matchingBooking = activeBookings.find(b => b.booking_id === initialBookingId)
+          if (matchingBooking) {
+            setSelectedBooking(matchingBooking)
+          } else {
+            setSelectedBooking(activeBookings[0])
+          }
+        } else if (activeBookings.length > 0) {
           setSelectedBooking(activeBookings[0])
         }
       } catch (err) {
@@ -246,7 +307,7 @@ export default function TrackingSection() {
     }
 
     fetchBookings()
-  }, [])
+  }, [initialBookingId])
 
   useEffect(() => {
     if (!selectedBooking) return
@@ -254,12 +315,14 @@ export default function TrackingSection() {
     console.log('Selected booking:', selectedBooking)
 
     // Get the actual pickup and dropoff based on service type and time
-    const { actualPickup, actualDropoff, isReversed } = getActualLocations(selectedBooking)
+    const { actualPickup, actualDropoff, isReversed, currentTimeSlot } = getActualLocations(selectedBooking)
 
     const pickup = parseGPS(actualPickup)
     const dropoff = parseGPS(actualDropoff)
 
-    console.log('Is route reversed (evening):', isReversed)
+    console.log('Service type:', selectedBooking.service_type)
+    console.log('Current time slot:', currentTimeSlot)
+    console.log('Is route reversed:', isReversed)
     console.log('Actual pickup:', pickup)
     console.log('Actual dropoff:', dropoff)
 
@@ -368,13 +431,17 @@ export default function TrackingSection() {
     actualPickupName, 
     actualDropoff, 
     actualDropoffName,
-    isReversed 
+    isReversed,
+    currentTimeSlot,
+    serviceType
   } = selectedBooking ? getActualLocations(selectedBooking) : {
     actualPickup: null,
     actualPickupName: '',
     actualDropoff: null,
     actualDropoffName: '',
-    isReversed: false
+    isReversed: false,
+    currentTimeSlot: 'off-hours',
+    serviceType: ''
   }
 
   const pickup = actualPickup ? parseGPS(actualPickup) : null
@@ -382,13 +449,27 @@ export default function TrackingSection() {
   const distance = pickup && dropoff ? calculateDistance(pickup, dropoff) : 0
   const eta = distance > 0 ? estimateETA(distance) : 'Calculating...'
 
+  // Get display labels
+  const getRouteLabel = () => {
+    if (serviceType === 'morning') return '🌅 Morning Route'
+    if (serviceType === 'evening') return '🌆 Evening Route'
+    if (serviceType === 'both') {
+      return currentTimeSlot === 'evening' ? '🌆 Evening Trip' : '🌅 Morning Trip'
+    }
+    return 'Active Route'
+  }
+
+  const getDirectionLabel = () => {
+    return isReversed ? 'School → Home' : 'Home → School'
+  }
+
   return (
     <div className="space-y-6">
       {/* Booking Selector */}
       {bookings.length > 1 && (
-        <Card>
+        <Card className="border-0 shadow-lg">
           <CardHeader>
-            <CardTitle className="text-base">Select Booking to Track</CardTitle>
+            <CardTitle className="text-base font-semibold">Select Booking to Track</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 flex-wrap">
@@ -411,23 +492,28 @@ export default function TrackingSection() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* MAP */}
         <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
+          <Card className="border-0 shadow-xl">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex gap-2 items-center">
                   <Navigation className="w-5 h-5 text-blue-500" />
                   Live Trip Tracking - {selectedBooking?.route_name}
                 </CardTitle>
-                {isReversed && (
-                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                    Evening Route (Reversed)
+                <div className="flex gap-2">
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    {getRouteLabel()}
                   </Badge>
-                )}
+                  {isReversed && (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                      ↩️ Reversed
+                    </Badge>
+                  )}
+                </div>
               </div>
             </CardHeader>
 
             <CardContent className="p-0">
-              <div className="h-[450px] w-full">
+              <div className="h-[500px] w-full">
                 <MapContainer
                   center={mapCenter}
                   zoom={13}
@@ -443,9 +529,9 @@ export default function TrackingSection() {
                     <Polyline 
                       positions={route} 
                       pathOptions={{ 
-                        color: '#3b82f6', 
-                        weight: 4,
-                        opacity: 0.7
+                        color: isReversed ? 'rgb(136, 158, 35)' : '#3b82f6', 
+                        weight: 6,
+                        opacity: 0.8
                       }} 
                     />
                   )}
@@ -455,11 +541,9 @@ export default function TrackingSection() {
                       <Popup>
                         <div className="font-semibold">🏁 Pickup Location</div>
                         <div className="text-sm">{actualPickupName}</div>
-                        {isReversed && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            (School - Evening Route)
-                          </div>
-                        )}
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {isReversed ? '(School - Starting Point)' : '(Home - Starting Point)'}
+                        </div>
                       </Popup>
                     </Marker>
                   )}
@@ -469,11 +553,9 @@ export default function TrackingSection() {
                       <Popup>
                         <div className="font-semibold">🎯 Drop-off Location</div>
                         <div className="text-sm">{actualDropoffName}</div>
-                        {isReversed && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            (Home - Evening Route)
-                          </div>
-                        )}
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {isReversed ? '(Home - Destination)' : '(School - Destination)'}
+                        </div>
                       </Popup>
                     </Marker>
                   )}
@@ -483,6 +565,9 @@ export default function TrackingSection() {
                       <Popup>
                         <div className="font-semibold">🚌 School Bus</div>
                         <div className="text-sm">En route to {actualDropoffName}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {getDirectionLabel()}
+                        </div>
                       </Popup>
                     </Marker>
                   )}
@@ -494,65 +579,95 @@ export default function TrackingSection() {
 
         {/* SIDE INFO */}
         <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="pb-3 bg-gradient-to-br from-primary/5 to-primary/10">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Trip Status</CardTitle>
-                <Badge className="bg-emerald-600">
-                  {isReversed ? '🌆 Evening Run' : '🌅 Morning Run'}
+                <Badge className={isReversed ? 'bg-amber-600' : 'bg-blue-600'}>
+                  {getRouteLabel()}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4 pt-4">
+              {/* Direction Indicator */}
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Direction</p>
+                <p className="font-bold text-lg">{getDirectionLabel()}</p>
+                {serviceType === 'both' && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Changes based on time of day
+                  </p>
+                )}
+              </div>
+
+              {/* Route Info */}
               <div>
-                <p className="text-sm text-muted-foreground">Route</p>
+                <p className="text-sm text-muted-foreground mb-1">Route</p>
                 <p className="font-semibold">{selectedBooking?.route_name}</p>
               </div>
 
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Pickup {isReversed && '(School)'}
-                </p>
-                <p className="font-medium text-sm">{actualPickupName}</p>
+              {/* Current Pickup */}
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-green-600"></div>
+                  <p className="text-xs font-medium text-green-700">
+                    Current Pickup {isReversed && '(School)'}
+                  </p>
+                </div>
+                <p className="font-medium text-sm text-foreground">{actualPickupName}</p>
               </div>
 
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Drop-off {isReversed && '(Home)'}
-                </p>
-                <p className="font-medium text-sm">{actualDropoffName}</p>
+              {/* Current Dropoff */}
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-red-600"></div>
+                  <p className="text-xs font-medium text-red-700">
+                    Current Drop-off {isReversed && '(Home)'}
+                  </p>
+                </div>
+                <p className="font-medium text-sm text-foreground">{actualDropoffName}</p>
               </div>
 
-              <div className="pt-2 border-t">
-                <p className="text-sm text-muted-foreground">Distance</p>
-                <p className="font-semibold">{distance.toFixed(2)} km</p>
+              {/* Distance & ETA */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Distance</p>
+                  <p className="font-bold text-lg">{distance.toFixed(1)} km</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Est. Time</p>
+                  <p className="font-bold text-lg">{eta}</p>
+                </div>
               </div>
 
-              <div>
-                <p className="text-sm text-muted-foreground">Estimated Time</p>
-                <p className="font-semibold">{eta}</p>
-              </div>
-
+              {/* Info Box */}
               {isReversed && (
-                <div className="pt-2 border-t">
+                <div className="pt-3 border-t">
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                    <p className="text-xs text-amber-700 font-medium">
-                      ℹ️ Evening route: Bus starts from school and goes to home
-                    </p>
+                    <div className="flex items-start gap-2">
+                      <ClockIcon className="w-4 h-4 text-amber-600 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-medium text-amber-900 mb-1">Evening Route Active</p>
+                        <p className="text-xs text-amber-700">
+                          Bus is returning students from school to their homes
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
             </CardContent>
           </Card>
 
+          {/* Contact Actions */}
           <Card>
             <CardContent className="pt-6 space-y-3">
-              <Button variant="outline" className="w-full gap-2">
+              <Button variant="outline" className="w-full gap-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors">
                 <Phone className="w-4 h-4" />
                 Call Driver
               </Button>
               
-              <Button variant="outline" className="w-full gap-2">
+              <Button variant="outline" className="w-full gap-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors">
                 <MessageSquare className="w-4 h-4" />
                 Send Message
               </Button>

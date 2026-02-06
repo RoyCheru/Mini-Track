@@ -34,6 +34,14 @@ import {
   AlertDescription,
 } from '@/components/ui/alert'
 
+// Helper function to get current user ID
+function getCurrentUserId(): number | null {
+  if (typeof window === 'undefined') return null
+  
+  const userId = localStorage.getItem('user_id')
+  return userId ? parseInt(userId, 10) : null
+}
+
 type Route = {
   id: number
   name: string
@@ -476,8 +484,14 @@ export default function BookingFlow() {
     setError(null)
 
     try {
-      const user = localStorage.getItem('user')
-      const userId = user ? JSON.parse(user).id : 1
+      const userId = getCurrentUserId()
+      
+      // If no user ID found, show error
+      if (!userId) {
+        setError('User not authenticated. Please log in again.')
+        setLoading(false)
+        return
+      }
 
       const payload = {
         user_id: userId,
