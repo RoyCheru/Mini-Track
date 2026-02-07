@@ -7,15 +7,12 @@ from functools import wraps
 
 def admin_required(fn):
     @wraps(fn)
+    @jwt_required()
     def wrapper(*args, **kwargs):
-        verify_jwt_in_request()
         identity = get_jwt_identity()
-        user_id = identity.get("id")
-        role_id = identity.get("role_id")
 
-        user = User.query.get(user_id)
-        if not user or user.role_id != 1:  
-            return {"error": "Unauthorized"}, 403
+        if identity.get("role_id") != 1:
+            return {"error": "Admins only"}, 403
 
         return fn(*args, **kwargs)
     return wrapper
