@@ -27,6 +27,14 @@ def create_app():
     
     app.secret_key = "super-secret-key"
     app.config["JWT_SECRET_KEY"] = "super-secret-key"
+    
+    app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
+    app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token_cookie"
+    app.config["JWT_COOKIE_SECURE"] = False
+    app.config["JWT_COOKIE_CSRF_PROTECT"] = False
+    app.config["JWT_COOKIE_SAMESITE"] = "Lax"
+    app.config["JWT_COOKIE_SECURE"] = False
+    
     jwt = JWTManager(app)
 
     db.init_app(app)
