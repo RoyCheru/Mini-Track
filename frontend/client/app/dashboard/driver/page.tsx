@@ -135,6 +135,28 @@ export default function DriverDashboardPage() {
     setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== id)), 4000)
   }
 
+  useEffect(() => {
+      const checkAuth = async () => {
+        try {
+          const res = await apiFetch("/me", {
+            credentials: "include",
+          });
+  
+          if (!res.ok) {
+            router.replace("/auth/signin");
+            return;
+          }
+  
+          const data = await res.json();
+          setUsername(data.name);
+        } catch (err) {
+          router.replace("/auth/signin");
+        }
+      };
+  
+      checkAuth();
+    }, [router]);
+
   const handleLogout = async () => {
     if (loggingOut) return
     setLoggingOut(true)
@@ -148,7 +170,7 @@ export default function DriverDashboardPage() {
     } catch (err) {
       console.error('Logout error:', err)
     } finally {
-      localStorage.removeItem('token')
+      // localStorage.removeItem('token')
       localStorage.removeItem('username')
       localStorage.removeItem('vehicle_id')
       localStorage.removeItem('user_id')
