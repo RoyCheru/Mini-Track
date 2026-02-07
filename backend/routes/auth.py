@@ -17,19 +17,23 @@ class Login(Resource):
         if user and check_password_hash(user.password_hash, password):
             # session["user_id"] = user.id
             access_token = create_access_token(identity={"id": user.id, "role_id": user.role_id})
-            return {
-            "message": "Login successful",
-            "access_token": access_token,
-            "user": {
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "role_id": user.role_id,
-                "role": user.role.name
-            }
-        }
+            response = make_response({
+                "message": "Login successful",
+                "user": {
+                    "id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                    "role_id": user.role_id,
+                    "role": user.role.name
+                }
+            }, 200)
+            set_access_cookies(response, access_token)
+
+
+            return response
         else:
             return {"message": "Invalid credentials"}, 401
+
 
 class Signup(Resource):
     def post(self):
