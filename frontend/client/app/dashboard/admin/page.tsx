@@ -53,12 +53,10 @@ export default function AdminDashboardPage() {
     try {
       const token = localStorage.getItem('token')
 
-      await apiFetch('/logout', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      await apiFetch("/logout", {
+        method: "POST",
+        credentials: "include",
+      });
     } catch (err) {
       console.error('Logout error:', err)
     } finally {
