@@ -5,7 +5,7 @@ from routes.pickup_locations import PickupLocationDetail
 from models import db 
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
-from routes.auth import Login, Signup, Logout
+from routes.auth import Login, Signup, Logout, Me
 from routes.user import CreateDriver, GetDrivers, GetUsers, UpdateUser, DeleteUser, CreateAdmin
 from routes.user_role import UserRoleList, UserRoleDetail
 
