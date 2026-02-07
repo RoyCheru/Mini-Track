@@ -18,7 +18,14 @@ import {
   CalendarDays,
   Users,
   Sparkles,
-  Info
+  Info,
+  ChevronLeft,
+  ChevronRight,
+  Minus,
+  Plus,
+  Home,
+  School,
+  Route
 } from 'lucide-react'
 import {
   Select,
@@ -86,26 +93,50 @@ type BookingForm = {
   dropoff_location_id: string
   start_date: string
   end_date: string
-  days_of_week: string[]
+  selected_dates: string[]
   service_type: string
   seats_booked: number
-  selected_seats: number[]
-}
-
-const DAYS_MAP = {
-  'Mon': '1',
-  'Tue': '2',
-  'Wed': '3',
-  'Thu': '4',
-  'Fri': '5',
-  'Sat': '6',
-  'Sun': '7'
 }
 
 const SERVICE_TYPES = [
-  { value: 'morning', label: '🌅 Morning Only', desc: 'Home to school' },
-  { value: 'evening', label: '🌆 Evening Only', desc: 'School to home' },
-  { value: 'both', label: '🔄 Both Ways', desc: 'Morning & evening' }
+  { 
+    value: 'morning', 
+    label: 'Morning Only', 
+    desc: 'Home to school',
+    icon: '🌅',
+    gradient: 'from-amber-400 via-orange-400 to-rose-400'
+  },
+  { 
+    value: 'evening', 
+    label: 'Evening Only', 
+    desc: 'School to home',
+    icon: '🌆',
+    gradient: 'from-purple-400 via-pink-400 to-rose-400'
+  },
+  { 
+    value: 'both', 
+    label: 'Both Ways', 
+    desc: 'Morning & evening',
+    icon: '🔄',
+    gradient: 'from-blue-400 via-cyan-400 to-teal-400'
+  }
+]
+
+const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+]
+
+// Vibrant gradient backgrounds for calendar dates
+const DATE_GRADIENTS = [
+  'from-violet-400 to-purple-500',
+  'from-blue-400 to-indigo-500',
+  'from-cyan-400 to-blue-500',
+  'from-teal-400 to-emerald-500',
+  'from-green-400 to-teal-500',
+  'from-amber-400 to-orange-500',
+  'from-rose-400 to-pink-500',
 ]
 
 export default function BookingFlow() {
@@ -115,11 +146,16 @@ export default function BookingFlow() {
   const [schoolLocations, setSchoolLocations] = useState<SchoolLocation[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
-  const [bookedSeats, setBookedSeats] = useState<number[]>([])
+  const [availableSeats, setAvailableSeats] = useState<number>(0)
   const [loading, setLoading] = useState(false)
   const [loadingSeats, setLoadingSeats] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [redirectCountdown, setRedirectCountdown] = useState(5)
+
+  // Calendar state
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
 
   const [form, setForm] = useState<BookingForm>({
     route_id: '',
@@ -127,10 +163,9 @@ export default function BookingFlow() {
     dropoff_location_id: '',
     start_date: '',
     end_date: '',
-    days_of_week: [],
+    selected_dates: [],
     service_type: '',
-    seats_booked: 0,
-    selected_seats: []
+    seats_booked: 1
   })
 
   useEffect(() => {
@@ -150,10 +185,22 @@ export default function BookingFlow() {
   }, [form.route_id])
 
   useEffect(() => {
-    if (selectedVehicle && form.start_date && form.end_date) {
-      fetchBookedSeats()
+    if (selectedVehicle && form.selected_dates.length > 0) {
+      fetchAvailableSeats()
     }
-  }, [selectedVehicle, form.start_date, form.end_date])
+  }, [selectedVehicle, form.selected_dates])
+
+  // Auto-redirect countdown after successful booking
+  useEffect(() => {
+    if (success && redirectCountdown > 0) {
+      const timer = setTimeout(() => {
+        setRedirectCountdown(prev => prev - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    } else if (success && redirectCountdown === 0) {
+      window.location.href = '/dashboard/parent'
+    }
+  }, [success, redirectCountdown])
 
   const fetchRoutes = async () => {
     try {
@@ -202,14 +249,15 @@ export default function BookingFlow() {
       
       if (vehicleList.length > 0) {
         setSelectedVehicle(vehicleList[0])
+        setAvailableSeats(vehicleList[0].capacity)
       }
     } catch (err) {
       console.error('Failed to fetch vehicles', err)
     }
   }
 
-  const fetchBookedSeats = async () => {
-    if (!selectedVehicle || !form.start_date || !form.end_date) return
+  const fetchAvailableSeats = async () => {
+    if (!selectedVehicle || form.selected_dates.length === 0) return
 
     setLoadingSeats(true)
     try {
@@ -218,265 +266,171 @@ export default function BookingFlow() {
       
       const bookings: Booking[] = Array.isArray(data) ? data : []
       
-      const bookedSeatNumbers = new Set<number>()
+      let maxBookedSeats = 0
       
-      const requestStart = new Date(form.start_date)
-      const requestEnd = new Date(form.end_date)
-      
-      bookings.forEach((booking: Booking) => {
-        if (booking.status !== 'active') return
+      form.selected_dates.forEach(selectedDate => {
+        const dateBookings = bookings.filter((booking: Booking) => {
+          if (booking.status !== 'active') return false
+          
+          const bookingStart = new Date(booking.start_date)
+          const bookingEnd = new Date(booking.end_date)
+          const checkDate = new Date(selectedDate)
+          
+          return checkDate >= bookingStart && checkDate <= bookingEnd
+        })
         
-        const bookingStart = new Date(booking.start_date)
-        const bookingEnd = new Date(booking.end_date)
-        
-        const hasOverlap = requestStart <= bookingEnd && requestEnd >= bookingStart
-        
-        if (hasOverlap && booking.selected_seats && Array.isArray(booking.selected_seats)) {
-          booking.selected_seats.forEach(seat => bookedSeatNumbers.add(seat))
-        }
+        const totalSeatsOnDate = dateBookings.reduce((sum, b) => sum + b.seats_booked, 0)
+        maxBookedSeats = Math.max(maxBookedSeats, totalSeatsOnDate)
       })
       
-      setBookedSeats(Array.from(bookedSeatNumbers))
-      console.log('Booked seats:', Array.from(bookedSeatNumbers))
+      const available = selectedVehicle.capacity - maxBookedSeats
+      setAvailableSeats(Math.max(0, available))
+      
+      if (form.seats_booked > available) {
+        setForm(prev => ({ ...prev, seats_booked: Math.max(1, available) }))
+      }
     } catch (err) {
-      console.error('Failed to fetch booked seats', err)
-      setBookedSeats([])
+      console.error('Failed to fetch available seats', err)
+      setAvailableSeats(selectedVehicle.capacity)
     } finally {
       setLoadingSeats(false)
     }
   }
 
-  const toggleDay = (dayKey: string) => {
-    const dayValue = DAYS_MAP[dayKey as keyof typeof DAYS_MAP]
-    setForm(prev => ({
-      ...prev,
-      days_of_week: prev.days_of_week.includes(dayValue)
-        ? prev.days_of_week.filter(d => d !== dayValue)
-        : [...prev.days_of_week, dayValue]
-    }))
+  const getDaysInMonth = (month: number, year: number) => {
+    return new Date(year, month + 1, 0).getDate()
   }
 
-  const toggleSeat = (seatNumber: number) => {
-    if (bookedSeats.includes(seatNumber)) return
+  const getFirstDayOfMonth = (month: number, year: number) => {
+    return new Date(year, month, 1).getDay()
+  }
 
+  const isDateSelected = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0]
+    return form.selected_dates.includes(dateStr)
+  }
+
+  const isDateDisabled = (date: Date) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return date < today
+  }
+
+  const toggleDate = (date: Date) => {
+    if (isDateDisabled(date)) return
+    
+    const dateStr = date.toISOString().split('T')[0]
+    
     setForm(prev => {
-      const isSelected = prev.selected_seats.includes(seatNumber)
-      const newSelectedSeats = isSelected
-        ? prev.selected_seats.filter(s => s !== seatNumber)
-        : [...prev.selected_seats, seatNumber]
+      const isSelected = prev.selected_dates.includes(dateStr)
+      const newDates = isSelected
+        ? prev.selected_dates.filter(d => d !== dateStr)
+        : [...prev.selected_dates, dateStr].sort()
+      
+      const startDate = newDates.length > 0 ? newDates[0] : ''
+      const endDate = newDates.length > 0 ? newDates[newDates.length - 1] : ''
       
       return {
         ...prev,
-        selected_seats: newSelectedSeats,
-        seats_booked: newSelectedSeats.length
+        selected_dates: newDates,
+        start_date: startDate,
+        end_date: endDate
       }
     })
   }
 
-  const getSeatStatus = (seatNumber: number) => {
-    if (bookedSeats.includes(seatNumber)) return 'booked'
-    if (form.selected_seats.includes(seatNumber)) return 'selected'
-    return 'available'
+  const getDateGradient = (day: number) => {
+    return DATE_GRADIENTS[day % DATE_GRADIENTS.length]
   }
 
-  const renderSeatLayout = () => {
-    if (!selectedVehicle) return null
-
-    const totalSeats = selectedVehicle.capacity
-    const rows = Math.ceil(totalSeats / 4)
-
-    return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <div className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-t-[2rem] border-2 border-primary/20 shadow-lg">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
-              <Bus className="w-5 h-5 text-white" />
+  const renderCalendar = () => {
+    const daysInMonth = getDaysInMonth(currentMonth, currentYear)
+    const firstDay = getFirstDayOfMonth(currentMonth, currentYear)
+    
+    const days = []
+    
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="aspect-square" />)
+    }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(currentYear, currentMonth, day)
+      const isSelected = isDateSelected(date)
+      const isDisabled = isDateDisabled(date)
+      const isToday = date.toDateString() === new Date().toDateString()
+      const gradient = getDateGradient(day)
+      
+      days.push(
+        <button
+          key={day}
+          onClick={() => toggleDate(date)}
+          disabled={isDisabled}
+          className={cn(
+            'aspect-square rounded-2xl flex items-center justify-center text-sm font-bold transition-all duration-300',
+            'hover:scale-110 focus:outline-none focus:ring-4 focus:ring-offset-2 relative group',
+            isSelected && [
+              `bg-gradient-to-br ${gradient}`,
+              'text-white shadow-2xl scale-110 ring-4 ring-white/50',
+              'animate-in zoom-in duration-200'
+            ],
+            !isSelected && !isDisabled && [
+              'bg-gradient-to-br from-white to-gray-50',
+              'border-2 border-gray-200',
+              'hover:border-transparent',
+              `hover:bg-gradient-to-br hover:${gradient}`,
+              'hover:text-white hover:shadow-xl'
+            ],
+            isDisabled && 'bg-gray-100 text-gray-300 cursor-not-allowed opacity-40',
+            isToday && !isSelected && 'ring-2 ring-blue-400 ring-offset-2',
+          )}
+        >
+          {isSelected && (
+            <div className="absolute inset-0 rounded-2xl bg-white/20 animate-pulse" />
+          )}
+          <span className="relative z-10">{day}</span>
+          {isSelected && (
+            <div className={cn(
+              "absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white shadow-lg flex items-center justify-center",
+              "animate-in zoom-in duration-300"
+            )}>
+              <CheckCircle2 className="w-3 h-3 text-green-500" />
             </div>
-            <div className="text-left">
-              <div className="text-xs font-medium text-muted-foreground">Driver Section</div>
-              <div className="text-sm font-bold text-foreground">{selectedVehicle.license_plate}</div>
-            </div>
-          </div>
-        </div>
+          )}
+        </button>
+      )
+    }
+    
+    return days
+  }
 
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-b from-muted/30 to-muted/10 rounded-2xl blur-sm" />
-          <div className="relative border-4 border-border/50 rounded-2xl p-6 bg-gradient-to-br from-background to-muted/20 shadow-xl">
-            {loadingSeats && (
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
-                <div className="text-center">
-                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Loading seat availability...</p>
-                </div>
-              </div>
-            )}
-            
-            <div className="space-y-4">
-              {Array.from({ length: rows }).map((_, rowIndex) => {
-                const rowStart = rowIndex * 4 + 1
-                
-                return (
-                  <div key={rowIndex} className="flex items-center justify-center gap-4">
-                    <div className="flex gap-3">
-                      {Array.from({ length: 2 }).map((_, seatIndex) => {
-                        const seatNumber = rowStart + seatIndex
-                        if (seatNumber > totalSeats) return <div key={seatIndex} className="w-14 h-14" />
-                        
-                        const status = getSeatStatus(seatNumber)
-                        
-                        return (
-                          <button
-                            key={seatNumber}
-                            onClick={() => toggleSeat(seatNumber)}
-                            disabled={status === 'booked'}
-                            className={cn(
-                              'relative w-14 h-14 rounded-xl border-2 transition-all duration-200',
-                              'flex items-center justify-center group',
-                              'focus:outline-none focus:ring-2 focus:ring-offset-2',
-                              status === 'available' && [
-                                'bg-white border-border shadow-sm',
-                                'hover:border-primary hover:shadow-md hover:scale-105',
-                                'focus:ring-primary'
-                              ],
-                              status === 'selected' && [
-                                'bg-gradient-to-br from-primary to-primary/80',
-                                'border-primary shadow-lg scale-105',
-                                'text-primary-foreground',
-                                'focus:ring-primary'
-                              ],
-                              status === 'booked' && [
-                                'bg-gradient-to-br from-red-50 to-red-100',
-                                'border-red-200 cursor-not-allowed opacity-60',
-                                'shadow-inner'
-                              ]
-                            )}
-                          >
-                            <Armchair className={cn(
-                              'w-7 h-7 transition-transform group-hover:scale-110',
-                              status === 'selected' && 'text-white',
-                              status === 'available' && 'text-muted-foreground',
-                              status === 'booked' && 'text-red-400'
-                            )} />
-                            <span className={cn(
-                              'absolute -top-2 -right-2 text-[10px] font-bold',
-                              'w-5 h-5 rounded-full flex items-center justify-center',
-                              'shadow-sm border',
-                              status === 'selected' && 'bg-white text-primary border-primary',
-                              status === 'available' && 'bg-muted text-foreground border-border',
-                              status === 'booked' && 'bg-red-100 text-red-600 border-red-200'
-                            )}>
-                              {seatNumber}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
+  const previousMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11)
+      setCurrentYear(currentYear - 1)
+    } else {
+      setCurrentMonth(currentMonth - 1)
+    }
+  }
 
-                    <div className="w-12 h-14 flex items-center justify-center">
-                      <div className="w-1 h-full bg-gradient-to-b from-border/50 via-border to-border/50 rounded-full" />
-                    </div>
+  const nextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0)
+      setCurrentYear(currentYear + 1)
+    } else {
+      setCurrentMonth(currentMonth + 1)
+    }
+  }
 
-                    <div className="flex gap-3">
-                      {Array.from({ length: 2 }).map((_, seatIndex) => {
-                        const seatNumber = rowStart + 2 + seatIndex
-                        if (seatNumber > totalSeats) return <div key={seatIndex} className="w-14 h-14" />
-                        
-                        const status = getSeatStatus(seatNumber)
-                        
-                        return (
-                          <button
-                            key={seatNumber}
-                            onClick={() => toggleSeat(seatNumber)}
-                            disabled={status === 'booked'}
-                            className={cn(
-                              'relative w-14 h-14 rounded-xl border-2 transition-all duration-200',
-                              'flex items-center justify-center group',
-                              'focus:outline-none focus:ring-2 focus:ring-offset-2',
-                              status === 'available' && [
-                                'bg-white border-border shadow-sm',
-                                'hover:border-primary hover:shadow-md hover:scale-105',
-                                'focus:ring-primary'
-                              ],
-                              status === 'selected' && [
-                                'bg-gradient-to-br from-primary to-primary/80',
-                                'border-primary shadow-lg scale-105',
-                                'text-primary-foreground',
-                                'focus:ring-primary'
-                              ],
-                              status === 'booked' && [
-                                'bg-gradient-to-br from-red-50 to-red-100',
-                                'border-red-200 cursor-not-allowed opacity-60',
-                                'shadow-inner'
-                              ]
-                            )}
-                          >
-                            <Armchair className={cn(
-                              'w-7 h-7 transition-transform group-hover:scale-110',
-                              status === 'selected' && 'text-white',
-                              status === 'available' && 'text-muted-foreground',
-                              status === 'booked' && 'text-red-400'
-                            )} />
-                            <span className={cn(
-                              'absolute -top-2 -right-2 text-[10px] font-bold',
-                              'w-5 h-5 rounded-full flex items-center justify-center',
-                              'shadow-sm border',
-                              status === 'selected' && 'bg-white text-primary border-primary',
-                              status === 'available' && 'bg-muted text-foreground border-border',
-                              status === 'booked' && 'bg-red-100 text-red-600 border-red-200'
-                            )}>
-                              {seatNumber}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
+  const incrementSeats = () => {
+    if (form.seats_booked < availableSeats) {
+      setForm(prev => ({ ...prev, seats_booked: prev.seats_booked + 1 }))
+    }
+  }
 
-        <div className="flex items-center justify-center gap-6 text-sm">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border shadow-sm">
-            <div className="w-5 h-5 bg-white border-2 border-border rounded-md" />
-            <span className="font-medium">Available</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 shadow-sm">
-            <div className="w-5 h-5 bg-gradient-to-br from-primary to-primary/80 rounded-md shadow" />
-            <span className="font-medium">Selected</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 shadow-sm">
-            <div className="w-5 h-5 bg-gradient-to-br from-red-50 to-red-100 border-2 border-red-200 rounded-md" />
-            <span className="font-medium">Booked</span>
-          </div>
-        </div>
-
-        {form.selected_seats.length > 0 && (
-          <Alert className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/30">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <AlertDescription className="flex items-center justify-between ml-2">
-              <span className="font-semibold text-foreground">Your Selected Seats:</span>
-              <div className="flex gap-2">
-                {form.selected_seats.sort((a, b) => a - b).map(seat => (
-                  <Badge key={seat} className="bg-primary text-white shadow-sm">{seat}</Badge>
-                ))}
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription className="ml-2">
-            {bookedSeats.length > 0 
-              ? `${bookedSeats.length} seat${bookedSeats.length > 1 ? 's' : ''} already booked for this period. ${selectedVehicle.capacity - bookedSeats.length} seats available.`
-              : `All ${selectedVehicle.capacity} seats are available for your selected dates!`
-            }
-          </AlertDescription>
-        </Alert>
-      </div>
-    )
+  const decrementSeats = () => {
+    if (form.seats_booked > 1) {
+      setForm(prev => ({ ...prev, seats_booked: prev.seats_booked - 1 }))
+    }
   }
 
   const handleSubmit = async () => {
@@ -486,12 +440,18 @@ export default function BookingFlow() {
     try {
       const userId = getCurrentUserId()
       
-      // If no user ID found, show error
       if (!userId) {
         setError('User not authenticated. Please log in again.')
         setLoading(false)
         return
       }
+
+      const daysOfWeek = new Set<number>()
+      form.selected_dates.forEach(dateStr => {
+        const date = new Date(dateStr)
+        const dayOfWeek = date.getDay()
+        daysOfWeek.add(dayOfWeek === 0 ? 7 : dayOfWeek)
+      })
 
       const payload = {
         user_id: userId,
@@ -500,13 +460,11 @@ export default function BookingFlow() {
         dropoff_location_id: parseInt(form.dropoff_location_id),
         start_date: form.start_date,
         end_date: form.end_date,
-        days_of_week: form.days_of_week.sort().join(','),
+        days_of_week: Array.from(daysOfWeek).sort().join(','),
         service_type: form.service_type,
         seats_booked: form.seats_booked,
-        selected_seats: form.selected_seats
+        selected_seats: []
       }
-
-      console.log('Submitting booking:', payload)
 
       const res = await apiFetch('/bookings', {
         method: 'POST',
@@ -520,7 +478,6 @@ export default function BookingFlow() {
         throw new Error(data.error || 'Booking failed')
       }
 
-      console.log('Booking created:', data)
       setSuccess(true)
       setStep(5)
     } catch (err: any) {
@@ -533,9 +490,9 @@ export default function BookingFlow() {
   }
 
   const canProceedStep1 = form.route_id && form.pickup_location_id && form.dropoff_location_id
-  const canProceedStep2 = form.start_date && form.end_date && form.days_of_week.length > 0
+  const canProceedStep2 = form.selected_dates.length > 0
   const canProceedStep3 = form.service_type
-  const canProceedStep4 = form.selected_seats.length > 0
+  const canProceedStep4 = form.seats_booked > 0 && form.seats_booked <= availableSeats
 
   const resetForm = () => {
     setForm({
@@ -544,51 +501,72 @@ export default function BookingFlow() {
       dropoff_location_id: '',
       start_date: '',
       end_date: '',
-      days_of_week: [],
+      selected_dates: [],
       service_type: '',
-      seats_booked: 0,
-      selected_seats: []
+      seats_booked: 1
     })
     setStep(1)
     setSuccess(false)
+    setRedirectCountdown(5)
     setError(null)
+    setCurrentMonth(new Date().getMonth())
+    setCurrentYear(new Date().getFullYear())
   }
 
   if (success) {
     return (
-      <div className="min-h-[600px] flex items-center justify-center p-4">
-        <Card className="max-w-2xl w-full shadow-2xl border-0 bg-gradient-to-br from-green-50 to-emerald-50">
-          <CardContent className="pt-16 pb-16 text-center">
+      <div className="min-h-[600px] flex items-center justify-center p-4 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+        <Card className="max-w-2xl w-full shadow-2xl border-0 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 via-emerald-400/10 to-teal-400/10" />
+          <CardContent className="pt-16 pb-16 text-center relative z-10">
             <div className="flex justify-center mb-6">
               <div className="relative">
-                <div className="absolute inset-0 bg-green-400 rounded-full blur-2xl opacity-20 animate-pulse" />
-                <div className="relative w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-xl">
-                  <CheckCircle2 className="w-14 h-14 text-white" />
+                <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full blur-3xl opacity-30 animate-pulse" />
+                <div className="relative w-28 h-28 bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 rounded-full flex items-center justify-center shadow-2xl animate-in zoom-in duration-500">
+                  <CheckCircle2 className="w-16 h-16 text-white" />
                 </div>
               </div>
             </div>
             
-            <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-              Booking Confirmed!
+            <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
+              Booking Confirmed! 🎉
             </h2>
-            <p className="text-muted-foreground mb-2 text-lg">
+            <p className="text-muted-foreground mb-3 text-lg">
               Your school bus booking has been created successfully.
             </p>
-            <p className="text-sm text-muted-foreground mb-8 flex items-center justify-center gap-2">
-              <Armchair className="w-4 h-4" />
-              Seats Reserved: {form.selected_seats.sort((a, b) => a - b).join(', ')}
-            </p>
+            
+            <div className="flex items-center justify-center gap-6 mb-8">
+              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-full border-2 border-blue-200">
+                <Users className="w-5 h-5 text-blue-600" />
+                <span className="font-bold text-blue-900">{form.seats_booked} Seats</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 rounded-full border-2 border-purple-200">
+                <CalendarDays className="w-5 h-5 text-purple-600" />
+                <span className="font-bold text-purple-900">{form.selected_dates.length} Days</span>
+              </div>
+            </div>
+
+            {/* Countdown Message */}
+            <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <p className="text-sm text-blue-700 font-medium">
+                Redirecting to dashboard in <span className="font-bold text-xl text-blue-900">{redirectCountdown}</span> seconds...
+              </p>
+            </div>
 
             <div className="space-y-3 max-w-xs mx-auto">
-              <Button onClick={resetForm} className="w-full shadow-lg">
-                Make Another Booking
+              <Button 
+                onClick={() => window.location.href = '/dashboard/parent'}
+                className="w-full shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 h-12 text-base"
+              >
+                Go to Dashboard Now
               </Button>
               <Button 
-                variant="outline" 
-                onClick={() => window.location.href = '/dashboard/parent'}
-                className="w-full"
+                variant="outline"
+                onClick={resetForm}
+                className="w-full h-12 border-2"
               >
-                Go to Dashboard
+                <Sparkles className="w-5 h-5 mr-2" />
+                Make Another Booking
               </Button>
             </div>
           </CardContent>
@@ -598,353 +576,582 @@ export default function BookingFlow() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 p-4">
-      <Card className="shadow-lg border-0 bg-gradient-to-br from-background to-muted/20">
-        <CardContent className="pt-6 pb-6">
-          <div className="flex items-center justify-between mb-4">
-            {[1, 2, 3, 4].map(num => (
-              <div key={num} className="flex items-center flex-1">
-                <div className="relative">
-                  <div
-                    className={cn(
-                      'w-12 h-12 rounded-full flex items-center justify-center font-bold transition-all duration-300',
-                      'shadow-md',
-                      step >= num
-                        ? 'bg-gradient-to-br from-primary to-primary/80 text-white scale-110'
-                        : 'bg-muted text-muted-foreground'
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-8">
+      <div className="max-w-5xl mx-auto space-y-6 p-4">
+        {/* Progress Steps */}
+        <Card className="shadow-xl border-0 overflow-hidden bg-white/80 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5" />
+          <CardContent className="pt-8 pb-8 relative z-10">
+            <div className="flex items-center justify-between mb-6">
+              {[1, 2, 3, 4].map(num => (
+                <div key={num} className="flex items-center flex-1">
+                  <div className="relative">
+                    <div
+                      className={cn(
+                        'w-14 h-14 rounded-2xl flex items-center justify-center font-bold transition-all duration-500',
+                        'shadow-lg transform',
+                        step >= num
+                          ? 'bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white scale-110 rotate-3'
+                          : 'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-500'
+                      )}
+                    >
+                      {step > num ? <CheckCircle2 className="w-7 h-7" /> : num}
+                    </div>
+                    {step === num && (
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl blur-2xl opacity-40 animate-pulse" />
                     )}
-                  >
-                    {step > num ? <CheckCircle2 className="w-6 h-6" /> : num}
                   </div>
-                  {step === num && (
-                    <div className="absolute inset-0 bg-primary rounded-full blur-xl opacity-30 animate-pulse" />
+                  {num < 4 && (
+                    <div className="flex-1 h-2 mx-4 rounded-full overflow-hidden bg-gradient-to-r from-gray-200 to-gray-300">
+                      <div 
+                        className={cn(
+                          'h-full transition-all duration-700 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500',
+                          step > num ? 'w-full' : 'w-0'
+                        )}
+                      />
+                    </div>
                   )}
                 </div>
-                {num < 4 && (
-                  <div className="flex-1 h-1 mx-3 rounded-full overflow-hidden bg-muted">
-                    <div 
-                      className={cn(
-                        'h-full transition-all duration-500 bg-gradient-to-r from-primary to-primary/80',
-                        step > num ? 'w-full' : 'w-0'
-                      )}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          
-          <div className="flex justify-between text-sm mt-4">
-            <span className={cn('font-medium transition-colors', step >= 1 ? 'text-foreground' : 'text-muted-foreground')}>
-              Route & Locations
-            </span>
-            <span className={cn('font-medium transition-colors', step >= 2 ? 'text-foreground' : 'text-muted-foreground')}>
-              Schedule
-            </span>
-            <span className={cn('font-medium transition-colors', step >= 3 ? 'text-foreground' : 'text-muted-foreground')}>
-              Service Type
-            </span>
-            <span className={cn('font-medium transition-colors', step >= 4 ? 'text-foreground' : 'text-muted-foreground')}>
-              Select Seats
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {error && (
-        <Alert variant="destructive" className="shadow-lg">
-          <AlertDescription className="font-medium">{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {step === 1 && (
-        <Card className="shadow-xl border-0 bg-gradient-to-br from-background to-primary/5">
-          <CardHeader className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <MapPin className="w-6 h-6 text-primary" />
-              </div>
-              Select Route & Locations
-            </CardTitle>
-            <CardDescription>Choose your route and pickup/dropoff points</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label className="text-base font-semibold flex items-center gap-2">
-                <Bus className="w-4 h-4" />
-                Select Route
-              </Label>
-              <Select value={form.route_id} onValueChange={(val) => {
-                setForm({ ...form, route_id: val, pickup_location_id: '', dropoff_location_id: '' })
-              }}>
-                <SelectTrigger className="h-12 shadow-sm">
-                  <SelectValue placeholder="Choose a route" />
-                </SelectTrigger>
-                <SelectContent>
-                  {routes.map(route => (
-                    <SelectItem key={route.id} value={String(route.id)}>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{route.name}</Badge>
-                        <span className="text-muted-foreground text-sm">
-                          {route.starting_point} → {route.ending_point}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              ))}
             </div>
-
-            {form.route_id && (
-              <div className="space-y-2 animate-in slide-in-from-top duration-300">
-                <Label className="text-base font-semibold flex items-center gap-2">
-                  <MapPinned className="w-4 h-4" />
-                  Pickup Location
-                </Label>
-                <Select 
-                  value={form.pickup_location_id} 
-                  onValueChange={(val) => setForm({ ...form, pickup_location_id: val })}
-                >
-                  <SelectTrigger className="h-12 shadow-sm">
-                    <SelectValue placeholder="Choose pickup point" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pickupLocations.map(loc => (
-                      <SelectItem key={loc.id} value={String(loc.id)}>
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">{loc.name}</span>
-                          <span className="text-xs text-muted-foreground">{loc.gps_coordinates}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {form.route_id && (
-              <div className="space-y-2 animate-in slide-in-from-top duration-300">
-                <Label className="text-base font-semibold flex items-center gap-2">
-                  <MapPinned className="w-4 h-4 text-primary" />
-                  School Destination
-                </Label>
-                <Select 
-                  value={form.dropoff_location_id} 
-                  onValueChange={(val) => setForm({ ...form, dropoff_location_id: val })}
-                >
-                  <SelectTrigger className="h-12 shadow-sm">
-                    <SelectValue placeholder="Choose school" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {schoolLocations.map(loc => (
-                      <SelectItem key={loc.id} value={String(loc.id)}>
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">{loc.name}</span>
-                          <span className="text-xs text-muted-foreground">{loc.gps_coordinates}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <Button 
-              className="w-full h-12 shadow-lg text-base" 
-              disabled={!canProceedStep1}
-              onClick={() => setStep(2)}
-            >
-              Continue <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
+            
+            <div className="flex justify-between text-sm mt-4 px-2">
+              <span className={cn('font-semibold transition-colors', step >= 1 ? 'text-purple-600' : 'text-gray-400')}>
+                📍 Route
+              </span>
+              <span className={cn('font-semibold transition-colors', step >= 2 ? 'text-purple-600' : 'text-gray-400')}>
+                📅 Schedule
+              </span>
+              <span className={cn('font-semibold transition-colors', step >= 3 ? 'text-purple-600' : 'text-gray-400')}>
+                🕒 Service
+              </span>
+              <span className={cn('font-semibold transition-colors', step >= 4 ? 'text-purple-600' : 'text-gray-400')}>
+                💺 Seats
+              </span>
+            </div>
           </CardContent>
         </Card>
-      )}
 
-      {step === 2 && (
-        <Card className="shadow-xl border-0 bg-gradient-to-br from-background to-primary/5">
-          <CardHeader className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Calendar className="w-6 h-6 text-primary" />
-              </div>
-              Set Schedule
-            </CardTitle>
-            <CardDescription>Choose your booking dates and days</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-base font-semibold">Start Date</Label>
-                <Input
-                  type="date"
-                  value={form.start_date}
-                  onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="h-12 shadow-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-base font-semibold">End Date</Label>
-                <Input
-                  type="date"
-                  value={form.end_date}
-                  onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                  min={form.start_date || new Date().toISOString().split('T')[0]}
-                  className="h-12 shadow-sm"
-                />
-              </div>
-            </div>
+        {error && (
+          <Alert variant="destructive" className="shadow-xl border-2 animate-in slide-in-from-top duration-300">
+            <AlertDescription className="font-medium text-base">{error}</AlertDescription>
+          </Alert>
+        )}
 
-            <div className="space-y-3">
-              <Label className="text-base font-semibold flex items-center gap-2">
-                <CalendarDays className="w-4 h-4" />
-                Select Days of Week
-              </Label>
-              <div className="flex flex-wrap gap-2">
-                {Object.keys(DAYS_MAP).map(day => {
-                  const dayValue = DAYS_MAP[day as keyof typeof DAYS_MAP]
-                  const isSelected = form.days_of_week.includes(dayValue)
-                  
-                  return (
-                    <Button
+        {/* Step 1: Route & Locations */}
+        {step === 1 && (
+          <Card className="shadow-2xl border-0 overflow-hidden bg-white/90 backdrop-blur-sm animate-in fade-in slide-in-from-bottom duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-400/10 via-red-400/10 to-pink-400/10" />
+            <CardHeader className="space-y-2 relative z-10">
+              <CardTitle className="flex items-center gap-3 text-3xl">
+                <div className="p-3 bg-gradient-to-br from-orange-400 to-red-500 rounded-2xl shadow-lg">
+                  <MapPin className="w-7 h-7 text-white" />
+                </div>
+                <span className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                  Select Route & Locations
+                </span>
+              </CardTitle>
+              <CardDescription className="text-base">Choose your journey details</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 relative z-10">
+              <div className="space-y-3">
+                <Label className="text-lg font-bold flex items-center gap-2 text-gray-700">
+                  <Route className="w-5 h-5 text-orange-500" />
+                  Select Route
+                </Label>
+                <Select value={form.route_id} onValueChange={(val) => {
+                  setForm({ ...form, route_id: val, pickup_location_id: '', dropoff_location_id: '' })
+                }}>
+                  <SelectTrigger className="h-14 shadow-lg border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-red-50 hover:border-orange-400 transition-all">
+                    <SelectValue placeholder="🚌 Choose your route" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {routes.map(route => (
+                      <SelectItem key={route.id} value={String(route.id)}>
+                        <div className="flex items-center gap-3 py-1">
+                          <Badge className="bg-gradient-to-r from-orange-500 to-red-500">{route.name}</Badge>
+                          <span className="text-muted-foreground">
+                            {route.starting_point} → {route.ending_point}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {form.route_id && (
+                <div className="space-y-3 animate-in slide-in-from-top duration-500">
+                  <Label className="text-lg font-bold flex items-center gap-2 text-gray-700">
+                    <Home className="w-5 h-5 text-blue-500" />
+                    Pickup Location
+                  </Label>
+                  <Select 
+                    value={form.pickup_location_id} 
+                    onValueChange={(val) => setForm({ ...form, pickup_location_id: val })}
+                  >
+                    <SelectTrigger className="h-14 shadow-lg border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 hover:border-blue-400 transition-all">
+                      <SelectValue placeholder="🏠 Choose pickup point" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pickupLocations.map(loc => (
+                        <SelectItem key={loc.id} value={String(loc.id)}>
+                          <div className="flex flex-col items-start py-1">
+                            <span className="font-semibold">{loc.name}</span>
+                            <span className="text-xs text-muted-foreground">{loc.gps_coordinates}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {form.route_id && (
+                <div className="space-y-3 animate-in slide-in-from-top duration-500 delay-100">
+                  <Label className="text-lg font-bold flex items-center gap-2 text-gray-700">
+                    <School className="w-5 h-5 text-purple-500" />
+                    School Destination
+                  </Label>
+                  <Select 
+                    value={form.dropoff_location_id} 
+                    onValueChange={(val) => setForm({ ...form, dropoff_location_id: val })}
+                  >
+                    <SelectTrigger className="h-14 shadow-lg border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 hover:border-purple-400 transition-all">
+                      <SelectValue placeholder="🏫 Choose school" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {schoolLocations.map(loc => (
+                        <SelectItem key={loc.id} value={String(loc.id)}>
+                          <div className="flex flex-col items-start py-1">
+                            <span className="font-semibold">{loc.name}</span>
+                            <span className="text-xs text-muted-foreground">{loc.gps_coordinates}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <Button 
+                className="w-full h-14 shadow-xl text-lg font-bold bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-600 hover:via-red-600 hover:to-pink-600 transform hover:scale-105 transition-all" 
+                disabled={!canProceedStep1}
+                onClick={() => setStep(2)}
+              >
+                Continue to Schedule <ArrowRight className="w-6 h-6 ml-2" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 2: Calendar Schedule */}
+        {step === 2 && (
+          <Card className="shadow-2xl border-0 overflow-hidden bg-white/90 backdrop-blur-sm animate-in fade-in slide-in-from-bottom duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-purple-400/10 to-pink-400/10" />
+            <CardHeader className="space-y-2 relative z-10">
+              <CardTitle className="flex items-center gap-3 text-3xl">
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
+                  <Calendar className="w-7 h-7 text-white" />
+                </div>
+                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Select Your Dates
+                </span>
+              </CardTitle>
+              <CardDescription className="text-base">Pick the days you need the bus service</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 relative z-10">
+              {/* Calendar Header */}
+              <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl shadow-lg">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={previousMonth}
+                  className="h-12 w-12 rounded-xl bg-white/20 hover:bg-white/30 text-white"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </Button>
+                
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-white drop-shadow-lg">
+                    {MONTHS[currentMonth]} {currentYear}
+                  </h3>
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={nextMonth}
+                  className="h-12 w-12 rounded-xl bg-white/20 hover:bg-white/30 text-white"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </Button>
+              </div>
+
+              {/* Calendar Grid */}
+              <div className="bg-gradient-to-br from-white to-blue-50/50 rounded-3xl shadow-2xl p-6 border-4 border-white">
+                {/* Day Headers */}
+                <div className="grid grid-cols-7 gap-3 mb-4">
+                  {DAYS_OF_WEEK.map((day, idx) => (
+                    <div
                       key={day}
-                      type="button"
-                      variant={isSelected ? 'default' : 'outline'}
-                      onClick={() => toggleDay(day)}
-                      className={cn('w-20 h-12 font-semibold transition-all', isSelected && 'shadow-lg scale-105')}
+                      className={cn(
+                        "text-center text-sm font-bold py-3 rounded-xl",
+                        idx === 0 || idx === 6 
+                          ? "bg-gradient-to-br from-pink-100 to-rose-100 text-rose-600" 
+                          : "bg-gradient-to-br from-blue-100 to-purple-100 text-purple-600"
+                      )}
                     >
                       {day}
-                    </Button>
-                  )
-                })}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Calendar Days */}
+                <div className="grid grid-cols-7 gap-3">
+                  {renderCalendar()}
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <Info className="w-4 h-4" />
-                Selected: {form.days_of_week.length} day(s) per week
-              </p>
-            </div>
 
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep(1)} className="flex-1 h-12">
-                Back
-              </Button>
-              <Button 
-                className="flex-1 h-12 shadow-lg" 
-                disabled={!canProceedStep2}
-                onClick={() => setStep(3)}
-              >
-                Continue <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              {/* Selected Dates Info */}
+              {form.selected_dates.length > 0 && (
+                <Alert className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 border-2 border-purple-200 shadow-lg animate-in slide-in-from-bottom duration-300">
+                  <Sparkles className="h-5 w-5 text-purple-500" />
+                  <AlertDescription className="ml-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-lg text-purple-900">
+                          {form.selected_dates.length} Day{form.selected_dates.length > 1 ? 's' : ''} Selected
+                        </span>
+                        <div className="text-sm text-purple-600 mt-1">
+                          {new Date(form.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(form.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setForm(prev => ({ ...prev, selected_dates: [], start_date: '', end_date: '' }))}
+                        className="text-purple-600 hover:text-purple-800 hover:bg-purple-100"
+                      >
+                        Clear all
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
 
-      {step === 3 && (
-        <Card className="shadow-xl border-0 bg-gradient-to-br from-background to-primary/5">
-          <CardHeader className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Clock className="w-6 h-6 text-primary" />
+              <div className="flex gap-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setStep(1)} 
+                  className="flex-1 h-14 border-2 text-base font-semibold"
+                >
+                  Back
+                </Button>
+                <Button 
+                  className="flex-1 h-14 shadow-xl text-lg font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all" 
+                  disabled={!canProceedStep2}
+                  onClick={() => setStep(3)}
+                >
+                  Continue <ArrowRight className="w-6 h-6 ml-2" />
+                </Button>
               </div>
-              Service Type
-            </CardTitle>
-            <CardDescription>Choose when you need the bus service</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Select Service Time</Label>
-              <div className="grid gap-3">
-                {SERVICE_TYPES.map(type => (
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Service Type */}
+        {step === 3 && (
+          <Card className="shadow-2xl border-0 overflow-hidden bg-white/90 backdrop-blur-sm animate-in fade-in slide-in-from-bottom duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-400/10 via-orange-400/10 to-rose-400/10" />
+            <CardHeader className="space-y-2 relative z-10">
+              <CardTitle className="flex items-center gap-3 text-3xl">
+                <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-lg">
+                  <Clock className="w-7 h-7 text-white" />
+                </div>
+                <span className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                  Service Type
+                </span>
+              </CardTitle>
+              <CardDescription className="text-base">Choose when you need the bus service</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 relative z-10">
+              <div className="grid gap-4">
+                {SERVICE_TYPES.map((type, idx) => (
                   <button
                     key={type.value}
                     onClick={() => setForm({ ...form, service_type: type.value })}
                     className={cn(
-                      'p-4 rounded-xl border-2 text-left transition-all hover:shadow-md',
+                      'p-6 rounded-2xl border-3 text-left transition-all duration-300 transform hover:scale-105',
+                      'relative overflow-hidden group',
                       form.service_type === type.value
-                        ? 'border-primary bg-primary/5 shadow-lg scale-[1.02]'
-                        : 'border-border bg-white hover:border-primary/50'
+                        ? 'border-transparent shadow-2xl scale-105'
+                        : 'border-gray-200 bg-white hover:border-transparent hover:shadow-xl'
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold text-lg">{type.label}</div>
-                        <div className="text-sm text-muted-foreground mt-1">{type.desc}</div>
+                    <div className={cn(
+                      "absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-300",
+                      type.gradient,
+                      form.service_type === type.value ? 'opacity-100' : 'group-hover:opacity-10'
+                    )} />
+                    
+                    {form.service_type === type.value && (
+                      <div className={cn(
+                        "absolute inset-0 bg-gradient-to-br animate-pulse",
+                        type.gradient
+                      )} />
+                    )}
+                    
+                    <div className="relative z-10 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "text-5xl p-4 rounded-2xl",
+                          form.service_type === type.value 
+                            ? 'bg-white/20 shadow-lg' 
+                            : 'bg-gradient-to-br from-gray-100 to-gray-200'
+                        )}>
+                          {type.icon}
+                        </div>
+                        <div>
+                          <div className={cn(
+                            "font-bold text-2xl mb-1",
+                            form.service_type === type.value ? 'text-white' : 'text-gray-900'
+                          )}>
+                            {type.label}
+                          </div>
+                          <div className={cn(
+                            "text-base",
+                            form.service_type === type.value ? 'text-white/90' : 'text-gray-600'
+                          )}>
+                            {type.desc}
+                          </div>
+                        </div>
                       </div>
                       {form.service_type === type.value && (
-                        <CheckCircle2 className="w-6 h-6 text-primary" />
+                        <CheckCircle2 className="w-10 h-10 text-white animate-in zoom-in duration-300" />
                       )}
                     </div>
                   </button>
                 ))}
               </div>
-            </div>
 
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep(2)} className="flex-1 h-12">
-                Back
-              </Button>
-              <Button 
-                className="flex-1 h-12 shadow-lg" 
-                disabled={!canProceedStep3}
-                onClick={() => setStep(4)}
-              >
-                Continue <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 4 && (
-        <Card className="shadow-xl border-0 bg-gradient-to-br from-background to-primary/5">
-          <CardHeader className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Armchair className="w-6 h-6 text-primary" />
+              <div className="flex gap-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setStep(2)} 
+                  className="flex-1 h-14 border-2 text-base font-semibold"
+                >
+                  Back
+                </Button>
+                <Button 
+                  className="flex-1 h-14 shadow-xl text-lg font-bold bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:via-orange-600 hover:to-rose-600 transform hover:scale-105 transition-all" 
+                  disabled={!canProceedStep3}
+                  onClick={() => setStep(4)}
+                >
+                  Continue <ArrowRight className="w-6 h-6 ml-2" />
+                </Button>
               </div>
-              Select Your Seats
-            </CardTitle>
-            {selectedVehicle && (
-              <CardDescription className="flex items-center gap-4 pt-2">
-                <Badge variant="outline" className="text-sm py-1">
-                  {selectedVehicle.license_plate}
-                </Badge>
-                <span className="text-sm">
-                  <Users className="w-4 h-4 inline mr-1" />
-                  {selectedVehicle.capacity} total seats
-                </span>
-              </CardDescription>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {renderSeatLayout()}
+            </CardContent>
+          </Card>
+        )}
 
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep(3)} className="flex-1 h-12">
-                Back
-              </Button>
-              <Button 
-                className="flex-1 h-12 shadow-lg" 
-                disabled={!canProceedStep4 || loading}
-                onClick={handleSubmit}
-              >
-                {loading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    Confirm Booking ({form.seats_booked} seat{form.seats_booked > 1 ? 's' : ''})
-                    <CheckCircle2 className="w-5 h-5 ml-2" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        {/* Step 4: Number of Seats */}
+        {step === 4 && (
+          <Card className="shadow-2xl border-0 overflow-hidden bg-white/90 backdrop-blur-sm animate-in fade-in slide-in-from-bottom duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 via-blue-400/10 to-purple-400/10" />
+            <CardHeader className="space-y-2 relative z-10">
+              <CardTitle className="flex items-center gap-3 text-3xl">
+                <div className="p-3 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-lg">
+                  <Users className="w-7 h-7 text-white" />
+                </div>
+                <span className="bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+                  Number of Seats
+                </span>
+              </CardTitle>
+              {selectedVehicle && (
+                <CardDescription className="flex items-center gap-4 pt-2">
+                  <Badge className="text-base py-1.5 px-3 bg-gradient-to-r from-cyan-500 to-blue-600">
+                    {selectedVehicle.license_plate}
+                  </Badge>
+                  <span className="text-base font-semibold">
+                    <Bus className="w-5 h-5 inline mr-2" />
+                    {selectedVehicle.capacity} Total Capacity
+                  </span>
+                </CardDescription>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-8 relative z-10">
+              {loadingSeats ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-lg text-muted-foreground font-semibold">Checking availability...</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Available Seats Display */}
+                  <div className="relative bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-3xl p-10 shadow-2xl overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-20" />
+                    
+                    <div className="text-center mb-8 relative z-10">
+                      <div className="inline-flex items-center justify-center w-28 h-28 rounded-3xl bg-white/20 backdrop-blur-sm shadow-2xl mb-6 transform hover:scale-110 transition-transform">
+                        <Armchair className="w-14 h-14 text-white" />
+                      </div>
+                      <h3 className="text-5xl font-black text-white mb-3 drop-shadow-lg">
+                        {availableSeats} Seats
+                      </h3>
+                      <p className="text-xl text-white/90 font-medium">
+                        Available out of {selectedVehicle?.capacity} total
+                      </p>
+                    </div>
+
+                    {/* Seat Counter */}
+                    <div className="flex items-center justify-center gap-8 mb-8">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={decrementSeats}
+                        disabled={form.seats_booked <= 1}
+                        className="h-16 w-16 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-sm shadow-xl disabled:opacity-30"
+                      >
+                        <Minus className="w-8 h-8 text-white" />
+                      </Button>
+
+                      <div className="text-center min-w-[160px] bg-white/20 backdrop-blur-sm rounded-3xl p-6 shadow-2xl">
+                        <div className="text-6xl font-black text-white mb-2 drop-shadow-lg">
+                          {form.seats_booked}
+                        </div>
+                        <div className="text-lg text-white/90 font-semibold uppercase tracking-wider">
+                          Seat{form.seats_booked > 1 ? 's' : ''}
+                        </div>
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={incrementSeats}
+                        disabled={form.seats_booked >= availableSeats}
+                        className="h-16 w-16 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-sm shadow-xl disabled:opacity-30"
+                      >
+                        <Plus className="w-8 h-8 text-white" />
+                      </Button>
+                    </div>
+
+                    {/* Quick Select Buttons */}
+                    <div className="flex gap-3 justify-center flex-wrap">
+                      {[1, 2, 3, 5, 10].filter(num => num <= availableSeats).map(num => (
+                        <Button
+                          key={num}
+                          variant="ghost"
+                          onClick={() => setForm(prev => ({ ...prev, seats_booked: num }))}
+                          className={cn(
+                            "min-w-[70px] h-12 font-bold text-lg rounded-xl transition-all",
+                            form.seats_booked === num 
+                              ? 'bg-white text-cyan-600 shadow-xl scale-110' 
+                              : 'bg-white/20 text-white hover:bg-white/30 hover:scale-105'
+                          )}
+                        >
+                          {num}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Info Alert */}
+                  <Alert className={cn(
+                    "border-2 shadow-lg",
+                    availableSeats === 0 
+                      ? "bg-gradient-to-r from-red-50 to-rose-50 border-red-300"
+                      : availableSeats < 5
+                      ? "bg-gradient-to-r from-orange-50 to-amber-50 border-orange-300"
+                      : "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-300"
+                  )}>
+                    <Info className={cn(
+                      "h-5 w-5",
+                      availableSeats === 0 ? "text-red-600" : availableSeats < 5 ? "text-orange-600" : "text-blue-600"
+                    )} />
+                    <AlertDescription className="ml-2 font-semibold">
+                      {availableSeats === 0 ? (
+                        <span className="text-red-700">
+                          ⚠️ No seats available for the selected dates. Please choose different dates.
+                        </span>
+                      ) : availableSeats < 5 ? (
+                        <span className="text-orange-700">
+                          🔥 Only {availableSeats} seat{availableSeats > 1 ? 's' : ''} remaining! Book now before they're gone.
+                        </span>
+                      ) : (
+                        <span className="text-blue-700">
+                          ✨ Seats will be reserved for all {form.selected_dates.length} selected day{form.selected_dates.length > 1 ? 's' : ''}.
+                        </span>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Booking Summary */}
+                  <div className="bg-gradient-to-br from-gray-50 to-blue-50/50 rounded-2xl p-6 space-y-4 border-2 border-blue-100 shadow-lg">
+                    <h4 className="font-bold text-lg text-gray-700 uppercase tracking-wide flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-blue-500" />
+                      Booking Summary
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                        <span className="font-semibold text-gray-700">Number of seats</span>
+                        <Badge className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-base px-4 py-1.5">
+                          {form.seats_booked}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                        <span className="font-semibold text-gray-700">Number of days</span>
+                        <Badge variant="outline" className="border-2 border-purple-300 text-purple-700 text-base px-4 py-1.5">
+                          {form.selected_dates.length}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                        <span className="font-semibold text-gray-700">Service type</span>
+                        <Badge className={cn(
+                          "text-base px-4 py-1.5 bg-gradient-to-r",
+                          SERVICE_TYPES.find(t => t.value === form.service_type)?.gradient
+                        )}>
+                          {SERVICE_TYPES.find(t => t.value === form.service_type)?.icon} {' '}
+                          {SERVICE_TYPES.find(t => t.value === form.service_type)?.label.replace(/🌅|🌆|🔄/g, '')}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setStep(3)} 
+                  className="flex-1 h-14 border-2 text-base font-semibold"
+                >
+                  Back
+                </Button>
+                <Button 
+                  className="flex-1 h-14 shadow-xl text-lg font-bold bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 hover:from-cyan-600 hover:via-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all" 
+                  disabled={!canProceedStep4 || loading || loadingSeats}
+                  onClick={handleSubmit}
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Creating Booking...
+                    </>
+                  ) : (
+                    <>
+                      Confirm Booking
+                      <CheckCircle2 className="w-6 h-6 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }
