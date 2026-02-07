@@ -76,4 +76,6 @@ class Signup(Resource):
 class Logout(Resource):
     def post(self):
         # session.pop("user_id", None)
-        return {"message": "Logout successful"}, 200
+        response = make_response({"message": "Logged out"}, 200)
+        unset_jwt_cookies(response)
+        return response
