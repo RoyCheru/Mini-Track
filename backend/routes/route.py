@@ -1,8 +1,22 @@
 from flask import request
 from flask_restful import Resource
 from models import db, Route
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from functools import wraps
 
 # 1. HELPER FUNCTIONS 
+
+def admin_required(fn):
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        identity = get_jwt_identity()
+
+        if identity.get("role_id") != 1:
+            return {"error": "Admins only"}, 403
+
+        return fn(*args, **kwargs)
+    return wrapper
 
 def serialize_route(route):
     return {
@@ -13,7 +27,7 @@ def serialize_route(route):
     }
 
 class RouteList(Resource):
-
+    @jwt_required()
     def get(self):
         # Get all routes
 
@@ -25,6 +39,7 @@ class RouteList(Resource):
         
         return response, 200
     
+    @admin_required
     def post(self):
         # Create new route
 
@@ -59,7 +74,7 @@ class RouteList(Resource):
     
 class RouteDetail(Resource):
     # Handle single route operations
-
+    @jwt_required()
     def get(self, route_id):
         # Get single route by ID
 
@@ -71,6 +86,7 @@ class RouteDetail(Resource):
         response = serialize_route(route)
         return response, 200
     
+    @admin_required
     def patch(self, route_id):
         # Update route
 
@@ -109,7 +125,7 @@ class RouteDetail(Resource):
         response["message"] = "Route updated successfully"
         
         return response, 200
-    
+    @admin_required
     def delete(self, route_id):
         # Delete route
     
