@@ -94,7 +94,7 @@ export default function SignInPage() {
       }
 
       // Save auth
-      if (data?.access_token) localStorage.setItem("token", data.access_token);
+      // if (data?.access_token) localStorage.setItem("token", data.access_token);
       if (data?.user?.name) localStorage.setItem("username", data.user.name);
 
       // Save user id if present (helps resolve vehicle_id)
