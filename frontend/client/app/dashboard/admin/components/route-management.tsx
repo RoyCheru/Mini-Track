@@ -46,10 +46,10 @@ export default function RouteManagement() {
   })
 
     const fetchRoutes = async () => {
-      const token = localStorage.getItem("token");
-      console.log (token)
+      // const token = localStorage.getItem("token");
+      // console.log (token)
     try {
-      const res = await apiFetch("/routes");
+      const res = await apiFetch("/routes", { credentials: 'include' });
   
       const data = await res.json();
       setRoutes(data);
@@ -76,7 +76,8 @@ export default function RouteManagement() {
     const res = await apiFetch(
       `/routes/${id}`,
       {
-        method: "DELETE"
+        method: "DELETE",
+        credentials: 'include'
       }
     )
 
@@ -101,10 +102,12 @@ export default function RouteManagement() {
     // Backend payload matches JSON exactly
     const payload = { ...addForm }
 
-    const token = localStorage.getItem("token");
+    // const token = localStorage.getItem("token");
 
      const res = await apiFetch("/routes", {
-      method: "POST",
+       method: "POST",
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
       });
 
@@ -140,11 +143,13 @@ export default function RouteManagement() {
 
   
   try {
-    const token = localStorage.getItem("token")
+    // const token = localStorage.getItem("token")
 
     const res = await apiFetch(`/routes/${editing.id}`,
       {
         method: "PATCH",
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       }
     )
