@@ -81,3 +81,14 @@ class Logout(Resource):
         return response
     
 class Me(Resource):
+    @jwt_required()
+    def get(self):
+        identity = get_jwt_identity()
+        user = User.query.get(identity["id"])
+
+        return {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role.name
+        }
