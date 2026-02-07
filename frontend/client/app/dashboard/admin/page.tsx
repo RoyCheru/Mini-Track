@@ -60,7 +60,7 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error('Logout error:', err)
     } finally {
-      localStorage.removeItem('token')
+      // localStorage.removeItem('token')
       localStorage.removeItem('username')
 
       setLoggingOut(false)
