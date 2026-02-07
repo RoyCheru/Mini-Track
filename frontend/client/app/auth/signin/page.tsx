@@ -80,6 +80,8 @@ export default function SignInPage() {
     try {
       const res = await apiFetch("/login", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
