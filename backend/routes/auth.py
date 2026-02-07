@@ -79,3 +79,5 @@ class Logout(Resource):
         response = make_response({"message": "Logged out"}, 200)
         unset_jwt_cookies(response)
         return response
+    
+class Me(Resource):
