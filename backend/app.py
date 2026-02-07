@@ -51,6 +51,7 @@ def create_app():
     api.add_resource(Login, '/login')
     api.add_resource(Signup, '/signup')
     api.add_resource(Logout, '/logout')
+    api.add_resource(Me, '/me')
     
     api.add_resource(CreateDriver, '/drivers')
     api.add_resource(GetDrivers, '/drivers')
