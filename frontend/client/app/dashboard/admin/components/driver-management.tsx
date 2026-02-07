@@ -99,9 +99,9 @@ export default function DriverManagement() {
       const res = await apiFetch('/drivers', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials:"include",
         body: JSON.stringify(payload),
       })
 
