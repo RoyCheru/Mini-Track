@@ -1,6 +1,6 @@
 from flask import Flask, request, session
 from flask_restful import Resource
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request, unset_jwt_cookies, set_access_cookies
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from models import db, User, UserRole
