@@ -51,7 +51,7 @@ export default function AdminDashboardPage() {
     setLoggingOut(true)
 
     try {
-      const token = localStorage.getItem('token')
+      // const token = localStorage.getItem('token')
 
       await apiFetch("/logout", {
         method: "POST",
