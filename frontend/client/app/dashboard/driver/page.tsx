@@ -135,6 +135,28 @@ export default function DriverDashboardPage() {
     setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== id)), 4000)
   }
 
+  useEffect(() => {
+      const checkAuth = async () => {
+        try {
+          const res = await apiFetch("/me", {
+            credentials: "include",
+          });
+  
+          if (!res.ok) {
+            router.replace("/auth/signin");
+            return;
+          }
+  
+          const data = await res.json();
+          setUsername(data.name);
+        } catch (err) {
+          router.replace("/auth/signin");
+        }
+      };
+  
+      checkAuth();
+    }, [router]);
+
   const handleLogout = async () => {
     if (loggingOut) return
     setLoggingOut(true)
@@ -143,12 +165,12 @@ export default function DriverDashboardPage() {
       const token = localStorage.getItem('token')
       await apiFetch('/logout', {
         method: 'POST',
-        headers: authHeaders(token),
+        credentials: "include"
       })
     } catch (err) {
       console.error('Logout error:', err)
     } finally {
-      localStorage.removeItem('token')
+      // localStorage.removeItem('token')
       localStorage.removeItem('username')
       localStorage.removeItem('vehicle_id')
       localStorage.removeItem('user_id')
@@ -157,10 +179,9 @@ export default function DriverDashboardPage() {
     }
   }
 
-  const fetchVehicle = async (vehicleId: number, token: string) => {
+  const fetchVehicle = async (vehicleId: number) => {
     const res = await apiFetch(`/vehicles/${vehicleId}`, {
-      method: 'GET',
-      headers: authHeaders(token),
+      method: 'GET'
     })
     const data = await res.json().catch(() => ({}))
 
@@ -206,15 +227,13 @@ export default function DriverDashboardPage() {
     return []
   }
 
-  const fetchTripsForToday = async (vehicleId: number, token: string) => {
+  const fetchTripsForToday = async (vehicleId: number) => {
     const [morningRes, eveningRes] = await Promise.all([
       apiFetch(`/trips/today?vehicle_id=${vehicleId}&service_time=morning`, {
         method: 'GET',
-        headers: authHeaders(token),
       }),
       apiFetch(`/trips/today?vehicle_id=${vehicleId}&service_time=evening`, {
         method: 'GET',
-        headers: authHeaders(token),
       }),
     ])
 
@@ -238,8 +257,10 @@ export default function DriverDashboardPage() {
   const reloadAll = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
+      const res = await apiFetch("/me", {
+                credentials: "include",
+              });
+      if (!res.ok) {
         addAlert('error', 'Session expired. Please sign in again.')
         setTrips([])
         setVehicle(null)
@@ -265,7 +286,7 @@ export default function DriverDashboardPage() {
         return
       }
 
-      const [v, t] = await Promise.all([fetchVehicle(vehicleId, token), fetchTripsForToday(vehicleId, token)])
+      const [v, t] = await Promise.all([fetchVehicle(vehicleId), fetchTripsForToday(vehicleId)])
       setVehicle(v)
       setTrips(t)
 
