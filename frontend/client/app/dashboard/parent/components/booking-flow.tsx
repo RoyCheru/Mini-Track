@@ -14,10 +14,8 @@ import {
   CheckCircle2, 
   Armchair,
   Bus,
-  MapPinned,
   CalendarDays,
   Users,
-  Sparkles,
   Info,
   ChevronLeft,
   ChevronRight,
@@ -25,7 +23,10 @@ import {
   Plus,
   Home,
   School,
-  Route
+  Route,
+  Map,
+  X,
+  Check
 } from 'lucide-react'
 import {
   Select,
@@ -40,6 +41,19 @@ import {
   Alert,
   AlertDescription,
 } from '@/components/ui/alert'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import dynamic from 'next/dynamic'
+
+// Dynamically import LocationPicker to avoid SSR issues with Leaflet
+const LocationPicker = dynamic(
+  () => import('./location-picker'),
+  { ssr: false }
+)
 
 // Helper function to get current user ID
 function getCurrentUserId(): number | null {
@@ -98,27 +112,30 @@ type BookingForm = {
   seats_booked: number
 }
 
+type CustomLocation = {
+  name: string
+  address: string
+  coordinates: string
+}
+
 const SERVICE_TYPES = [
   { 
     value: 'morning', 
-    label: 'Morning Only', 
-    desc: 'Home to school',
-    icon: '🌅',
-    gradient: 'from-amber-400 via-orange-400 to-rose-400'
+    label: 'Morning Service', 
+    desc: 'Home to school transportation',
+    time: '6:00 AM - 9:00 AM'
   },
   { 
     value: 'evening', 
-    label: 'Evening Only', 
-    desc: 'School to home',
-    icon: '🌆',
-    gradient: 'from-purple-400 via-pink-400 to-rose-400'
+    label: 'Evening Service', 
+    desc: 'School to home transportation',
+    time: '3:00 PM - 6:00 PM'
   },
   { 
     value: 'both', 
-    label: 'Both Ways', 
-    desc: 'Morning & evening',
-    icon: '🔄',
-    gradient: 'from-blue-400 via-cyan-400 to-teal-400'
+    label: 'Full Day Service', 
+    desc: 'Morning and evening transportation',
+    time: 'Both directions'
   }
 ]
 
@@ -126,17 +143,6 @@ const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
-]
-
-// Vibrant gradient backgrounds for calendar dates
-const DATE_GRADIENTS = [
-  'from-violet-400 to-purple-500',
-  'from-blue-400 to-indigo-500',
-  'from-cyan-400 to-blue-500',
-  'from-teal-400 to-emerald-500',
-  'from-green-400 to-teal-500',
-  'from-amber-400 to-orange-500',
-  'from-rose-400 to-pink-500',
 ]
 
 export default function BookingFlow() {
@@ -152,6 +158,12 @@ export default function BookingFlow() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [redirectCountdown, setRedirectCountdown] = useState(5)
+
+  // Map picker state
+  const [showPickupMapPicker, setShowPickupMapPicker] = useState(false)
+  const [showDropoffMapPicker, setShowDropoffMapPicker] = useState(false)
+  const [customPickupLocation, setCustomPickupLocation] = useState<CustomLocation | null>(null)
+  const [customDropoffLocation, setCustomDropoffLocation] = useState<CustomLocation | null>(null)
 
   // Calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
@@ -297,6 +309,68 @@ export default function BookingFlow() {
     }
   }
 
+  const createPickupLocation = async (customLocation: CustomLocation, routeId: number): Promise<number | null> => {
+    try {
+      const res = await apiFetch('/pickup_locations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          route_id: routeId,
+          name: customLocation.name,
+          gps_coordinates: customLocation.coordinates
+        })
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Failed to create pickup location')
+      }
+
+      const data = await res.json()
+      const locationId = data.pickup_location?.id || data.location?.id
+      
+      if (!locationId) {
+        throw new Error('No location ID returned from server')
+      }
+
+      return locationId
+    } catch (err: any) {
+      console.error('Error creating pickup location:', err)
+      throw new Error(`Failed to create pickup location: ${err.message}`)
+    }
+  }
+
+  const createSchoolLocation = async (customLocation: CustomLocation, routeId: number): Promise<number | null> => {
+    try {
+      const res = await apiFetch('/school-locations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          route_id: routeId,
+          name: customLocation.name,
+          gps_coordinates: customLocation.coordinates
+        })
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Failed to create school location')
+      }
+
+      const data = await res.json()
+      const locationId = data.location?.id || data.school_location?.id
+      
+      if (!locationId) {
+        throw new Error('No location ID returned from server')
+      }
+
+      return locationId
+    } catch (err: any) {
+      console.error('Error creating school location:', err)
+      throw new Error(`Failed to create school location: ${err.message}`)
+    }
+  }
+
   const getDaysInMonth = (month: number, year: number) => {
     return new Date(year, month + 1, 0).getDate()
   }
@@ -339,10 +413,6 @@ export default function BookingFlow() {
     })
   }
 
-  const getDateGradient = (day: number) => {
-    return DATE_GRADIENTS[day % DATE_GRADIENTS.length]
-  }
-
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentMonth, currentYear)
     const firstDay = getFirstDayOfMonth(currentMonth, currentYear)
@@ -358,7 +428,6 @@ export default function BookingFlow() {
       const isSelected = isDateSelected(date)
       const isDisabled = isDateDisabled(date)
       const isToday = date.toDateString() === new Date().toDateString()
-      const gradient = getDateGradient(day)
       
       days.push(
         <button
@@ -366,34 +435,18 @@ export default function BookingFlow() {
           onClick={() => toggleDate(date)}
           disabled={isDisabled}
           className={cn(
-            'aspect-square rounded-2xl flex items-center justify-center text-sm font-bold transition-all duration-300',
-            'hover:scale-110 focus:outline-none focus:ring-4 focus:ring-offset-2 relative group',
-            isSelected && [
-              `bg-gradient-to-br ${gradient}`,
-              'text-white shadow-2xl scale-110 ring-4 ring-white/50',
-              'animate-in zoom-in duration-200'
-            ],
-            !isSelected && !isDisabled && [
-              'bg-gradient-to-br from-white to-gray-50',
-              'border-2 border-gray-200',
-              'hover:border-transparent',
-              `hover:bg-gradient-to-br hover:${gradient}`,
-              'hover:text-white hover:shadow-xl'
-            ],
-            isDisabled && 'bg-gray-100 text-gray-300 cursor-not-allowed opacity-40',
-            isToday && !isSelected && 'ring-2 ring-blue-400 ring-offset-2',
+            'aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-200',
+            'hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-400 relative',
+            isSelected && 'bg-slate-900 text-white hover:bg-slate-800',
+            !isSelected && !isDisabled && 'bg-white border border-slate-200 text-slate-900',
+            isDisabled && 'bg-slate-50 text-slate-300 cursor-not-allowed',
+            isToday && !isSelected && 'border-2 border-slate-900',
           )}
         >
-          {isSelected && (
-            <div className="absolute inset-0 rounded-2xl bg-white/20 animate-pulse" />
-          )}
           <span className="relative z-10">{day}</span>
           {isSelected && (
-            <div className={cn(
-              "absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white shadow-lg flex items-center justify-center",
-              "animate-in zoom-in duration-300"
-            )}>
-              <CheckCircle2 className="w-3 h-3 text-green-500" />
+            <div className="absolute top-1 right-1">
+              <Check className="w-3 h-3" />
             </div>
           )}
         </button>
@@ -446,6 +499,51 @@ export default function BookingFlow() {
         return
       }
 
+      const routeId = parseInt(form.route_id)
+      
+      let pickupLocationId = form.pickup_location_id ? parseInt(form.pickup_location_id) : null
+      let dropoffLocationId = form.dropoff_location_id ? parseInt(form.dropoff_location_id) : null
+
+      if (customPickupLocation && !pickupLocationId) {
+        try {
+          const createdId = await createPickupLocation(customPickupLocation, routeId)
+          if (!createdId) {
+            throw new Error('Failed to create custom pickup location')
+          }
+          pickupLocationId = createdId
+        } catch (err: any) {
+          setError(err.message || 'Failed to create custom pickup location')
+          setLoading(false)
+          return
+        }
+      }
+
+      if (customDropoffLocation && !dropoffLocationId) {
+        try {
+          const createdId = await createSchoolLocation(customDropoffLocation, routeId)
+          if (!createdId) {
+            throw new Error('Failed to create custom dropoff location')
+          }
+          dropoffLocationId = createdId
+        } catch (err: any) {
+          setError(err.message || 'Failed to create custom dropoff location')
+          setLoading(false)
+          return
+        }
+      }
+
+      if (!pickupLocationId) {
+        setError('Pickup location is required')
+        setLoading(false)
+        return
+      }
+
+      if (!dropoffLocationId) {
+        setError('Dropoff location is required')
+        setLoading(false)
+        return
+      }
+
       const daysOfWeek = new Set<number>()
       form.selected_dates.forEach(dateStr => {
         const date = new Date(dateStr)
@@ -455,15 +553,14 @@ export default function BookingFlow() {
 
       const payload = {
         user_id: userId,
-        route_id: parseInt(form.route_id),
-        pickup_location_id: parseInt(form.pickup_location_id),
-        dropoff_location_id: parseInt(form.dropoff_location_id),
+        route_id: routeId,
+        pickup_location_id: pickupLocationId,
+        dropoff_location_id: dropoffLocationId,
         start_date: form.start_date,
         end_date: form.end_date,
         days_of_week: Array.from(daysOfWeek).sort().join(','),
         service_type: form.service_type,
         seats_booked: form.seats_booked,
-        selected_seats: []
       }
 
       const res = await apiFetch('/bookings', {
@@ -489,7 +586,7 @@ export default function BookingFlow() {
     }
   }
 
-  const canProceedStep1 = form.route_id && form.pickup_location_id && form.dropoff_location_id
+  const canProceedStep1 = form.route_id && (form.pickup_location_id || customPickupLocation) && (form.dropoff_location_id || customDropoffLocation)
   const canProceedStep2 = form.selected_dates.length > 0
   const canProceedStep3 = form.service_type
   const canProceedStep4 = form.seats_booked > 0 && form.seats_booked <= availableSeats
@@ -505,6 +602,8 @@ export default function BookingFlow() {
       service_type: '',
       seats_booked: 1
     })
+    setCustomPickupLocation(null)
+    setCustomDropoffLocation(null)
     setStep(1)
     setSuccess(false)
     setRedirectCountdown(5)
@@ -515,57 +614,51 @@ export default function BookingFlow() {
 
   if (success) {
     return (
-      <div className="min-h-[600px] flex items-center justify-center p-4 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <Card className="max-w-2xl w-full shadow-2xl border-0 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 via-emerald-400/10 to-teal-400/10" />
-          <CardContent className="pt-16 pb-16 text-center relative z-10">
+      <div className="min-h-[600px] flex items-center justify-center p-4 bg-slate-50">
+        <Card className="max-w-2xl w-full shadow-lg border border-slate-200">
+          <CardContent className="pt-12 pb-12 text-center">
             <div className="flex justify-center mb-6">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full blur-3xl opacity-30 animate-pulse" />
-                <div className="relative w-28 h-28 bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 rounded-full flex items-center justify-center shadow-2xl animate-in zoom-in duration-500">
-                  <CheckCircle2 className="w-16 h-16 text-white" />
-                </div>
+              <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-12 h-12 text-white" />
               </div>
             </div>
             
-            <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
-              Booking Confirmed! 🎉
+            <h2 className="text-3xl font-bold mb-3 text-slate-900">
+              Booking Confirmed
             </h2>
-            <p className="text-muted-foreground mb-3 text-lg">
+            <p className="text-slate-600 mb-8 text-lg">
               Your school bus booking has been created successfully.
             </p>
             
             <div className="flex items-center justify-center gap-6 mb-8">
-              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-full border-2 border-blue-200">
-                <Users className="w-5 h-5 text-blue-600" />
-                <span className="font-bold text-blue-900">{form.seats_booked} Seats</span>
+              <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg">
+                <Users className="w-5 h-5 text-slate-600" />
+                <span className="font-semibold text-slate-900">{form.seats_booked} Seat{form.seats_booked > 1 ? 's' : ''}</span>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 rounded-full border-2 border-purple-200">
-                <CalendarDays className="w-5 h-5 text-purple-600" />
-                <span className="font-bold text-purple-900">{form.selected_dates.length} Days</span>
+              <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg">
+                <CalendarDays className="w-5 h-5 text-slate-600" />
+                <span className="font-semibold text-slate-900">{form.selected_dates.length} Day{form.selected_dates.length > 1 ? 's' : ''}</span>
               </div>
             </div>
 
-            {/* Countdown Message */}
-            <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-              <p className="text-sm text-blue-700 font-medium">
-                Redirecting to dashboard in <span className="font-bold text-xl text-blue-900">{redirectCountdown}</span> seconds...
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-900 font-medium">
+                Redirecting to dashboard in <span className="font-bold text-lg">{redirectCountdown}</span> seconds...
               </p>
             </div>
 
             <div className="space-y-3 max-w-xs mx-auto">
               <Button 
                 onClick={() => window.location.href = '/dashboard/parent'}
-                className="w-full shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 h-12 text-base"
+                className="w-full bg-slate-900 hover:bg-slate-800 h-12 text-base"
               >
                 Go to Dashboard Now
               </Button>
               <Button 
                 variant="outline"
                 onClick={resetForm}
-                className="w-full h-12 border-2"
+                className="w-full h-12 border-2 border-slate-200"
               >
-                <Sparkles className="w-5 h-5 mr-2" />
                 Make Another Booking
               </Button>
             </div>
@@ -576,37 +669,53 @@ export default function BookingFlow() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-8">
-      <div className="max-w-5xl mx-auto space-y-6 p-4">
+    <div className="min-h-screen bg-slate-50 py-8">
+      <div className="max-w-4xl mx-auto space-y-6 px-4">
         {/* Progress Steps */}
-        <Card className="shadow-xl border-0 overflow-hidden bg-white/80 backdrop-blur-sm">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5" />
-          <CardContent className="pt-8 pb-8 relative z-10">
-            <div className="flex items-center justify-between mb-6">
-              {[1, 2, 3, 4].map(num => (
-                <div key={num} className="flex items-center flex-1">
-                  <div className="relative">
-                    <div
+        <Card className="border border-slate-200 shadow-sm">
+          <CardContent className="pt-8 pb-8">
+            <div className="flex items-center justify-between">
+              {[
+                { id: 1, label: 'Route & Locations', icon: MapPin },
+                { id: 2, label: 'Schedule', icon: Calendar },
+                { id: 3, label: 'Service Type', icon: Clock },
+                { id: 4, label: 'Seats', icon: Users },
+              ].map((item, index) => (
+                <div key={item.id} className="flex flex-1 items-center">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="relative">
+                      <div
+                        className={cn(
+                          'w-12 h-12 rounded-full flex items-center justify-center font-semibold border-2 transition-all',
+                          step >= item.id
+                            ? 'bg-slate-900 border-slate-900 text-white'
+                            : 'bg-white border-slate-300 text-slate-400'
+                        )}
+                      >
+                        {step > item.id ? (
+                          <Check className="w-5 h-5" />
+                        ) : (
+                          <item.icon className="w-5 h-5" />
+                        )}
+                      </div>
+                    </div>
+
+                    <span
                       className={cn(
-                        'w-14 h-14 rounded-2xl flex items-center justify-center font-bold transition-all duration-500',
-                        'shadow-lg transform',
-                        step >= num
-                          ? 'bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white scale-110 rotate-3'
-                          : 'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-500'
+                        'mt-3 font-medium text-xs transition-colors',
+                        step >= item.id ? 'text-slate-900' : 'text-slate-400'
                       )}
                     >
-                      {step > num ? <CheckCircle2 className="w-7 h-7" /> : num}
-                    </div>
-                    {step === num && (
-                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl blur-2xl opacity-40 animate-pulse" />
-                    )}
+                      {item.label}
+                    </span>
                   </div>
-                  {num < 4 && (
-                    <div className="flex-1 h-2 mx-4 rounded-full overflow-hidden bg-gradient-to-r from-gray-200 to-gray-300">
-                      <div 
+
+                  {index < 3 && (
+                    <div className="flex-1 mx-4 h-0.5 bg-slate-200">
+                      <div
                         className={cn(
-                          'h-full transition-all duration-700 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500',
-                          step > num ? 'w-full' : 'w-0'
+                          'h-full bg-slate-900 transition-all duration-300',
+                          step > item.id ? 'w-full' : 'w-0'
                         )}
                       />
                     </div>
@@ -614,63 +723,45 @@ export default function BookingFlow() {
                 </div>
               ))}
             </div>
-            
-            <div className="flex justify-between text-sm mt-4 px-2">
-              <span className={cn('font-semibold transition-colors', step >= 1 ? 'text-purple-600' : 'text-gray-400')}>
-                📍 Route
-              </span>
-              <span className={cn('font-semibold transition-colors', step >= 2 ? 'text-purple-600' : 'text-gray-400')}>
-                📅 Schedule
-              </span>
-              <span className={cn('font-semibold transition-colors', step >= 3 ? 'text-purple-600' : 'text-gray-400')}>
-                🕒 Service
-              </span>
-              <span className={cn('font-semibold transition-colors', step >= 4 ? 'text-purple-600' : 'text-gray-400')}>
-                💺 Seats
-              </span>
-            </div>
           </CardContent>
         </Card>
 
         {error && (
-          <Alert variant="destructive" className="shadow-xl border-2 animate-in slide-in-from-top duration-300">
-            <AlertDescription className="font-medium text-base">{error}</AlertDescription>
+          <Alert variant="destructive" className="border-red-200">
+            <AlertDescription className="font-medium">{error}</AlertDescription>
           </Alert>
         )}
 
         {/* Step 1: Route & Locations */}
         {step === 1 && (
-          <Card className="shadow-2xl border-0 overflow-hidden bg-white/90 backdrop-blur-sm animate-in fade-in slide-in-from-bottom duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-400/10 via-red-400/10 to-pink-400/10" />
-            <CardHeader className="space-y-2 relative z-10">
-              <CardTitle className="flex items-center gap-3 text-3xl">
-                <div className="p-3 bg-gradient-to-br from-orange-400 to-red-500 rounded-2xl shadow-lg">
-                  <MapPin className="w-7 h-7 text-white" />
-                </div>
-                <span className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                  Select Route & Locations
-                </span>
+          <Card className="border border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-100">
+              <CardTitle className="flex items-center gap-3 text-2xl text-slate-900">
+                <MapPin className="w-6 h-6" />
+                Route & Locations
               </CardTitle>
-              <CardDescription className="text-base">Choose your journey details</CardDescription>
+              <CardDescription>Select your route and specify pickup and dropoff locations</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 relative z-10">
+            <CardContent className="space-y-6 pt-6">
+              {/* Route Selection */}
               <div className="space-y-3">
-                <Label className="text-lg font-bold flex items-center gap-2 text-gray-700">
-                  <Route className="w-5 h-5 text-orange-500" />
+                <Label className="text-base font-semibold text-slate-900">
                   Select Route
                 </Label>
                 <Select value={form.route_id} onValueChange={(val) => {
                   setForm({ ...form, route_id: val, pickup_location_id: '', dropoff_location_id: '' })
+                  setCustomPickupLocation(null)
+                  setCustomDropoffLocation(null)
                 }}>
-                  <SelectTrigger className="h-14 shadow-lg border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-red-50 hover:border-orange-400 transition-all">
-                    <SelectValue placeholder="🚌 Choose your route" />
+                  <SelectTrigger className="h-12 border-slate-300">
+                    <SelectValue placeholder="Choose your route" />
                   </SelectTrigger>
                   <SelectContent>
                     {routes.map(route => (
                       <SelectItem key={route.id} value={String(route.id)}>
                         <div className="flex items-center gap-3 py-1">
-                          <Badge className="bg-gradient-to-r from-orange-500 to-red-500">{route.name}</Badge>
-                          <span className="text-muted-foreground">
+                          <Badge variant="secondary" className="bg-slate-900 text-white">{route.name}</Badge>
+                          <span className="text-slate-600">
                             {route.starting_point} → {route.ending_point}
                           </span>
                         </div>
@@ -681,65 +772,159 @@ export default function BookingFlow() {
               </div>
 
               {form.route_id && (
-                <div className="space-y-3 animate-in slide-in-from-top duration-500">
-                  <Label className="text-lg font-bold flex items-center gap-2 text-gray-700">
-                    <Home className="w-5 h-5 text-blue-500" />
-                    Pickup Location
-                  </Label>
-                  <Select 
-                    value={form.pickup_location_id} 
-                    onValueChange={(val) => setForm({ ...form, pickup_location_id: val })}
-                  >
-                    <SelectTrigger className="h-14 shadow-lg border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 hover:border-blue-400 transition-all">
-                      <SelectValue placeholder="🏠 Choose pickup point" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pickupLocations.map(loc => (
-                        <SelectItem key={loc.id} value={String(loc.id)}>
-                          <div className="flex flex-col items-start py-1">
-                            <span className="font-semibold">{loc.name}</span>
-                            <span className="text-xs text-muted-foreground">{loc.gps_coordinates}</span>
+                <>
+                  {/* Pickup Location */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                      <Home className="w-4 h-4" />
+                      Pickup Location
+                    </Label>
+                    
+                    {customPickupLocation ? (
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <MapPin className="w-5 h-5 text-slate-600 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-slate-900 mb-1">{customPickupLocation.name}</div>
+                            <div className="text-sm text-slate-600 mb-1">{customPickupLocation.address}</div>
+                            <div className="text-xs text-slate-500">{customPickupLocation.coordinates}</div>
                           </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setCustomPickupLocation(null)
+                              setForm({ ...form, pickup_location_id: '' })
+                            }}
+                            className="text-slate-500 hover:text-slate-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <Select 
+                          value={form.pickup_location_id} 
+                          onValueChange={(val) => setForm({ ...form, pickup_location_id: val })}
+                        >
+                          <SelectTrigger className="h-12 border-slate-300">
+                            <SelectValue placeholder="Choose pickup location" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pickupLocations.map(loc => (
+                              <SelectItem key={loc.id} value={String(loc.id)}>
+                                <div className="flex flex-col items-start py-1">
+                                  <span className="font-medium">{loc.name}</span>
+                                  <span className="text-xs text-slate-500">{loc.gps_coordinates}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
-              {form.route_id && (
-                <div className="space-y-3 animate-in slide-in-from-top duration-500 delay-100">
-                  <Label className="text-lg font-bold flex items-center gap-2 text-gray-700">
-                    <School className="w-5 h-5 text-purple-500" />
-                    School Destination
-                  </Label>
-                  <Select 
-                    value={form.dropoff_location_id} 
-                    onValueChange={(val) => setForm({ ...form, dropoff_location_id: val })}
-                  >
-                    <SelectTrigger className="h-14 shadow-lg border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 hover:border-purple-400 transition-all">
-                      <SelectValue placeholder="🏫 Choose school" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {schoolLocations.map(loc => (
-                        <SelectItem key={loc.id} value={String(loc.id)}>
-                          <div className="flex flex-col items-start py-1">
-                            <span className="font-semibold">{loc.name}</span>
-                            <span className="text-xs text-muted-foreground">{loc.gps_coordinates}</span>
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-slate-200"></div>
                           </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                          <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-white px-2 text-slate-500">or</span>
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowPickupMapPicker(true)}
+                          className="w-full h-12 border-slate-300 hover:bg-slate-50"
+                        >
+                          <Map className="w-4 h-4 mr-2" />
+                          Select Custom Location on Map
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Dropoff Location */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                      <School className="w-4 h-4" />
+                      Dropoff Location
+                    </Label>
+                    
+                    {customDropoffLocation ? (
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <MapPin className="w-5 h-5 text-slate-600 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-slate-900 mb-1">{customDropoffLocation.name}</div>
+                            <div className="text-sm text-slate-600 mb-1">{customDropoffLocation.address}</div>
+                            <div className="text-xs text-slate-500">{customDropoffLocation.coordinates}</div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setCustomDropoffLocation(null)
+                              setForm({ ...form, dropoff_location_id: '' })
+                            }}
+                            className="text-slate-500 hover:text-slate-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <Select 
+                          value={form.dropoff_location_id} 
+                          onValueChange={(val) => setForm({ ...form, dropoff_location_id: val })}
+                        >
+                          <SelectTrigger className="h-12 border-slate-300">
+                            <SelectValue placeholder="Choose dropoff location" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {schoolLocations.map(loc => (
+                              <SelectItem key={loc.id} value={String(loc.id)}>
+                                <div className="flex flex-col items-start py-1">
+                                  <span className="font-medium">{loc.name}</span>
+                                  <span className="text-xs text-slate-500">{loc.gps_coordinates}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-slate-200"></div>
+                          </div>
+                          <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-white px-2 text-slate-500">or</span>
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowDropoffMapPicker(true)}
+                          className="w-full h-12 border-slate-300 hover:bg-slate-50"
+                        >
+                          <Map className="w-4 h-4 mr-2" />
+                          Select Custom Location on Map
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </>
               )}
 
               <Button 
-                className="w-full h-14 shadow-xl text-lg font-bold bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-600 hover:via-red-600 hover:to-pink-600 transform hover:scale-105 transition-all" 
+                className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-base font-medium" 
                 disabled={!canProceedStep1}
                 onClick={() => setStep(2)}
               >
-                Continue to Schedule <ArrowRight className="w-6 h-6 ml-2" />
+                Continue to Schedule <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </CardContent>
           </Card>
@@ -747,33 +932,28 @@ export default function BookingFlow() {
 
         {/* Step 2: Calendar Schedule */}
         {step === 2 && (
-          <Card className="shadow-2xl border-0 overflow-hidden bg-white/90 backdrop-blur-sm animate-in fade-in slide-in-from-bottom duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-purple-400/10 to-pink-400/10" />
-            <CardHeader className="space-y-2 relative z-10">
-              <CardTitle className="flex items-center gap-3 text-3xl">
-                <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
-                  <Calendar className="w-7 h-7 text-white" />
-                </div>
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Select Your Dates
-                </span>
+          <Card className="border border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-100">
+              <CardTitle className="flex items-center gap-3 text-2xl text-slate-900">
+                <Calendar className="w-6 h-6" />
+                Select Schedule
               </CardTitle>
-              <CardDescription className="text-base">Pick the days you need the bus service</CardDescription>
+              <CardDescription>Choose the dates you need the bus service</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 relative z-10">
+            <CardContent className="space-y-6 pt-6">
               {/* Calendar Header */}
-              <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl shadow-lg">
+              <div className="flex items-center justify-between px-4 py-3 bg-slate-900 rounded-lg">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={previousMonth}
-                  className="h-12 w-12 rounded-xl bg-white/20 hover:bg-white/30 text-white"
+                  className="h-10 w-10 text-white hover:bg-slate-800"
                 >
-                  <ChevronLeft className="w-6 h-6" />
+                  <ChevronLeft className="w-5 h-5" />
                 </Button>
                 
                 <div className="text-center">
-                  <h3 className="text-2xl font-bold text-white drop-shadow-lg">
+                  <h3 className="text-xl font-semibold text-white">
                     {MONTHS[currentMonth]} {currentYear}
                   </h3>
                 </div>
@@ -782,25 +962,20 @@ export default function BookingFlow() {
                   variant="ghost"
                   size="icon"
                   onClick={nextMonth}
-                  className="h-12 w-12 rounded-xl bg-white/20 hover:bg-white/30 text-white"
+                  className="h-10 w-10 text-white hover:bg-slate-800"
                 >
-                  <ChevronRight className="w-6 h-6" />
+                  <ChevronRight className="w-5 h-5" />
                 </Button>
               </div>
 
               {/* Calendar Grid */}
-              <div className="bg-gradient-to-br from-white to-blue-50/50 rounded-3xl shadow-2xl p-6 border-4 border-white">
+              <div className="bg-white rounded-lg p-4 border border-slate-200">
                 {/* Day Headers */}
-                <div className="grid grid-cols-7 gap-3 mb-4">
-                  {DAYS_OF_WEEK.map((day, idx) => (
+                <div className="grid grid-cols-7 gap-2 mb-3">
+                  {DAYS_OF_WEEK.map((day) => (
                     <div
                       key={day}
-                      className={cn(
-                        "text-center text-sm font-bold py-3 rounded-xl",
-                        idx === 0 || idx === 6 
-                          ? "bg-gradient-to-br from-pink-100 to-rose-100 text-rose-600" 
-                          : "bg-gradient-to-br from-blue-100 to-purple-100 text-purple-600"
-                      )}
+                      className="text-center text-sm font-semibold py-2 text-slate-600"
                     >
                       {day}
                     </div>
@@ -808,22 +983,22 @@ export default function BookingFlow() {
                 </div>
                 
                 {/* Calendar Days */}
-                <div className="grid grid-cols-7 gap-3">
+                <div className="grid grid-cols-7 gap-2">
                   {renderCalendar()}
                 </div>
               </div>
 
               {/* Selected Dates Info */}
               {form.selected_dates.length > 0 && (
-                <Alert className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 border-2 border-purple-200 shadow-lg animate-in slide-in-from-bottom duration-300">
-                  <Sparkles className="h-5 w-5 text-purple-500" />
+                <Alert className="bg-slate-50 border-slate-200">
+                  <Info className="h-5 w-5 text-slate-600" />
                   <AlertDescription className="ml-2">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="font-bold text-lg text-purple-900">
+                        <span className="font-semibold text-slate-900">
                           {form.selected_dates.length} Day{form.selected_dates.length > 1 ? 's' : ''} Selected
                         </span>
-                        <div className="text-sm text-purple-600 mt-1">
+                        <div className="text-sm text-slate-600 mt-1">
                           {new Date(form.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(form.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </div>
                       </div>
@@ -831,7 +1006,7 @@ export default function BookingFlow() {
                         variant="ghost"
                         size="sm"
                         onClick={() => setForm(prev => ({ ...prev, selected_dates: [], start_date: '', end_date: '' }))}
-                        className="text-purple-600 hover:text-purple-800 hover:bg-purple-100"
+                        className="text-slate-600 hover:text-slate-900"
                       >
                         Clear all
                       </Button>
@@ -844,16 +1019,16 @@ export default function BookingFlow() {
                 <Button 
                   variant="outline" 
                   onClick={() => setStep(1)} 
-                  className="flex-1 h-14 border-2 text-base font-semibold"
+                  className="flex-1 h-12 border-slate-300"
                 >
                   Back
                 </Button>
                 <Button 
-                  className="flex-1 h-14 shadow-xl text-lg font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all" 
+                  className="flex-1 h-12 bg-slate-900 hover:bg-slate-800" 
                   disabled={!canProceedStep2}
                   onClick={() => setStep(3)}
                 >
-                  Continue <ArrowRight className="w-6 h-6 ml-2" />
+                  Continue <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </div>
             </CardContent>
@@ -862,93 +1037,59 @@ export default function BookingFlow() {
 
         {/* Step 3: Service Type */}
         {step === 3 && (
-          <Card className="shadow-2xl border-0 overflow-hidden bg-white/90 backdrop-blur-sm animate-in fade-in slide-in-from-bottom duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-400/10 via-orange-400/10 to-rose-400/10" />
-            <CardHeader className="space-y-2 relative z-10">
-              <CardTitle className="flex items-center gap-3 text-3xl">
-                <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-lg">
-                  <Clock className="w-7 h-7 text-white" />
-                </div>
-                <span className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
-                  Service Type
-                </span>
+          <Card className="border border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-100">
+              <CardTitle className="flex items-center gap-3 text-2xl text-slate-900">
+                <Clock className="w-6 h-6" />
+                Service Type
               </CardTitle>
-              <CardDescription className="text-base">Choose when you need the bus service</CardDescription>
+              <CardDescription>Choose when you need the bus service</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 relative z-10">
-              <div className="grid gap-4">
-                {SERVICE_TYPES.map((type, idx) => (
-                  <button
-                    key={type.value}
-                    onClick={() => setForm({ ...form, service_type: type.value })}
-                    className={cn(
-                      'p-6 rounded-2xl border-3 text-left transition-all duration-300 transform hover:scale-105',
-                      'relative overflow-hidden group',
-                      form.service_type === type.value
-                        ? 'border-transparent shadow-2xl scale-105'
-                        : 'border-gray-200 bg-white hover:border-transparent hover:shadow-xl'
-                    )}
-                  >
-                    <div className={cn(
-                      "absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-300",
-                      type.gradient,
-                      form.service_type === type.value ? 'opacity-100' : 'group-hover:opacity-10'
-                    )} />
-                    
-                    {form.service_type === type.value && (
-                      <div className={cn(
-                        "absolute inset-0 bg-gradient-to-br animate-pulse",
-                        type.gradient
-                      )} />
-                    )}
-                    
-                    <div className="relative z-10 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "text-5xl p-4 rounded-2xl",
-                          form.service_type === type.value 
-                            ? 'bg-white/20 shadow-lg' 
-                            : 'bg-gradient-to-br from-gray-100 to-gray-200'
-                        )}>
-                          {type.icon}
-                        </div>
-                        <div>
-                          <div className={cn(
-                            "font-bold text-2xl mb-1",
-                            form.service_type === type.value ? 'text-white' : 'text-gray-900'
-                          )}>
-                            {type.label}
-                          </div>
-                          <div className={cn(
-                            "text-base",
-                            form.service_type === type.value ? 'text-white/90' : 'text-gray-600'
-                          )}>
-                            {type.desc}
-                          </div>
-                        </div>
+            <CardContent className="space-y-4 pt-6">
+              {SERVICE_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  onClick={() => setForm({ ...form, service_type: type.value })}
+                  className={cn(
+                    'w-full p-5 rounded-lg border-2 text-left transition-all',
+                    form.service_type === type.value
+                      ? 'border-slate-900 bg-slate-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-lg text-slate-900 mb-1">
+                        {type.label}
                       </div>
-                      {form.service_type === type.value && (
-                        <CheckCircle2 className="w-10 h-10 text-white animate-in zoom-in duration-300" />
-                      )}
+                      <div className="text-sm text-slate-600 mb-1">
+                        {type.desc}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {type.time}
+                      </div>
                     </div>
-                  </button>
-                ))}
-              </div>
+                    {form.service_type === type.value && (
+                      <CheckCircle2 className="w-6 h-6 text-slate-900" />
+                    )}
+                  </div>
+                </button>
+              ))}
 
-              <div className="flex gap-4">
+              <div className="flex gap-4 pt-2">
                 <Button 
                   variant="outline" 
                   onClick={() => setStep(2)} 
-                  className="flex-1 h-14 border-2 text-base font-semibold"
+                  className="flex-1 h-12 border-slate-300"
                 >
                   Back
                 </Button>
                 <Button 
-                  className="flex-1 h-14 shadow-xl text-lg font-bold bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:via-orange-600 hover:to-rose-600 transform hover:scale-105 transition-all" 
+                  className="flex-1 h-12 bg-slate-900 hover:bg-slate-800" 
                   disabled={!canProceedStep3}
                   onClick={() => setStep(4)}
                 >
-                  Continue <ArrowRight className="w-6 h-6 ml-2" />
+                  Continue <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </div>
             </CardContent>
@@ -957,164 +1098,148 @@ export default function BookingFlow() {
 
         {/* Step 4: Number of Seats */}
         {step === 4 && (
-          <Card className="shadow-2xl border-0 overflow-hidden bg-white/90 backdrop-blur-sm animate-in fade-in slide-in-from-bottom duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 via-blue-400/10 to-purple-400/10" />
-            <CardHeader className="space-y-2 relative z-10">
-              <CardTitle className="flex items-center gap-3 text-3xl">
-                <div className="p-3 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-lg">
-                  <Users className="w-7 h-7 text-white" />
-                </div>
-                <span className="bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-                  Number of Seats
-                </span>
+          <Card className="border border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-100">
+              <CardTitle className="flex items-center gap-3 text-2xl text-slate-900">
+                <Users className="w-6 h-6" />
+                Number of Seats
               </CardTitle>
               {selectedVehicle && (
                 <CardDescription className="flex items-center gap-4 pt-2">
-                  <Badge className="text-base py-1.5 px-3 bg-gradient-to-r from-cyan-500 to-blue-600">
+                  <Badge variant="secondary" className="bg-slate-900 text-white">
                     {selectedVehicle.license_plate}
                   </Badge>
-                  <span className="text-base font-semibold">
-                    <Bus className="w-5 h-5 inline mr-2" />
+                  <span>
+                    <Bus className="w-4 h-4 inline mr-1" />
                     {selectedVehicle.capacity} Total Capacity
                   </span>
                 </CardDescription>
               )}
             </CardHeader>
-            <CardContent className="space-y-8 relative z-10">
+            <CardContent className="space-y-6 pt-6">
               {loadingSeats ? (
                 <div className="flex items-center justify-center py-16">
                   <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-lg text-muted-foreground font-semibold">Checking availability...</p>
+                    <div className="w-12 h-12 border-3 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-slate-600 font-medium">Checking availability...</p>
                   </div>
                 </div>
               ) : (
                 <>
                   {/* Available Seats Display */}
-                  <div className="relative bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-3xl p-10 shadow-2xl overflow-hidden">
-                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-20" />
-                    
-                    <div className="text-center mb-8 relative z-10">
-                      <div className="inline-flex items-center justify-center w-28 h-28 rounded-3xl bg-white/20 backdrop-blur-sm shadow-2xl mb-6 transform hover:scale-110 transition-transform">
-                        <Armchair className="w-14 h-14 text-white" />
+                  <div className="bg-slate-900 rounded-lg p-8 text-center">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/10 mb-4">
+                      <Armchair className="w-10 h-10 text-white" />
+                    </div>
+                    <h3 className="text-4xl font-bold text-white mb-2">
+                      {availableSeats} Seats
+                    </h3>
+                    <p className="text-slate-300">
+                      Available out of {selectedVehicle?.capacity} total
+                    </p>
+                  </div>
+
+                  {/* Seat Counter */}
+                  <div className="flex items-center justify-center gap-6">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={decrementSeats}
+                      disabled={form.seats_booked <= 1}
+                      className="h-12 w-12 border-slate-300"
+                    >
+                      <Minus className="w-5 h-5" />
+                    </Button>
+
+                    <div className="text-center min-w-[120px] p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-4xl font-bold text-slate-900 mb-1">
+                        {form.seats_booked}
                       </div>
-                      <h3 className="text-5xl font-black text-white mb-3 drop-shadow-lg">
-                        {availableSeats} Seats
-                      </h3>
-                      <p className="text-xl text-white/90 font-medium">
-                        Available out of {selectedVehicle?.capacity} total
-                      </p>
-                    </div>
-
-                    {/* Seat Counter */}
-                    <div className="flex items-center justify-center gap-8 mb-8">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={decrementSeats}
-                        disabled={form.seats_booked <= 1}
-                        className="h-16 w-16 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-sm shadow-xl disabled:opacity-30"
-                      >
-                        <Minus className="w-8 h-8 text-white" />
-                      </Button>
-
-                      <div className="text-center min-w-[160px] bg-white/20 backdrop-blur-sm rounded-3xl p-6 shadow-2xl">
-                        <div className="text-6xl font-black text-white mb-2 drop-shadow-lg">
-                          {form.seats_booked}
-                        </div>
-                        <div className="text-lg text-white/90 font-semibold uppercase tracking-wider">
-                          Seat{form.seats_booked > 1 ? 's' : ''}
-                        </div>
+                      <div className="text-sm text-slate-600 font-medium">
+                        Seat{form.seats_booked > 1 ? 's' : ''}
                       </div>
+                    </div>
 
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={incrementSeats}
+                      disabled={form.seats_booked >= availableSeats}
+                      className="h-12 w-12 border-slate-300"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </Button>
+                  </div>
+
+                  {/* Quick Select Buttons */}
+                  <div className="flex gap-2 justify-center flex-wrap">
+                    {[1, 2, 3, 5, 10].filter(num => num <= availableSeats).map(num => (
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={incrementSeats}
-                        disabled={form.seats_booked >= availableSeats}
-                        className="h-16 w-16 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-sm shadow-xl disabled:opacity-30"
+                        key={num}
+                        variant={form.seats_booked === num ? "default" : "outline"}
+                        onClick={() => setForm(prev => ({ ...prev, seats_booked: num }))}
+                        className={cn(
+                          "min-w-[60px] h-10",
+                          form.seats_booked === num 
+                            ? 'bg-slate-900 hover:bg-slate-800' 
+                            : 'border-slate-300'
+                        )}
                       >
-                        <Plus className="w-8 h-8 text-white" />
+                        {num}
                       </Button>
-                    </div>
-
-                    {/* Quick Select Buttons */}
-                    <div className="flex gap-3 justify-center flex-wrap">
-                      {[1, 2, 3, 5, 10].filter(num => num <= availableSeats).map(num => (
-                        <Button
-                          key={num}
-                          variant="ghost"
-                          onClick={() => setForm(prev => ({ ...prev, seats_booked: num }))}
-                          className={cn(
-                            "min-w-[70px] h-12 font-bold text-lg rounded-xl transition-all",
-                            form.seats_booked === num 
-                              ? 'bg-white text-cyan-600 shadow-xl scale-110' 
-                              : 'bg-white/20 text-white hover:bg-white/30 hover:scale-105'
-                          )}
-                        >
-                          {num}
-                        </Button>
-                      ))}
-                    </div>
+                    ))}
                   </div>
 
                   {/* Info Alert */}
                   <Alert className={cn(
-                    "border-2 shadow-lg",
+                    "border-2",
                     availableSeats === 0 
-                      ? "bg-gradient-to-r from-red-50 to-rose-50 border-red-300"
+                      ? "bg-red-50 border-red-200"
                       : availableSeats < 5
-                      ? "bg-gradient-to-r from-orange-50 to-amber-50 border-orange-300"
-                      : "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-300"
+                      ? "bg-orange-50 border-orange-200"
+                      : "bg-blue-50 border-blue-200"
                   )}>
                     <Info className={cn(
                       "h-5 w-5",
                       availableSeats === 0 ? "text-red-600" : availableSeats < 5 ? "text-orange-600" : "text-blue-600"
                     )} />
-                    <AlertDescription className="ml-2 font-semibold">
+                    <AlertDescription className="ml-2 font-medium">
                       {availableSeats === 0 ? (
                         <span className="text-red-700">
-                          ⚠️ No seats available for the selected dates. Please choose different dates.
+                          No seats available for the selected dates. Please choose different dates.
                         </span>
                       ) : availableSeats < 5 ? (
                         <span className="text-orange-700">
-                          🔥 Only {availableSeats} seat{availableSeats > 1 ? 's' : ''} remaining! Book now before they're gone.
+                          Only {availableSeats} seat{availableSeats > 1 ? 's' : ''} remaining. Book now.
                         </span>
                       ) : (
                         <span className="text-blue-700">
-                          ✨ Seats will be reserved for all {form.selected_dates.length} selected day{form.selected_dates.length > 1 ? 's' : ''}.
+                          Seats will be reserved for all {form.selected_dates.length} selected day{form.selected_dates.length > 1 ? 's' : ''}.
                         </span>
                       )}
                     </AlertDescription>
                   </Alert>
 
                   {/* Booking Summary */}
-                  <div className="bg-gradient-to-br from-gray-50 to-blue-50/50 rounded-2xl p-6 space-y-4 border-2 border-blue-100 shadow-lg">
-                    <h4 className="font-bold text-lg text-gray-700 uppercase tracking-wide flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-blue-500" />
-                      Booking Summary
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
-                        <span className="font-semibold text-gray-700">Number of seats</span>
-                        <Badge className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-base px-4 py-1.5">
+                  <div className="bg-slate-50 rounded-lg p-5 border border-slate-200 space-y-3">
+                    <h4 className="font-semibold text-slate-900 mb-3">Booking Summary</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-600">Number of seats</span>
+                        <Badge variant="secondary" className="bg-slate-900 text-white">
                           {form.seats_booked}
                         </Badge>
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
-                        <span className="font-semibold text-gray-700">Number of days</span>
-                        <Badge variant="outline" className="border-2 border-purple-300 text-purple-700 text-base px-4 py-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-600">Number of days</span>
+                        <Badge variant="outline" className="border-slate-300">
                           {form.selected_dates.length}
                         </Badge>
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
-                        <span className="font-semibold text-gray-700">Service type</span>
-                        <Badge className={cn(
-                          "text-base px-4 py-1.5 bg-gradient-to-r",
-                          SERVICE_TYPES.find(t => t.value === form.service_type)?.gradient
-                        )}>
-                          {SERVICE_TYPES.find(t => t.value === form.service_type)?.icon} {' '}
-                          {SERVICE_TYPES.find(t => t.value === form.service_type)?.label.replace(/🌅|🌆|🔄/g, '')}
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-600">Service type</span>
+                        <Badge variant="outline" className="border-slate-300">
+                          {SERVICE_TYPES.find(t => t.value === form.service_type)?.label}
                         </Badge>
                       </div>
                     </div>
@@ -1126,24 +1251,24 @@ export default function BookingFlow() {
                 <Button 
                   variant="outline" 
                   onClick={() => setStep(3)} 
-                  className="flex-1 h-14 border-2 text-base font-semibold"
+                  className="flex-1 h-12 border-slate-300"
                 >
                   Back
                 </Button>
                 <Button 
-                  className="flex-1 h-14 shadow-xl text-lg font-bold bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 hover:from-cyan-600 hover:via-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all" 
+                  className="flex-1 h-12 bg-slate-900 hover:bg-slate-800" 
                   disabled={!canProceedStep4 || loading || loadingSeats}
                   onClick={handleSubmit}
                 >
                   {loading ? (
                     <>
-                      <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                       Creating Booking...
                     </>
                   ) : (
                     <>
                       Confirm Booking
-                      <CheckCircle2 className="w-6 h-6 ml-2" />
+                      <CheckCircle2 className="w-5 h-5 ml-2" />
                     </>
                   )}
                 </Button>
@@ -1151,6 +1276,47 @@ export default function BookingFlow() {
             </CardContent>
           </Card>
         )}
+
+        {/* Map Picker Dialogs */}
+        <Dialog open={showPickupMapPicker} onOpenChange={setShowPickupMapPicker}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Select Pickup Location</DialogTitle>
+            </DialogHeader>
+            <LocationPicker
+              type="pickup"
+              onLocationConfirm={(location) => {
+                setCustomPickupLocation({
+                  name: location.name || 'Custom Pickup Location',
+                  address: location.address,
+                  coordinates: `${location.lat},${location.lng}`
+                })
+                setForm({ ...form, pickup_location_id: '' })
+                setShowPickupMapPicker(false)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showDropoffMapPicker} onOpenChange={setShowDropoffMapPicker}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Select Dropoff Location</DialogTitle>
+            </DialogHeader>
+            <LocationPicker
+              type="dropoff"
+              onLocationConfirm={(location) => {
+                setCustomDropoffLocation({
+                  name: location.name || 'Custom School Location',
+                  address: location.address,
+                  coordinates: `${location.lat},${location.lng}`
+                })
+                setForm({ ...form, dropoff_location_id: '' })
+                setShowDropoffMapPicker(false)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
