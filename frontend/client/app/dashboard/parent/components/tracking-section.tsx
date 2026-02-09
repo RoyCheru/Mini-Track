@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type * as LeafletTypes from 'leaflet'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -92,6 +92,51 @@ const createBusIcon = () => {
     iconAnchor: [24, 48],
     popupAnchor: [0, -48],
   })
+}
+
+// ================= MAP BOUNDS UPDATER COMPONENT =================
+function MapBoundsUpdater({ route, mapRef, routeKey }: { 
+  route: [number, number][], 
+  mapRef: React.MutableRefObject<any>,
+  routeKey: number 
+}) {
+  useEffect(() => {
+    // Get map instance from DOM
+    const getMapInstance = () => {
+      const mapElement = document.querySelector('.leaflet-container')
+      if (mapElement && (mapElement as any)._leaflet_id) {
+        // Find the actual Leaflet map object
+        const maps = (window as any).L?._maps || {}
+        const mapId = (mapElement as any)._leaflet_id
+        return maps[mapId] || (mapElement as any)._map
+      }
+      return null
+    }
+
+    if (!route || route.length === 0 || !L) return
+
+    const timer = setTimeout(() => {
+      try {
+        const map = getMapInstance()
+        if (map && L) {
+          mapRef.current = map
+          const bounds = L.latLngBounds(route)
+          map.fitBounds(bounds, {
+            padding: [50, 50],
+            animate: true,
+            duration: 1.5,
+            easeLinearity: 0.25
+          })
+        }
+      } catch (error) {
+        console.error('Error fitting bounds:', error)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [routeKey, mapRef]) // Use routeKey instead of route array
+
+  return null
 }
 
 // ================= TYPES =================
@@ -215,7 +260,8 @@ export default function TrackingSection({ initialBookingId }: Props) {
   const [busPosition, setBusPosition] = useState<[number, number] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
-  const [mapCenter, setMapCenter] = useState<[number, number]>([-1.286389, 36.817223])
+  const [mapKey, setMapKey] = useState(0) // Force map re-render for bounds update
+  const mapRef = useRef<any>(null) // Store map instance
   
   const [pickupIcon, setPickupIcon] = useState<any>(undefined)
   const [dropoffIcon, setDropoffIcon] = useState<any>(undefined)
@@ -226,9 +272,16 @@ export default function TrackingSection({ initialBookingId }: Props) {
       import('leaflet').then((leaflet) => {
         const L = leaflet.default
         
-        setPickupIcon(createCustomIcon('#10b981'))
-        setDropoffIcon(createCustomIcon('#ef4444'))
-        setBusIcon(createBusIcon())
+        // Add a small delay to ensure Leaflet is fully ready
+        setTimeout(() => {
+          try {
+            setPickupIcon(createCustomIcon('#10b981'))
+            setDropoffIcon(createCustomIcon('#ef4444'))
+            setBusIcon(createBusIcon())
+          } catch (error) {
+            console.error('Error creating icons:', error)
+          }
+        }, 100)
       })
     }
   }, [])
@@ -353,9 +406,8 @@ export default function TrackingSection({ initialBookingId }: Props) {
           setRoute(coords)
           setBusPosition(coords[0])
           
-          const centerLat = (pickup![0] + dropoff![0]) / 2
-          const centerLng = (pickup![1] + dropoff![1]) / 2
-          setMapCenter([centerLat, centerLng])
+          // Increment map key to trigger re-render with new bounds
+          setMapKey(prev => prev + 1)
           
           setError('')
         } else {
@@ -386,6 +438,30 @@ export default function TrackingSection({ initialBookingId }: Props) {
 
     return () => clearInterval(interval)
   }, [route])
+
+  // Fit bounds when route changes
+  useEffect(() => {
+    if (!mapRef.current || !route || route.length === 0 || !L) return
+    
+    // Small delay to ensure map and markers are ready
+    const timer = setTimeout(() => {
+      try {
+        if (mapRef.current && route.length > 0 && L) {
+          const bounds = L.latLngBounds(route)
+          mapRef.current.fitBounds(bounds, {
+            padding: [50, 50],
+            animate: true,
+            duration: 1.5,
+            easeLinearity: 0.25
+          })
+        }
+      } catch (error) {
+        console.error('Error fitting bounds:', error)
+      }
+    }, 300) // Increased delay to 300ms for markers to initialize
+    
+    return () => clearTimeout(timer)
+  }, [route, mapKey]) // Added mapKey dependency
 
   if (loading) {
     return (
@@ -463,6 +539,11 @@ export default function TrackingSection({ initialBookingId }: Props) {
     return isReversed ? 'School → Home' : 'Home → School'
   }
 
+  // Calculate initial center (midpoint between pickup and dropoff)
+  const initialCenter: [number, number] = pickup && dropoff 
+    ? [(pickup[0] + dropoff[0]) / 2, (pickup[1] + dropoff[1]) / 2]
+    : [-1.286389, 36.817223]
+
   return (
     <div className="space-y-6">
       {/* Booking Selector */}
@@ -515,15 +596,20 @@ export default function TrackingSection({ initialBookingId }: Props) {
             <CardContent className="p-0">
               <div className="h-[500px] w-full">
                 <MapContainer
-                  center={mapCenter}
+                  center={initialCenter}
                   zoom={13}
                   className="h-full w-full"
-                  key={`${selectedBooking?.booking_id}-${isReversed}`}
+                  key={mapKey}
+                  zoomControl={true}
+                  scrollWheelZoom={true}
                 >
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   />
+
+                  {/* Auto-zoom to route bounds */}
+                  {route.length > 0 && <MapBoundsUpdater route={route} mapRef={mapRef} routeKey={mapKey} />}
 
                   {route.length > 0 && (
                     <Polyline 
@@ -536,7 +622,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
                     />
                   )}
 
-                  {pickup && pickupIcon && (
+                  {pickup && pickupIcon && typeof pickupIcon !== 'undefined' && (
                     <Marker position={pickup} icon={pickupIcon}>
                       <Popup>
                         <div className="font-semibold">🏁 Pickup Location</div>
@@ -548,7 +634,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
                     </Marker>
                   )}
 
-                  {dropoff && dropoffIcon && (
+                  {dropoff && dropoffIcon && typeof dropoffIcon !== 'undefined' && (
                     <Marker position={dropoff} icon={dropoffIcon}>
                       <Popup>
                         <div className="font-semibold">🎯 Drop-off Location</div>
@@ -560,7 +646,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
                     </Marker>
                   )}
 
-                  {busPosition && busIcon && (
+                  {busPosition && busIcon && typeof busIcon !== 'undefined' && (
                     <Marker position={busPosition} icon={busIcon}>
                       <Popup>
                         <div className="font-semibold">🚌 School Bus</div>
