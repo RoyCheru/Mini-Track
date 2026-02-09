@@ -135,27 +135,27 @@ export default function DriverDashboardPage() {
     setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== id)), 4000)
   }
 
-  // useEffect(() => {
-  //     const checkAuth = async () => {
-  //       try {
-  //         const res = await apiFetch("/me", {
-  //           credentials: "include",
-  //         });
+  useEffect(() => {
+      const checkAuth = async () => {
+        try {
+          const res = await apiFetch("/me", {
+            credentials: "include",
+          });
   
-  //         if (!res.ok) {
-  //           router.replace("/auth/signin");
-  //           return;
-  //         }
+          if (!res.ok) {
+            router.replace("/auth/signin");
+            return;
+          }
   
-  //         const data = await res.json();
-  //         setUsername(data.name);
-  //       } catch (err) {
-  //         router.replace("/auth/signin");
-  //       }
-  //     };
+          const data = await res.json();
+          setUsername(data.name);
+        } catch (err) {
+          router.replace("/auth/signin");
+        }
+      };
   
-  //     checkAuth();
-  //   }, [router]);
+      checkAuth();
+    }, [router]);
 
   const handleLogout = async () => {
     if (loggingOut) return
