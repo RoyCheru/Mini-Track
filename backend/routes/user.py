@@ -63,7 +63,7 @@ class CreateDriver(Resource):
         }, 201
         
 class GetDrivers(Resource):
-    # @admin_required
+    @admin_required
     def get(self):
         # admin = User.query.get(session.get("user_id"))
         # if not admin or admin.role_id != 1:
@@ -142,6 +142,7 @@ class UpdateUser(Resource):
         }
         
 class DeleteUser(Resource):
+    @admin_required
     def delete(self, user_id):
         # admin = User.query.get(session.get("user_id"))
         # if not admin or admin.role_id != 1:
