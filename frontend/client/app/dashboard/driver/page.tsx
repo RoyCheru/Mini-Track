@@ -103,9 +103,9 @@ function displayLeg(trip: { pickup_location: string; dropoff_location: string; s
   return { from: pickup, to: dropoff }
 }
 
-function authHeaders(token: string | null) {
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
+// function authHeaders(token: string | null) {
+//   return token ? { Authorization: `Bearer ${token}` } : {}
+// }
 
 export default function DriverDashboardPage() {
   const router = useRouter()
@@ -162,7 +162,7 @@ export default function DriverDashboardPage() {
     setLoggingOut(true)
 
     try {
-      const token = localStorage.getItem('token')
+      // const token = localStorage.getItem('token')
       await apiFetch('/logout', {
         method: 'POST',
         credentials: "include"
@@ -181,7 +181,7 @@ export default function DriverDashboardPage() {
 
   const fetchVehicle = async (vehicleId: number) => {
     const res = await apiFetch(`/vehicles/${vehicleId}`, {
-      method: 'GET'
+      method: 'GET', credentials: 'include'
     })
     const data = await res.json().catch(() => ({}))
 
@@ -230,10 +230,10 @@ export default function DriverDashboardPage() {
   const fetchTripsForToday = async (vehicleId: number) => {
     const [morningRes, eveningRes] = await Promise.all([
       apiFetch(`/trips/today?vehicle_id=${vehicleId}&service_time=morning`, {
-        method: 'GET',
+        method: 'GET',credentials: 'include'
       }),
       apiFetch(`/trips/today?vehicle_id=${vehicleId}&service_time=evening`, {
-        method: 'GET',
+        method: 'GET',credentials: 'include'
       }),
     ])
 
@@ -258,39 +258,49 @@ export default function DriverDashboardPage() {
     setLoading(true)
     try {
       const res = await apiFetch("/me", {
-                credentials: "include",
-              });
+        credentials: "include",
+      });
       if (!res.ok) {
-        addAlert('error', 'Session expired. Please sign in again.')
-        setTrips([])
-        setVehicle(null)
-        router.replace('/auth/signin')
-        return
+        addAlert("error", "Session expired. Please sign in again.");
+        setTrips([]);
+        setVehicle(null);
+        router.replace("/auth/signin");
+        return;
       }
 
-      setUsername(localStorage.getItem('username'))
+      const data = await res.json();
+      setUsername(data.name);
+      // // setUsername(localStorage.getItem('username'))
+      const vehicleIdRaw = data.vehicles?.id ?? localStorage.getItem('vehicle_id') ?? undefined
+      localStorage.setItem('vehicle_id', String(vehicleIdRaw ?? ''))
+      console.log(vehicleIdRaw)
 
-      const vehicleIdRaw = localStorage.getItem('vehicle_id')
       if (!vehicleIdRaw) {
-        addAlert('error', 'No vehicle assigned for this driver. Please sign in again.')
-        setTrips([])
-        setVehicle(null)
-        return
+        addAlert(
+          "error",
+          "No vehicle assigned for this driver. Please sign in again.",
+        );
+        setTrips([]);
+        setVehicle(null);
+        return;
       }
 
-      const vehicleId = Number(vehicleIdRaw)
+      const vehicleId = Number(vehicleIdRaw);
       if (!Number.isFinite(vehicleId)) {
-        addAlert('error', 'Invalid vehicle assignment. Please sign in again.')
-        setTrips([])
-        setVehicle(null)
-        return
+        addAlert("error", "Invalid vehicle assignment. Please sign in again.");
+        setTrips([]);
+        setVehicle(null);
+        return;
       }
 
-      const [v, t] = await Promise.all([fetchVehicle(vehicleId), fetchTripsForToday(vehicleId)])
-      setVehicle(v)
-      setTrips(t)
+      const [v, t] = await Promise.all([
+        fetchVehicle(vehicleId),
+        fetchTripsForToday(vehicleId),
+      ]);
+      setVehicle(v);
+      setTrips(t);
 
-      addAlert('info', `Loaded ${t.length} trip(s) for today.`)
+      addAlert("info", `Loaded ${t.length} trip(s) for today.`);
     } catch (err: any) {
       console.error(err)
       addAlert('error', err?.message || 'Failed to load driver data')
@@ -333,11 +343,11 @@ export default function DriverDashboardPage() {
     setTrips(prev => prev.map(t => (t.id === tripId ? { ...t, status: 'picked_up' } : t)))
 
     try {
-      const token = localStorage.getItem('token')
+      // const token = localStorage.getItem('token')
       await apiFetch(`/trips/${tripId}/pickup`, {
         method: 'PATCH',
         headers: {
-          ...authHeaders(token),
+          credentials: 'include',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({}),
@@ -357,11 +367,11 @@ export default function DriverDashboardPage() {
     setTrips(prev => prev.map(t => (t.id === tripId ? { ...t, status: 'completed' } : t)))
 
     try {
-      const token = localStorage.getItem('token')
+      // const token = localStorage.getItem('token')
       await apiFetch(`/trips/${tripId}/dropoff`, {
         method: 'PATCH',
         headers: {
-          ...authHeaders(token),
+          credentials: 'include',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({}),
