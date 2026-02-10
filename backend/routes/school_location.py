@@ -9,8 +9,8 @@ def admin_required(fn):
     def wrapper(*args, **kwargs):
         identity = get_jwt_identity()
 
-        if identity.get("role_id") != 1:
-            return {"error": "Admins only"}, 403
+        if identity.get("role_id") not in [1, 3]:
+            return {"error": "Admins and parents only"}, 403
 
         return fn(*args, **kwargs)
     return wrapper

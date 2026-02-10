@@ -147,9 +147,8 @@ export default function DriverManagement() {
       const res = await apiFetch(`/users/${editing.id}`, {
         method: 'PUT',
         headers: {
-          credentials: 'include',
           'Content-Type': 'application/json',
-        },
+        },credentials: 'include',
         body: JSON.stringify(payload),
       })
 
@@ -177,9 +176,7 @@ export default function DriverManagement() {
     try {
       const res = await apiFetch(`/users/${id}`, {
         method: 'DELETE',
-        headers: {
-          credentials: 'include',
-        },
+        credentials: 'include'
       })
 
       const data = await res.json().catch(() => ({}))
