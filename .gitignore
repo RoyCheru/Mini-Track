@@ -1,5 +1,33 @@
+# *.db
+# instance/
+# .envnode_modules
+# backend/__pycache__/
+# backend/instance/app.db
+
+# Node / Frontend
+node_modules/
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env/
+
+# Databases
 *.db
+*.sqlite3
+
+# Flask
 instance/
-.envnode_modules
-backend/__pycache__/
-backend/instance/app.db
+backend/instance/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
