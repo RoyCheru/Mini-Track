@@ -125,7 +125,7 @@ class RouteDetail(Resource):
         if 'ending_point' in data:
             route.ending_point = data['ending_point']
 
-         if 'starting_point_gps' in data:
+        if 'starting_point_gps' in data:
             route.starting_point_gps = data['starting_point_gps']
         
         if 'ending_point_gps' in data:
