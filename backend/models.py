@@ -50,6 +50,10 @@ class Route(db.Model):
     name = db.Column(db.String(100), nullable=False)
     starting_point = db.Column(db.String(200), nullable=False)
     ending_point = db.Column(db.String(200), nullable=False)
+    # ✅ ADD THESE THREE NEW COLUMNS
+    starting_point_gps = db.Column(db.String(50))  
+    ending_point_gps = db.Column(db.String(50))    
+    route_radius_km = db.Column(db.Float, default=5.0)
 
     # Relationships
     vehicles = db.relationship(
