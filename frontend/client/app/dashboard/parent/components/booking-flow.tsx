@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { apiFetch } from '@/lib/api'
-import { 
-  Calendar, 
-  MapPin, 
-  Clock, 
-  ArrowRight, 
-  CheckCircle2, 
+import type { RouteGeofence } from '@/lib/geofence-utils.ts'
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  ArrowRight,
+  CheckCircle2,
   Armchair,
   Bus,
   CalendarDays,
@@ -23,10 +24,9 @@ import {
   Plus,
   Home,
   School,
-  Route,
   Map,
   X,
-  Check
+  Check,
 } from 'lucide-react'
 import {
   Select,
@@ -46,6 +46,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import dynamic from 'next/dynamic'
 
@@ -58,7 +59,7 @@ const LocationPicker = dynamic(
 // Helper function to get current user ID
 function getCurrentUserId(): number | null {
   if (typeof window === 'undefined') return null
-  
+
   const userId = localStorage.getItem('user_id')
   return userId ? parseInt(userId, 10) : null
 }
@@ -68,6 +69,10 @@ type Route = {
   name: string
   starting_point: string
   ending_point: string
+  // ✅ ADD THESE NEW FIELDS
+  starting_point_gps?: string | null
+  ending_point_gps?: string | null
+  route_radius_km?: number
 }
 
 type PickupLocation = {
@@ -119,30 +124,30 @@ type CustomLocation = {
 }
 
 const SERVICE_TYPES = [
-  { 
-    value: 'morning', 
-    label: 'Morning Service', 
+  {
+    value: 'morning',
+    label: 'Morning Service',
     desc: 'Home to school transportation',
-    time: '6:00 AM - 9:00 AM'
+    time: '6:00 AM - 9:00 AM',
   },
-  { 
-    value: 'evening', 
-    label: 'Evening Service', 
+  {
+    value: 'evening',
+    label: 'Evening Service',
     desc: 'School to home transportation',
-    time: '3:00 PM - 6:00 PM'
+    time: '3:00 PM - 6:00 PM',
   },
-  { 
-    value: 'both', 
-    label: 'Full Day Service', 
+  {
+    value: 'both',
+    label: 'Full Day Service',
     desc: 'Morning and evening transportation',
-    time: 'Both directions'
-  }
+    time: 'Both directions',
+  },
 ]
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
 export default function BookingFlow() {
@@ -158,6 +163,9 @@ export default function BookingFlow() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [redirectCountdown, setRedirectCountdown] = useState(5)
+
+  // ✅ ADD STATE FOR SELECTED ROUTE GEOFENCE
+  const [selectedRouteGeofence, setSelectedRouteGeofence] = useState<RouteGeofence | null>(null)
 
   // Map picker state
   const [showPickupMapPicker, setShowPickupMapPicker] = useState(false)
@@ -177,7 +185,7 @@ export default function BookingFlow() {
     end_date: '',
     selected_dates: [],
     service_type: '',
-    seats_booked: 1
+    seats_booked: 1,
   })
 
   useEffect(() => {
@@ -214,10 +222,13 @@ export default function BookingFlow() {
     }
   }, [success, redirectCountdown])
 
+  // ✅ UPDATED fetchRoutes TO HANDLE GEOFENCE DATA (logic unchanged)
   const fetchRoutes = async () => {
     try {
-      const res = await apiFetch('/routes')
+      const res = await apiFetch("/routes", { credentials: 'include' });
       const data = await res.json()
+
+      // Routes now include geofence data from backend
       setRoutes(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error('Failed to fetch routes', err)
@@ -227,24 +238,24 @@ export default function BookingFlow() {
 
   const fetchLocationsForRoute = async (routeId: number) => {
     try {
-      const pickupRes = await apiFetch(`/pickup_locations?route_id=${routeId}`)
+      const pickupRes = await apiFetch(`/pickup_locations?route_id=${routeId}`,{ credentials: 'include' } )
       const pickupData = await pickupRes.json()
-      
-      const pickups = Array.isArray(pickupData) 
-        ? pickupData 
+
+      const pickups = Array.isArray(pickupData)
+        ? pickupData
         : Array.isArray(pickupData?.pickup_locations)
-        ? pickupData.pickup_locations
-        : []
-      
+          ? pickupData.pickup_locations
+          : []
+
       setPickupLocations(pickups)
 
-      const schoolRes = await apiFetch('/school-locations/all')
+      const schoolRes = await apiFetch('/school-locations/all', { credentials: 'include' })
       const schoolData = await schoolRes.json()
-      
+
       const schools = Array.isArray(schoolData)
         ? schoolData.filter((s: SchoolLocation) => s.route_id === routeId)
         : []
-      
+
       setSchoolLocations(schools)
     } catch (err) {
       console.error('Failed to fetch locations', err)
@@ -253,12 +264,12 @@ export default function BookingFlow() {
 
   const fetchVehiclesForRoute = async (routeId: number) => {
     try {
-      const res = await apiFetch(`/vehicles?route_id=${routeId}`)
+      const res = await apiFetch(`/vehicles?route_id=${routeId}`, { credentials: 'include' })
       const data = await res.json()
-      
+
       const vehicleList = Array.isArray(data) ? data : Array.isArray(data?.vehicles) ? data.vehicles : []
       setVehicles(vehicleList)
-      
+
       if (vehicleList.length > 0) {
         setSelectedVehicle(vehicleList[0])
         setAvailableSeats(vehicleList[0].capacity)
@@ -273,31 +284,31 @@ export default function BookingFlow() {
 
     setLoadingSeats(true)
     try {
-      const res = await apiFetch(`/bookings?route_id=${form.route_id}`)
+      const res = await apiFetch(`/bookings?route_id=${form.route_id}`, { credentials: 'include' })
       const data = await res.json()
-      
+
       const bookings: Booking[] = Array.isArray(data) ? data : []
-      
+
       let maxBookedSeats = 0
-      
+
       form.selected_dates.forEach(selectedDate => {
         const dateBookings = bookings.filter((booking: Booking) => {
           if (booking.status !== 'active') return false
-          
+
           const bookingStart = new Date(booking.start_date)
           const bookingEnd = new Date(booking.end_date)
           const checkDate = new Date(selectedDate)
-          
+
           return checkDate >= bookingStart && checkDate <= bookingEnd
         })
-        
+
         const totalSeatsOnDate = dateBookings.reduce((sum, b) => sum + b.seats_booked, 0)
         maxBookedSeats = Math.max(maxBookedSeats, totalSeatsOnDate)
       })
-      
+
       const available = selectedVehicle.capacity - maxBookedSeats
       setAvailableSeats(Math.max(0, available))
-      
+
       if (form.seats_booked > available) {
         setForm(prev => ({ ...prev, seats_booked: Math.max(1, available) }))
       }
@@ -313,12 +324,12 @@ export default function BookingFlow() {
     try {
       const res = await apiFetch('/pickup_locations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },  credentials: 'include',
         body: JSON.stringify({
           route_id: routeId,
           name: customLocation.name,
-          gps_coordinates: customLocation.coordinates
-        })
+          gps_coordinates: customLocation.coordinates,
+        }),
       })
 
       if (!res.ok) {
@@ -328,7 +339,7 @@ export default function BookingFlow() {
 
       const data = await res.json()
       const locationId = data.pickup_location?.id || data.location?.id
-      
+
       if (!locationId) {
         throw new Error('No location ID returned from server')
       }
@@ -344,12 +355,12 @@ export default function BookingFlow() {
     try {
       const res = await apiFetch('/school-locations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({
           route_id: routeId,
           name: customLocation.name,
-          gps_coordinates: customLocation.coordinates
-        })
+          gps_coordinates: customLocation.coordinates,
+        }),
       })
 
       if (!res.ok) {
@@ -359,7 +370,7 @@ export default function BookingFlow() {
 
       const data = await res.json()
       const locationId = data.location?.id || data.school_location?.id
-      
+
       if (!locationId) {
         throw new Error('No location ID returned from server')
       }
@@ -392,23 +403,23 @@ export default function BookingFlow() {
 
   const toggleDate = (date: Date) => {
     if (isDateDisabled(date)) return
-    
+
     const dateStr = date.toISOString().split('T')[0]
-    
+
     setForm(prev => {
       const isSelected = prev.selected_dates.includes(dateStr)
       const newDates = isSelected
         ? prev.selected_dates.filter(d => d !== dateStr)
         : [...prev.selected_dates, dateStr].sort()
-      
+
       const startDate = newDates.length > 0 ? newDates[0] : ''
       const endDate = newDates.length > 0 ? newDates[newDates.length - 1] : ''
-      
+
       return {
         ...prev,
         selected_dates: newDates,
         start_date: startDate,
-        end_date: endDate
+        end_date: endDate,
       }
     })
   }
@@ -416,19 +427,19 @@ export default function BookingFlow() {
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentMonth, currentYear)
     const firstDay = getFirstDayOfMonth(currentMonth, currentYear)
-    
+
     const days = []
-    
+
     for (let i = 0; i < firstDay; i++) {
       days.push(<div key={`empty-${i}`} className="aspect-square" />)
     }
-    
+
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentYear, currentMonth, day)
       const isSelected = isDateSelected(date)
       const isDisabled = isDateDisabled(date)
       const isToday = date.toDateString() === new Date().toDateString()
-      
+
       days.push(
         <button
           key={day}
@@ -452,7 +463,7 @@ export default function BookingFlow() {
         </button>
       )
     }
-    
+
     return days
   }
 
@@ -492,7 +503,7 @@ export default function BookingFlow() {
 
     try {
       const userId = getCurrentUserId()
-      
+
       if (!userId) {
         setError('User not authenticated. Please log in again.')
         setLoading(false)
@@ -500,7 +511,7 @@ export default function BookingFlow() {
       }
 
       const routeId = parseInt(form.route_id)
-      
+
       let pickupLocationId = form.pickup_location_id ? parseInt(form.pickup_location_id) : null
       let dropoffLocationId = form.dropoff_location_id ? parseInt(form.dropoff_location_id) : null
 
@@ -566,7 +577,7 @@ export default function BookingFlow() {
       const res = await apiFetch('/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json()
@@ -586,7 +597,10 @@ export default function BookingFlow() {
     }
   }
 
-  const canProceedStep1 = form.route_id && (form.pickup_location_id || customPickupLocation) && (form.dropoff_location_id || customDropoffLocation)
+  const canProceedStep1 =
+    form.route_id &&
+    (form.pickup_location_id || customPickupLocation) &&
+    (form.dropoff_location_id || customDropoffLocation)
   const canProceedStep2 = form.selected_dates.length > 0
   const canProceedStep3 = form.service_type
   const canProceedStep4 = form.seats_booked > 0 && form.seats_booked <= availableSeats
@@ -600,7 +614,7 @@ export default function BookingFlow() {
       end_date: '',
       selected_dates: [],
       service_type: '',
-      seats_booked: 1
+      seats_booked: 1,
     })
     setCustomPickupLocation(null)
     setCustomDropoffLocation(null)
@@ -608,6 +622,7 @@ export default function BookingFlow() {
     setSuccess(false)
     setRedirectCountdown(5)
     setError(null)
+    setSelectedRouteGeofence(null)
     setCurrentMonth(new Date().getMonth())
     setCurrentYear(new Date().getFullYear())
   }
@@ -622,22 +637,26 @@ export default function BookingFlow() {
                 <CheckCircle2 className="w-12 h-12 text-white" />
               </div>
             </div>
-            
+
             <h2 className="text-3xl font-bold mb-3 text-slate-900">
               Booking Confirmed
             </h2>
             <p className="text-slate-600 mb-8 text-lg">
               Your school bus booking has been created successfully.
             </p>
-            
+
             <div className="flex items-center justify-center gap-6 mb-8">
               <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg">
                 <Users className="w-5 h-5 text-slate-600" />
-                <span className="font-semibold text-slate-900">{form.seats_booked} Seat{form.seats_booked > 1 ? 's' : ''}</span>
+                <span className="font-semibold text-slate-900">
+                  {form.seats_booked} Seat{form.seats_booked > 1 ? 's' : ''}
+                </span>
               </div>
               <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg">
                 <CalendarDays className="w-5 h-5 text-slate-600" />
-                <span className="font-semibold text-slate-900">{form.selected_dates.length} Day{form.selected_dates.length > 1 ? 's' : ''}</span>
+                <span className="font-semibold text-slate-900">
+                  {form.selected_dates.length} Day{form.selected_dates.length > 1 ? 's' : ''}
+                </span>
               </div>
             </div>
 
@@ -648,13 +667,13 @@ export default function BookingFlow() {
             </div>
 
             <div className="space-y-3 max-w-xs mx-auto">
-              <Button 
-                onClick={() => window.location.href = '/dashboard/parent'}
+              <Button
+                onClick={() => (window.location.href = '/dashboard/parent')}
                 className="w-full bg-slate-900 hover:bg-slate-800 h-12 text-base"
               >
                 Go to Dashboard Now
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 onClick={resetForm}
                 className="w-full h-12 border-2 border-slate-200"
@@ -748,11 +767,27 @@ export default function BookingFlow() {
                 <Label className="text-base font-semibold text-slate-900">
                   Select Route
                 </Label>
-                <Select value={form.route_id} onValueChange={(val) => {
-                  setForm({ ...form, route_id: val, pickup_location_id: '', dropoff_location_id: '' })
-                  setCustomPickupLocation(null)
-                  setCustomDropoffLocation(null)
-                }}>
+
+                <Select
+                  value={form.route_id}
+                  onValueChange={(val) => {
+                    setForm({ ...form, route_id: val, pickup_location_id: '', dropoff_location_id: '' })
+                    setCustomPickupLocation(null)
+                    setCustomDropoffLocation(null)
+
+                    // ✅ SET GEOFENCE DATA FOR SELECTED ROUTE
+                    const selectedRoute = routes.find(r => String(r.id) === val)
+                    if (selectedRoute) {
+                      setSelectedRouteGeofence({
+                        starting_point_gps: selectedRoute.starting_point_gps || null,
+                        ending_point_gps: selectedRoute.ending_point_gps || null,
+                        route_radius_km: selectedRoute.route_radius_km || 5.0,
+                      })
+                    } else {
+                      setSelectedRouteGeofence(null)
+                    }
+                  }}
+                >
                   <SelectTrigger className="h-12 border-slate-300">
                     <SelectValue placeholder="Choose your route" />
                   </SelectTrigger>
@@ -769,6 +804,20 @@ export default function BookingFlow() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                {/* ✅ OPTIONAL: SHOW GEOFENCE INFO TO USER */}
+                {selectedRouteGeofence && selectedRouteGeofence.starting_point_gps && (
+                  <Alert className="bg-blue-50 border-blue-200 mt-4">
+                    <Info className="h-5 w-5 text-blue-600" />
+                    <AlertDescription className="ml-2 text-blue-900">
+                      <div className="font-semibold mb-1">Route Geofence Active</div>
+                      <div className="text-sm">
+                        Custom locations must be within {selectedRouteGeofence.route_radius_km}km of the{' '}
+                        {routes.find(r => String(r.id) === form.route_id)?.name} corridor.
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
 
               {form.route_id && (
@@ -779,7 +828,7 @@ export default function BookingFlow() {
                       <Home className="w-4 h-4" />
                       Pickup Location
                     </Label>
-                    
+
                     {customPickupLocation ? (
                       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
                         <div className="flex items-start gap-3">
@@ -804,8 +853,8 @@ export default function BookingFlow() {
                       </div>
                     ) : (
                       <>
-                        <Select 
-                          value={form.pickup_location_id} 
+                        <Select
+                          value={form.pickup_location_id}
                           onValueChange={(val) => setForm({ ...form, pickup_location_id: val })}
                         >
                           <SelectTrigger className="h-12 border-slate-300">
@@ -851,7 +900,7 @@ export default function BookingFlow() {
                       <School className="w-4 h-4" />
                       Dropoff Location
                     </Label>
-                    
+
                     {customDropoffLocation ? (
                       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
                         <div className="flex items-start gap-3">
@@ -876,8 +925,8 @@ export default function BookingFlow() {
                       </div>
                     ) : (
                       <>
-                        <Select 
-                          value={form.dropoff_location_id} 
+                        <Select
+                          value={form.dropoff_location_id}
                           onValueChange={(val) => setForm({ ...form, dropoff_location_id: val })}
                         >
                           <SelectTrigger className="h-12 border-slate-300">
@@ -919,8 +968,8 @@ export default function BookingFlow() {
                 </>
               )}
 
-              <Button 
-                className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-base font-medium" 
+              <Button
+                className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-base font-medium"
                 disabled={!canProceedStep1}
                 onClick={() => setStep(2)}
               >
@@ -951,13 +1000,13 @@ export default function BookingFlow() {
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </Button>
-                
+
                 <div className="text-center">
                   <h3 className="text-xl font-semibold text-white">
                     {MONTHS[currentMonth]} {currentYear}
                   </h3>
                 </div>
-                
+
                 <Button
                   variant="ghost"
                   size="icon"
@@ -981,7 +1030,7 @@ export default function BookingFlow() {
                     </div>
                   ))}
                 </div>
-                
+
                 {/* Calendar Days */}
                 <div className="grid grid-cols-7 gap-2">
                   {renderCalendar()}
@@ -999,7 +1048,9 @@ export default function BookingFlow() {
                           {form.selected_dates.length} Day{form.selected_dates.length > 1 ? 's' : ''} Selected
                         </span>
                         <div className="text-sm text-slate-600 mt-1">
-                          {new Date(form.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(form.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {new Date(form.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{' '}
+                          -{' '}
+                          {new Date(form.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </div>
                       </div>
                       <Button
@@ -1016,15 +1067,15 @@ export default function BookingFlow() {
               )}
 
               <div className="flex gap-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setStep(1)} 
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(1)}
                   className="flex-1 h-12 border-slate-300"
                 >
                   Back
                 </Button>
-                <Button 
-                  className="flex-1 h-12 bg-slate-900 hover:bg-slate-800" 
+                <Button
+                  className="flex-1 h-12 bg-slate-900 hover:bg-slate-800"
                   disabled={!canProceedStep2}
                   onClick={() => setStep(3)}
                 >
@@ -1077,15 +1128,15 @@ export default function BookingFlow() {
               ))}
 
               <div className="flex gap-4 pt-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setStep(2)} 
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(2)}
                   className="flex-1 h-12 border-slate-300"
                 >
                   Back
                 </Button>
-                <Button 
-                  className="flex-1 h-12 bg-slate-900 hover:bg-slate-800" 
+                <Button
+                  className="flex-1 h-12 bg-slate-900 hover:bg-slate-800"
                   disabled={!canProceedStep3}
                   onClick={() => setStep(4)}
                 >
@@ -1176,12 +1227,12 @@ export default function BookingFlow() {
                     {[1, 2, 3, 5, 10].filter(num => num <= availableSeats).map(num => (
                       <Button
                         key={num}
-                        variant={form.seats_booked === num ? "default" : "outline"}
+                        variant={form.seats_booked === num ? 'default' : 'outline'}
                         onClick={() => setForm(prev => ({ ...prev, seats_booked: num }))}
                         className={cn(
-                          "min-w-[60px] h-10",
-                          form.seats_booked === num 
-                            ? 'bg-slate-900 hover:bg-slate-800' 
+                          'min-w-[60px] h-10',
+                          form.seats_booked === num
+                            ? 'bg-slate-900 hover:bg-slate-800'
                             : 'border-slate-300'
                         )}
                       >
@@ -1191,18 +1242,26 @@ export default function BookingFlow() {
                   </div>
 
                   {/* Info Alert */}
-                  <Alert className={cn(
-                    "border-2",
-                    availableSeats === 0 
-                      ? "bg-red-50 border-red-200"
-                      : availableSeats < 5
-                      ? "bg-orange-50 border-orange-200"
-                      : "bg-blue-50 border-blue-200"
-                  )}>
-                    <Info className={cn(
-                      "h-5 w-5",
-                      availableSeats === 0 ? "text-red-600" : availableSeats < 5 ? "text-orange-600" : "text-blue-600"
-                    )} />
+                  <Alert
+                    className={cn(
+                      'border-2',
+                      availableSeats === 0
+                        ? 'bg-red-50 border-red-200'
+                        : availableSeats < 5
+                          ? 'bg-orange-50 border-orange-200'
+                          : 'bg-blue-50 border-blue-200'
+                    )}
+                  >
+                    <Info
+                      className={cn(
+                        'h-5 w-5',
+                        availableSeats === 0
+                          ? 'text-red-600'
+                          : availableSeats < 5
+                            ? 'text-orange-600'
+                            : 'text-blue-600'
+                      )}
+                    />
                     <AlertDescription className="ml-2 font-medium">
                       {availableSeats === 0 ? (
                         <span className="text-red-700">
@@ -1248,15 +1307,15 @@ export default function BookingFlow() {
               )}
 
               <div className="flex gap-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setStep(3)} 
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(3)}
                   className="flex-1 h-12 border-slate-300"
                 >
                   Back
                 </Button>
-                <Button 
-                  className="flex-1 h-12 bg-slate-900 hover:bg-slate-800" 
+                <Button
+                  className="flex-1 h-12 bg-slate-900 hover:bg-slate-800"
                   disabled={!canProceedStep4 || loading || loadingSeats}
                   onClick={handleSubmit}
                 >
@@ -1282,14 +1341,21 @@ export default function BookingFlow() {
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Select Pickup Location</DialogTitle>
+              {/* ✅ SHOW ROUTE INFO IF GEOFENCE EXISTS */}
+              {selectedRouteGeofence && selectedRouteGeofence.starting_point_gps && (
+                <DialogDescription>
+                  Location must be within {selectedRouteGeofence.route_radius_km}km of the route corridor
+                </DialogDescription>
+              )}
             </DialogHeader>
             <LocationPicker
               type="pickup"
+              routeGeofence={selectedRouteGeofence} // ✅ PASS GEOFENCE
               onLocationConfirm={(location) => {
                 setCustomPickupLocation({
                   name: location.name || 'Custom Pickup Location',
                   address: location.address,
-                  coordinates: `${location.lat},${location.lng}`
+                  coordinates: `${location.lat},${location.lng}`,
                 })
                 setForm({ ...form, pickup_location_id: '' })
                 setShowPickupMapPicker(false)
@@ -1302,14 +1368,21 @@ export default function BookingFlow() {
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Select Dropoff Location</DialogTitle>
+              {/* ✅ SHOW ROUTE INFO IF GEOFENCE EXISTS */}
+              {selectedRouteGeofence && selectedRouteGeofence.starting_point_gps && (
+                <DialogDescription>
+                  Location must be within {selectedRouteGeofence.route_radius_km}km of the route corridor
+                </DialogDescription>
+              )}
             </DialogHeader>
             <LocationPicker
               type="dropoff"
+              routeGeofence={selectedRouteGeofence} // ✅ PASS GEOFENCE
               onLocationConfirm={(location) => {
                 setCustomDropoffLocation({
                   name: location.name || 'Custom School Location',
                   address: location.address,
-                  coordinates: `${location.lat},${location.lng}`
+                  coordinates: `${location.lat},${location.lng}`,
                 })
                 setForm({ ...form, dropoff_location_id: '' })
                 setShowDropoffMapPicker(false)
