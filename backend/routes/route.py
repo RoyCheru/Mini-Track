@@ -23,7 +23,10 @@ def serialize_route(route):
         "id": route.id,
         "name": route.name,
         "starting_point": route.starting_point,
-        "ending_point": route.ending_point
+        "ending_point": route.ending_point,
+        "starting_point_gps": route.starting_point_gps,
+        "ending_point_gps": route.ending_point_gps,
+        "route_radius_km": route.route_radius_km or 5.0,
     }
 
 class RouteList(Resource):
@@ -61,7 +64,10 @@ class RouteList(Resource):
         route = Route(
             name=data['name'],
             starting_point=data['starting_point'],
-            ending_point=data['ending_point']
+            ending_point=data['ending_point'],
+            starting_point_gps=data.get('starting_point_gps'),
+            ending_point_gps=data.get('ending_point_gps'),
+            route_radius_km=data.get('route_radius_km', 5.0)
         )
         
         db.session.add(route)
@@ -118,6 +124,19 @@ class RouteDetail(Resource):
         # Update ending_point if provided
         if 'ending_point' in data:
             route.ending_point = data['ending_point']
+
+         if 'starting_point_gps' in data:
+            route.starting_point_gps = data['starting_point_gps']
+        
+        if 'ending_point_gps' in data:
+            route.ending_point_gps = data['ending_point_gps']
+        
+        if 'route_radius_km' in data:
+            # Validate radius is positive
+            radius = float(data['route_radius_km'])
+            if radius <= 0:
+                return {"error": "route_radius_km must be positive"}, 400
+            route.route_radius_km = radius           
         
         db.session.commit()
         
