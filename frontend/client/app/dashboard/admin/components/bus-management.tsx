@@ -231,7 +231,7 @@ export default function VehicleManagement() {
     try {
       const res = await apiFetch('/vehicles', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', credentials: 'include' },
+        headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({
           route_id: Number.isFinite(Number(newRouteId)) ? Number(newRouteId) : newRouteId,
           user_id: Number.isFinite(Number(newDriverId)) ? Number(newDriverId) : newDriverId,
@@ -266,7 +266,7 @@ export default function VehicleManagement() {
     try {
       const res = await apiFetch(`/vehicles/${editId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', credentials: 'include' },
+        headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({
           route_id: Number.isFinite(Number(editRouteId)) ? Number(editRouteId) : editRouteId,
           user_id: Number.isFinite(Number(editDriverId)) ? Number(editDriverId) : editDriverId,
@@ -294,7 +294,7 @@ export default function VehicleManagement() {
     try {
       const res = await apiFetch(`/vehicles/${id}`, {
         method: 'DELETE',
-        headers: { credentials: 'include' },
+        credentials: 'include'
       })
 
       const json = await res.json().catch(() => ({}))
