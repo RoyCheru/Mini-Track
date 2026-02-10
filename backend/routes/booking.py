@@ -159,12 +159,19 @@ def serialize_booking(booking, include_trips=False):
     """
     Serialize booking object to dictionary
     
+    Auto-completes booking if end_date has passed
+    
     Args:
         booking: Booking object
         include_trips: Whether to include trips list
     
     Returns: dict
     """
+    # Auto-complete booking if end date has passed
+    if booking.status == 'active' and booking.end_date < date.today():
+        booking.status = 'completed'
+        db.session.commit()
+    
     result = {
         "booking_id": booking.id,
         "user_id": booking.user_id,
@@ -434,11 +441,15 @@ class BookingDetail(Resource):
     
     def patch(self, booking_id):
         """
-        Update booking (MVP: only allows cancellation)
+        Update booking status
+        
+        Allowed transitions:
+        - active → cancelled (parent/admin cancels)
+        - active → completed (admin completes early)
         
         Expected JSON body:
         {
-            "status": "cancelled"
+            "status": "cancelled"  // or "completed"
         }
         """
         booking = Booking.query.get(booking_id)
@@ -451,28 +462,40 @@ class BookingDetail(Resource):
         if not data or 'status' not in data:
             return {"error": "status field is required"}, 400
         
-        # Only allow cancellation for MVP
-        if data['status'] != 'cancelled':
-            return {"error": "Only cancellation is allowed. Set status to 'cancelled'"}, 400
+        new_status = data['status']
         
-        # Check if already cancelled
-        if booking.status == 'cancelled':
-            return {"error": "Booking is already cancelled"}, 409
+        # Validate status transitions
+        if booking.status == 'active':
+            if new_status not in ['cancelled', 'completed']:
+                return {"error": "Can only set status to 'cancelled' or 'completed'"}, 400
+        elif booking.status in ['cancelled', 'completed']:
+            return {"error": f"Cannot modify a {booking.status} booking"}, 409
+        else:
+            return {"error": f"Invalid current status: {booking.status}"}, 400
         
-        # Update booking status
-        booking.status = 'cancelled'
+        old_status = booking.status
+        booking.status = new_status
         
-        # Cancel all future trips (keep past trips as historical record)
-        Trip.query.filter(
-            Trip.booking_id == booking_id,
-            Trip.trip_date >= date.today(),
-            Trip.status == 'scheduled'
-        ).update({'status': 'cancelled'})
+        # Handle trip updates based on new status
+        if new_status == 'cancelled':
+            # Cancel all future trips (keep past trips as historical record)
+            Trip.query.filter(
+                Trip.booking_id == booking_id,
+                Trip.trip_date >= date.today(),
+                Trip.status == 'scheduled'
+            ).update({'status': 'cancelled'})
+        
+        elif new_status == 'completed':
+            # Mark all remaining scheduled trips as completed
+            Trip.query.filter(
+                Trip.booking_id == booking_id,
+                Trip.status == 'scheduled'
+            ).update({'status': 'completed'})
         
         db.session.commit()
         
         response = serialize_booking(booking, include_trips=True)
-        response["message"] = "Booking cancelled successfully"
+        response["message"] = f"Booking status changed from '{old_status}' to '{new_status}'"
         
         return response, 200
     
