@@ -4,8 +4,6 @@ from models import db, Route
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from functools import wraps
 
-# 1. HELPER FUNCTIONS 
-
 def admin_required(fn):
     @wraps(fn)
     @jwt_required()
@@ -32,8 +30,7 @@ def serialize_route(route):
 class RouteList(Resource):
     @jwt_required()
     def get(self):
-        # Get all routes
-
+  
         routes = Route.query.all()
         
         response = []
@@ -44,23 +41,17 @@ class RouteList(Resource):
     
     @admin_required
     def post(self):
-        # Create new route
-
         data = request.get_json()
-        
-        # Validate required fields
         required_fields = ['name', 'starting_point', 'ending_point']
         
         for field in required_fields:
             if field not in data:
                 return {"error": f"{field} is required"}, 400
-        
-        # Check if route name already exists
+
         existing_route = Route.query.filter_by(name=data['name']).first()
         if existing_route:
             return {"error": "Route with this name already exists"}, 409
-        
-        # Create route
+   
         route = Route(
             name=data['name'],
             starting_point=data['starting_point'],
@@ -79,11 +70,9 @@ class RouteList(Resource):
         return response, 201
     
 class RouteDetail(Resource):
-    # Handle single route operations
+
     @jwt_required()
     def get(self, route_id):
-        # Get single route by ID
-
         route = Route.query.get(route_id)
         
         if not route:
@@ -94,8 +83,6 @@ class RouteDetail(Resource):
     
     @admin_required
     def patch(self, route_id):
-        # Update route
-
         route = Route.query.get(route_id)
         
         if not route:
@@ -105,10 +92,8 @@ class RouteDetail(Resource):
         
         if not data:
             return {"error": "No data provided"}, 400
-        
-        # Update name if provided
+    
         if 'name' in data:
-            # Check if new name already exists (but not for this route)
             existing = Route.query.filter(
                 Route.name == data['name'],
                 Route.id != route_id
@@ -117,11 +102,9 @@ class RouteDetail(Resource):
                 return {"error": "Route with this name already exists"}, 409
             route.name = data['name']
         
-        # Update starting_point if provided
         if 'starting_point' in data:
             route.starting_point = data['starting_point']
-        
-        # Update ending_point if provided
+     
         if 'ending_point' in data:
             route.ending_point = data['ending_point']
 
@@ -132,7 +115,6 @@ class RouteDetail(Resource):
             route.ending_point_gps = data['ending_point_gps']
         
         if 'route_radius_km' in data:
-            # Validate radius is positive
             radius = float(data['route_radius_km'])
             if radius <= 0:
                 return {"error": "route_radius_km must be positive"}, 400
@@ -146,21 +128,16 @@ class RouteDetail(Resource):
         return response, 200
     @admin_required
     def delete(self, route_id):
-        # Delete route
-    
         route = Route.query.get(route_id)
         
         if not route:
             return {"error": "Route not found"}, 404
-        
-        # Check if route has vehicles assigned
         from models import Vehicle
         vehicles_count = Vehicle.query.filter_by(route_id=route_id).count()
         
         if vehicles_count > 0:
             return {"error": f"Cannot delete route. It has {vehicles_count} vehicle(s) assigned"}, 409
         
-        # Check if route has school locations
         from models import SchoolLocation
         school_locations_count = SchoolLocation.query.filter_by(route_id=route_id).count()
         
