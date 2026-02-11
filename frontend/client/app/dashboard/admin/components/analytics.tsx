@@ -98,7 +98,6 @@ export default function AnalyticsSection() {
         setRoutes(toArray(routesJson))
         setVehicles(toArray(vehiclesJson))
 
-        // Optional: bookings (only if your backend has it)
         try {
           const bookingsRes = await apiFetch('/bookings/recent', { headers })
           if (bookingsRes.ok) {
@@ -125,12 +124,6 @@ export default function AnalyticsSection() {
     load()
   }, [])
 
-  /**
-   * Cards (must be valid backend-derived numbers)
-   * - Total Trips: use bookings if available; otherwise fall back to vehicles count (valid + real)
-   * - Active Users: drivers count (valid from /drivers)
-   * - On-Time Rate: computed proxy KPI = % vehicles assigned a driver (valid from /vehicles)
-   */
   const totalTrips = useMemo(() => {
     if (recentBookings.length > 0) return recentBookings.length
     return vehicles.length
@@ -145,7 +138,7 @@ export default function AnalyticsSection() {
     return Math.round((assigned / total) * 1000) / 10 // 1 decimal
   }, [vehicles])
 
-  // Bottom panels (all from backend)
+
   const routesWithVehicles = useMemo(() => {
     const set = new Set(vehicles.map(v => s(v.route_id)).filter(x => x.trim() !== '' && x !== '0'))
     return set.size
@@ -194,7 +187,6 @@ export default function AnalyticsSection() {
 
   return (
     <div className="space-y-6">
-      {/* Key Metrics (ONLY 3 CARDS) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card className="border-border/50">
           <CardHeader>
@@ -238,9 +230,7 @@ export default function AnalyticsSection() {
         </Card>
       </div>
 
-      {/* Bottom replaced with backend-driven panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Operations Summary */}
         <Card className="border-border/50 lg:col-span-1">
           <CardHeader>
             <CardTitle className="text-base">Operations Summary</CardTitle>
@@ -266,7 +256,6 @@ export default function AnalyticsSection() {
           </CardContent>
         </Card>
 
-        {/* Latest Vehicles */}
         <Card className="border-border/50 lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -300,7 +289,6 @@ export default function AnalyticsSection() {
         </Card>
       </div>
 
-      {/* Latest Drivers + Latest Routes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-border/50">
           <CardHeader>

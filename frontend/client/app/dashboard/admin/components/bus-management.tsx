@@ -125,13 +125,6 @@ export default function VehicleManagement() {
   const [editRouteId, setEditRouteId] = useState<string>('')
   const [editDriverId, setEditDriverId] = useState<string>('')
 
-  // const authHeaders = useMemo(() => {
-  //   // const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-    
-  //   const headers: HeadersInit = { 'Content-Type': 'application/json', credentials: 'include' }
-  //   return headers
-  // }, [])
-
   const fetchAll = async () => {
     setLoading(true)
     setError(null)
@@ -231,7 +224,8 @@ export default function VehicleManagement() {
     try {
       const res = await apiFetch('/vehicles', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           route_id: Number.isFinite(Number(newRouteId)) ? Number(newRouteId) : newRouteId,
           user_id: Number.isFinite(Number(newDriverId)) ? Number(newDriverId) : newDriverId,
@@ -266,7 +260,8 @@ export default function VehicleManagement() {
     try {
       const res = await apiFetch(`/vehicles/${editId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           route_id: Number.isFinite(Number(editRouteId)) ? Number(editRouteId) : editRouteId,
           user_id: Number.isFinite(Number(editDriverId)) ? Number(editDriverId) : editDriverId,
@@ -294,7 +289,7 @@ export default function VehicleManagement() {
     try {
       const res = await apiFetch(`/vehicles/${id}`, {
         method: 'DELETE',
-        credentials: 'include'
+        credentials: 'include',
       })
 
       const json = await res.json().catch(() => ({}))
@@ -375,12 +370,7 @@ export default function VehicleManagement() {
 
               <div className="grid gap-2">
                 <Label>Capacity</Label>
-                <Input
-                  type="number"
-                  value={String(newCapacity)}
-                  onChange={e => setNewCapacity(Number(e.target.value))}
-                  min={1}
-                />
+                <Input type="number" value={String(newCapacity)} onChange={e => setNewCapacity(Number(e.target.value))} min={1} />
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -425,7 +415,7 @@ export default function VehicleManagement() {
                   <th className="text-left py-4 px-6 font-semibold">Route</th>
                   <th className="text-left py-4 px-6 font-semibold">Driver</th>
                   <th className="text-left py-4 px-6 font-semibold">Capacity</th>
-                  <th className="text-left py-4 px-6 font-semibold">Status</th>
+                  {/* Status header removed */}
                   <th className="text-right py-4 px-6 font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -433,7 +423,7 @@ export default function VehicleManagement() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={6} className="py-10 px-6 text-center text-muted-foreground">
+                    <td colSpan={5} className="py-10 px-6 text-center text-muted-foreground">
                       Loading vehicles…
                     </td>
                   </tr>
@@ -473,11 +463,7 @@ export default function VehicleManagement() {
                           </Badge>
                         </td>
 
-                        <td className="py-4 px-6">
-                          <Badge variant="outline" className="bg-transparent">
-                            {v.status ?? '—'}
-                          </Badge>
-                        </td>
+                        {/* Status cell removed */}
 
                         <td className="py-4 px-6">
                           <div className="flex justify-end gap-2">
@@ -500,7 +486,7 @@ export default function VehicleManagement() {
 
                 {!loading && filteredVehicles.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-10 px-6 text-center text-muted-foreground">
+                    <td colSpan={5} className="py-10 px-6 text-center text-muted-foreground">
                       No vehicles found.
                     </td>
                   </tr>

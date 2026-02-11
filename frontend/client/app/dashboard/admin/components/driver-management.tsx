@@ -45,7 +45,7 @@ export default function DriverManagement() {
     name: '',
     email: '',
     phone_number: '',
-    password: '', 
+    password: '',
     status: 'Active' as Driver['status'],
   })
 
@@ -96,7 +96,7 @@ export default function DriverManagement() {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials:"include",
+        credentials: 'include',
         body: JSON.stringify(payload),
       })
 
@@ -148,7 +148,8 @@ export default function DriverManagement() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-        },credentials: 'include',
+        },
+        credentials: 'include',
         body: JSON.stringify(payload),
       })
 
@@ -176,7 +177,7 @@ export default function DriverManagement() {
     try {
       const res = await apiFetch(`/users/${id}`, {
         method: 'DELETE',
-        credentials: 'include'
+        credentials: 'include',
       })
 
       const data = await res.json().catch(() => ({}))
@@ -287,7 +288,7 @@ export default function DriverManagement() {
                 <tr>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Name</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Contact</th>
-                  <th className="text-left py-4 px-6 font-semibold text-foreground">Status</th>
+                  {/* Status header removed */}
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Actions</th>
                 </tr>
               </thead>
@@ -322,11 +323,7 @@ export default function DriverManagement() {
                       </div>
                     </td>
 
-                    <td className="py-4 px-6">
-                      <Badge className={String(driver.status) === 'Active' ? 'bg-emerald-600' : 'bg-gray-500'}>
-                        {driver.status}
-                      </Badge>
-                    </td>
+                    {/* Status cell removed */}
 
                     <td className="py-4 px-6">
                       <div className="flex gap-2">
@@ -343,7 +340,7 @@ export default function DriverManagement() {
 
                 {filteredDrivers.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-10 px-6 text-center text-muted-foreground">
+                    <td colSpan={3} className="py-10 px-6 text-center text-muted-foreground">
                       No drivers found.
                     </td>
                   </tr>
@@ -397,14 +394,8 @@ export default function DriverManagement() {
                 className="mt-1"
               />
             </div>
-            <div>
-              <Label>Status</Label>
-              <Input
-                value={String(editForm.status)}
-                onChange={e => setEditForm({ ...editForm, status: e.target.value as any })}
-                className="mt-1"
-              />
-            </div>
+
+            {/* Status input removed */}
 
             <Button className="w-full mt-6" onClick={handleSaveEdit}>
               Save Changes
