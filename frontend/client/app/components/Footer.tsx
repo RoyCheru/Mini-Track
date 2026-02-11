@@ -12,11 +12,14 @@ export default function Footer() {
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm ring-1 ring-white/10">
                 <Truck className="h-5 w-5" />
               </span>
-              <span className="text-lg font-extrabold tracking-tight">Mini-Truck</span>
+              <span className="text-lg font-extrabold tracking-tight">
+                Mini-Track
+              </span>
             </div>
 
             <p className="mt-4 text-sm leading-6 text-slate-300">
-              Making school transportation safe, affordable, and accessible for every child in developing countries.
+              Making school transportation safe, affordable, and accessible for
+              every child in developing countries.
             </p>
 
             <div className="mt-5 flex items-center gap-3 text-xs text-slate-400">
@@ -30,16 +33,23 @@ export default function Footer() {
             </div>
           </div>
 
-          <div>
+          {/* CENTERED QUICK LINKS */}
+          <div className="flex flex-col items-center">
             <h4 className="font-bold">Quick Links</h4>
-            <ul className="mt-4 space-y-3 text-sm text-slate-300">
+            <ul className="mt-4 space-y-3 text-sm text-slate-300 text-center">
               <li>
-                <Link className="transition-colors hover:text-white" href={ROUTES.about}>
+                <Link
+                  className="transition-colors hover:text-white"
+                  href={ROUTES.about}
+                >
                   About Us
                 </Link>
               </li>
               <li>
-                <Link className="transition-colors hover:text-white" href={ROUTES.faqs}>
+                <Link
+                  className="transition-colors hover:text-white"
+                  href={ROUTES.faqs}
+                >
                   FAQs
                 </Link>
               </li>
@@ -64,13 +74,14 @@ export default function Footer() {
             </ul>
 
             <div className="mt-5 rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-xs text-slate-400">
-              Need help fast? Check the FAQs or email support and we’ll get back to you.
+              Need help fast? Check the FAQs or email support and we’ll get back
+              to you.
             </div>
           </div>
         </div>
 
         <div className="mt-12 border-t border-slate-800 pt-6 text-sm text-slate-400 text-center">
-          © 2026 Mini-Truck. All rights reserved.
+          © 2026 Mini-Track. All rights reserved.
         </div>
       </div>
     </footer>
