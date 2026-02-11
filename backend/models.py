@@ -26,7 +26,7 @@ class User(db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
     phone_number = db.Column(db.String(20), unique=True)
     residence = db.Column(db.String(200))
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(500), nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey('user_roles.id'), nullable=False)
 
     # Relationships
@@ -51,8 +51,8 @@ class Route(db.Model):
     starting_point = db.Column(db.String(200), nullable=False)
     ending_point = db.Column(db.String(200), nullable=False)
     # ✅ ADD THESE THREE NEW COLUMNS
-    starting_point_gps = db.Column(db.String(50))  
-    ending_point_gps = db.Column(db.String(50))    
+    starting_point_gps = db.Column(db.String(150))  
+    ending_point_gps = db.Column(db.String(150))    
     route_radius_km = db.Column(db.Float, default=5.0)
 
     # Relationships
@@ -84,7 +84,7 @@ class SchoolLocation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     route_id = db.Column(db.Integer, db.ForeignKey('routes.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    gps_coordinates = db.Column(db.String(50), nullable=False)
+    gps_coordinates = db.Column(db.String(250), nullable=False)
 
     # Relationships
     route = db.relationship('Route', back_populates='school_locations')
@@ -103,7 +103,7 @@ class PickupLocation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     route_id = db.Column(db.Integer, db.ForeignKey('routes.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    gps_coordinates = db.Column(db.String(50), nullable=False)
+    gps_coordinates = db.Column(db.String(250), nullable=False)
 
     # Relationships
     route = db.relationship('Route', back_populates='pickup_locations')
