@@ -22,7 +22,9 @@ def create_app():
 
     app = Flask(__name__)
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
+    # app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = ("postgresql+psycopg2://roy:roy12345@localhost:5432/mini_track_db")
+    
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     app.secret_key = "super-secret-key"
@@ -93,3 +95,12 @@ def create_app():
 app = create_app()
 if __name__ == '__main__':
         app.run(port=5555, debug=True)
+
+
+
+# CREATE DATABASE mini_track_db;
+# CREATE USER roy WITH PASSWORD 'roy12345';
+# GRANT ALL PRIVILEGES ON DATABASE mini_track_db TO roy;
+# GRANT ALL ON SCHEMA public TO roy;
+# ALTER SCHEMA public OWNER TO roy;
+# ALTER DATABASE mini_track_db OWNER TO roy;
