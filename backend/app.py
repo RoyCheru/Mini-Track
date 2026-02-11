@@ -21,8 +21,7 @@ from routes.pickup_locations import PickupLocationList, PickupLocationDetail,Pic
 def create_app():
 
     app = Flask(__name__)
-
-    # app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
+    
     app.config['SQLALCHEMY_DATABASE_URI'] = ("postgresql+psycopg2://roy:roy12345@localhost:5432/mini_track_db")
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
