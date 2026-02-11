@@ -25,9 +25,55 @@ const BASE_URL = 'http://127.0.0.1:5555'
 // Helper function to get current user ID
 function getCurrentUserId(): number | null {
   if (typeof window === 'undefined') return null
-  
+
   const userId = localStorage.getItem('user_id')
   return userId ? parseInt(userId, 10) : null
+}
+
+// ✅ NEW: Trip type (matches your booking-history.tsx)
+type Trip = {
+  trip_id: number
+  trip_date: string
+  service_time: 'morning' | 'evening'
+  status: 'scheduled' | 'picked_up' | 'completed' | 'cancelled'
+}
+
+// ✅ NEW: normalize to YYYY-MM-DD
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// ✅ NEW: fetch trips for a booking via /bookings/:id (backend already returns trips there)
+async function fetchBookingTrips(bookingId: number): Promise<Trip[]> {
+  try {
+    const res = await fetch(`${BASE_URL}/bookings/${bookingId}`, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
+      },
+    })
+
+    if (!res.ok) return []
+
+    const data = await res.json()
+    const trips = Array.isArray(data?.trips) ? data.trips : []
+    return trips
+  } catch (err) {
+    console.error(`Failed to fetch trips for booking ${bookingId}:`, err)
+    return []
+  }
+}
+
+// ✅ NEW: count scheduled trips from today onwards (today + future)
+function countUpcomingTrips(bookingsWithTrips: Array<Booking & { trips?: Trip[] }>) {
+  const today = todayISO()
+
+  return bookingsWithTrips.reduce((sum, b) => {
+    const trips = Array.isArray(b.trips) ? b.trips : []
+    const upcoming = trips.filter(t => t.status === 'scheduled' && t.trip_date >= today)
+    return sum + upcoming.length
+  }, 0)
 }
 
 export default function ParentDashboardPage() {
@@ -44,38 +90,62 @@ export default function ParentDashboardPage() {
   const [activeTab, setActiveTab] = useState('overview')
   const [trackingBookingId, setTrackingBookingId] = useState<number | null>(null)
 
-  // ---------------- LOAD DATA ----------------
-  useEffect(() => {
-    fetchUserData()
-    fetchDashboardSummary()
-  }, [])
+  // ✅ NEW: auth gate
+  const [authChecked, setAuthChecked] = useState(false)
+  const [isAuthed, setIsAuthed] = useState(false)
 
-  const fetchUserData = async () => {
-    try {
-      const res = await apiFetch("/me", {
-              credentials: "include",
-            });
-      // const fullName = localStorage.getItem('username') || 'Guest'
-      if (!res.ok) {
-          router.replace("/auth/signin");
-          return;
+  // ---------------- LOAD DATA (PROTECTED) ----------------
+  useEffect(() => {
+    let cancelled = false
+
+    const init = async () => {
+      try {
+        // 1) Verify session/token FIRST
+        const res = await apiFetch('/me', { credentials: 'include' })
+
+        if (!res.ok) {
+          if (!cancelled) {
+            setAuthChecked(true)
+            setIsAuthed(false)
+            router.replace('/auth/signin')
+          }
+          return
         }
-      const data = await res.json();
-      const fullName = data.name
-      // extracting the first name only
-      const firstName = fullName.split(' ')[0]
-      setUserName(firstName)
-      
-    } catch (err) {
-      console.error('User data error:', err)
-      setUserName('Guest')
+
+        const data = await res.json()
+        const fullName = data?.name || 'Guest'
+        const firstName = String(fullName).split(' ')[0]
+        if (!cancelled) {
+          setUserName(firstName)
+          setIsAuthed(true)
+          setAuthChecked(true)
+        }
+
+        // 2) Only after auth is confirmed, fetch dashboard data
+        await fetchDashboardSummary()
+      } catch (err) {
+        console.error('Auth check error:', err)
+        if (!cancelled) {
+          setAuthChecked(true)
+          setIsAuthed(false)
+          router.replace('/auth/signin')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-  }
+
+    init()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const fetchDashboardSummary = async () => {
     try {
       const userId = getCurrentUserId()
-      
+
       // If no user ID found, redirect to login
       if (!userId) {
         console.error('No user ID found - redirecting to login')
@@ -87,30 +157,31 @@ export default function ParentDashboardPage() {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
       })
 
       if (!res.ok) throw new Error('Failed to fetch bookings')
 
       const data: Booking[] = await res.json()
 
+      // ✅ NEW: attach trips to each booking so we can count scheduled trips
+      const bookingsWithTrips = await Promise.all(
+        data.map(async (b) => {
+          const trips = await fetchBookingTrips(b.booking_id)
+          return { ...b, trips }
+        })
+      )
+
       setSummary({
         total_bookings: data.length,
         active_bookings: data.filter(b => b.status === 'active').length,
-        upcoming_trips: data.filter(b => {
-          const startDate = new Date(b.start_date)
-          const today = new Date()
-          return b.status === 'active' && startDate >= today
-        }).length,
+        upcoming_trips: countUpcomingTrips(bookingsWithTrips),
       })
     } catch (err) {
       console.error('Dashboard summary error:', err)
-    } finally {
-      setLoading(false)
     }
   }
 
-  
   // ---------------- LOGOUT ----------------
   const handleLogout = async () => {
     try {
@@ -121,13 +192,9 @@ export default function ParentDashboardPage() {
     } catch (err) {
       console.error('Logout error:', err)
     } finally {
-      // Clear all user data from localStorage
-      // localStorage.removeItem('token')
       localStorage.removeItem('username')
       localStorage.removeItem('user_id')
       localStorage.removeItem('access_token')
-      
-      // Redirect to signin
       window.location.href = '/auth/signin'
     }
   }
@@ -146,10 +213,23 @@ export default function ParentDashboardPage() {
     return 'Good evening'
   }
 
+  // ✅ NEW: don’t render dashboard until auth has been checked
+  if (!authChecked || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
+
+  // ✅ NEW: if not authed, don’t render anything (redirect already triggered)
+  if (!isAuthed) {
+    return null
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="container mx-auto px-4 py-8 space-y-8">
-
         {/* ---------------- HEADER ---------------- */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-3">
@@ -179,7 +259,6 @@ export default function ParentDashboardPage() {
         {/* ---------------- TABS ---------------- */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid grid-cols-4 w-full h-14 bg-muted/50 p-1 rounded-xl">
-
             <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md rounded-lg">
               <LayoutDashboard className="w-4 h-4" />
               <span className="hidden sm:inline">Overview</span>

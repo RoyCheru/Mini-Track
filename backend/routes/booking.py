@@ -1,4 +1,7 @@
-"""
+# 
+
+
+""" 
 Booking Routes and Resources
 Handles booking creation, listing, and management
 """
@@ -155,11 +158,41 @@ def validate_service_type(service_type):
     return True, ""
 
 
+# ✅ NEW: Compute booking completion based on trips (THIS fixes your issue)
+def sync_booking_completion_from_trips(booking: Booking) -> bool:
+    """
+    If booking is active, mark it completed when there are no remaining
+    scheduled/picked_up trips (i.e., all trips are completed or cancelled).
+
+    Returns True if it updated booking.status, else False.
+    """
+    if not booking:
+        return False
+
+    # Never override cancelled bookings
+    if booking.status != 'active':
+        return False
+
+    trips = booking.trips or []
+    if len(trips) == 0:
+        # If trips aren't generated yet, don't guess.
+        return False
+
+    any_incomplete = any(t.status in ['scheduled', 'picked_up'] for t in trips)
+
+    if not any_incomplete:
+        booking.status = 'completed'
+        return True
+
+    return False
+
+
 def serialize_booking(booking, include_trips=False):
     """
     Serialize booking object to dictionary
     
     Auto-completes booking if end_date has passed
+    ✅ ALSO auto-completes booking if all trips are done (completed/cancelled)
     
     Args:
         booking: Booking object
@@ -168,8 +201,17 @@ def serialize_booking(booking, include_trips=False):
     Returns: dict
     """
     # Auto-complete booking if end date has passed
+    # ✅ FIX: also complete if trips are fully done (important for one-day bookings)
+    did_update = False
+
     if booking.status == 'active' and booking.end_date < date.today():
         booking.status = 'completed'
+        did_update = True
+    else:
+        # ✅ NEW: complete based on trip statuses (covers "today" completion)
+        did_update = sync_booking_completion_from_trips(booking)
+
+    if did_update:
         db.session.commit()
     
     result = {
@@ -478,18 +520,18 @@ class BookingDetail(Resource):
         
         # Handle trip updates based on new status
         if new_status == 'cancelled':
-            # Cancel all future trips (keep past trips as historical record)
+            # ✅ FIX: cancel *all* remaining trips from today onward (scheduled OR picked_up)
             Trip.query.filter(
                 Trip.booking_id == booking_id,
                 Trip.trip_date >= date.today(),
-                Trip.status == 'scheduled'
+                Trip.status.in_(['scheduled', 'picked_up'])
             ).update({'status': 'cancelled'})
         
         elif new_status == 'completed':
-            # Mark all remaining scheduled trips as completed
+            # ✅ FIX: mark all remaining non-cancelled trips as completed (scheduled OR picked_up)
             Trip.query.filter(
                 Trip.booking_id == booking_id,
-                Trip.status == 'scheduled'
+                Trip.status.in_(['scheduled', 'picked_up'])
             ).update({'status': 'completed'})
         
         db.session.commit()

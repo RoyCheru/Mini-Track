@@ -389,9 +389,21 @@ export default function BookingFlow() {
   const getFirstDayOfMonth = (month: number, year: number) => {
     return new Date(year, month, 1).getDay()
   }
+  const toLocalYMD = (d: Date) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+const parseLocalYMD = (ymd: string) => {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(y, (m || 1) - 1, d || 1)
+}
+
 
   const isDateSelected = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
+      const dateStr = toLocalYMD(date)
     return form.selected_dates.includes(dateStr)
   }
 
@@ -404,7 +416,7 @@ export default function BookingFlow() {
   const toggleDate = (date: Date) => {
     if (isDateDisabled(date)) return
 
-    const dateStr = date.toISOString().split('T')[0]
+  const dateStr = toLocalYMD(date)
 
     setForm(prev => {
       const isSelected = prev.selected_dates.includes(dateStr)
@@ -557,7 +569,7 @@ export default function BookingFlow() {
 
       const daysOfWeek = new Set<number>()
       form.selected_dates.forEach(dateStr => {
-        const date = new Date(dateStr)
+        const date = parseLocalYMD(dateStr)
         const dayOfWeek = date.getDay()
         daysOfWeek.add(dayOfWeek === 0 ? 7 : dayOfWeek)
       })

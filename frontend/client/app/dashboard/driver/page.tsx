@@ -346,8 +346,9 @@ export default function DriverDashboardPage() {
       // const token = localStorage.getItem('token')
       await apiFetch(`/trips/${tripId}/pickup`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
-          credentials: 'include',
+         
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({}),
@@ -370,8 +371,8 @@ export default function DriverDashboardPage() {
       // const token = localStorage.getItem('token')
       await apiFetch(`/trips/${tripId}/dropoff`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
-          credentials: 'include',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({}),
