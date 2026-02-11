@@ -8,20 +8,29 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { apiFetch } from '@/lib/api'
-import { Search, Calendar, Download, Car, CheckCircle2, XCircle, PauseCircle } from 'lucide-react'
+import { Search, Calendar, Download, Car, CheckCircle2, XCircle } from 'lucide-react'
 
 type Id = number | string
 
+// ✅ Supports both old + new backend shapes
 type BookingApi = {
   id?: Id
+  booking_id?: Id
+
   user_id: Id
+  user_name?: string
+
   route_id: Id
+  route_name?: string
 
   pickup_location_id?: Id
   dropoff_location_id?: Id
 
   pickup_location?: string
   dropoff_location?: string
+
+  pickup_location_name?: string
+  dropoff_location_name?: string
 
   start_date: string
   end_date: string
@@ -31,16 +40,15 @@ type BookingApi = {
   status?: string
 }
 
-type BookingStatus = 'Active' | 'Inactive' | 'Cancelled'
+type BookingStatus = 'Active' | 'Cancelled' | 'Completed'
 
 type Booking = {
-  // may not be unique if generated from composite fallback
   id: string
-
-  // ✅ ALWAYS UNIQUE — use this for React keys
   rowKey: string
 
   user_id: string
+  user_name?: string
+
   route_id: string
 
   pickup_location_id?: string
@@ -93,7 +101,7 @@ const toArray = (x: any) => {
 const normalizeStatus = (s: any): BookingStatus => {
   const v = String(s ?? '').trim().toLowerCase()
   if (v === 'active') return 'Active'
-  if (v === 'inactive') return 'Inactive'
+  if (v === 'completed') return 'Completed'
   if (v === 'cancelled' || v === 'canceled') return 'Cancelled'
   return 'Active'
 }
@@ -131,38 +139,35 @@ const routeLabel = (r?: RouteOption) => {
   return `Route #${toId(r.id)}`
 }
 
-const userLabel = (userId?: string) => {
-  return userId ? `User #${userId}` : '—'
-}
-
 const normalizeBooking = (raw: BookingApi, index: number): Booking => {
   const user_id = toId(raw.user_id)
   const route_id = toId(raw.route_id)
 
+  const backendId =
+    raw.booking_id !== undefined && raw.booking_id !== null && String(raw.booking_id).trim() !== ''
+      ? toId(raw.booking_id)
+      : raw.id !== undefined && raw.id !== null && String(raw.id).trim() !== ''
+      ? toId(raw.id)
+      : ''
+
   const composite =
     `${user_id}-${route_id}-${raw.start_date}-${raw.end_date}-${raw.pickup_location_id ?? raw.pickup_location ?? ''}`
 
-  // "id" is what you show, prefer backend id if present
-  const id =
-    raw.id !== undefined && raw.id !== null && String(raw.id).trim() !== ''
-      ? toId(raw.id)
-      : composite
-
-  // ✅ rowKey must NEVER collide; add index as tie-breaker
-  const rowKey = raw.id !== undefined && raw.id !== null && String(raw.id).trim() !== ''
-    ? `booking-${toId(raw.id)}`
-    : `booking-${composite}-${index}`
+  const id = backendId || composite
+  const rowKey = backendId ? `booking-${backendId}` : `booking-${composite}-${index}`
 
   return {
     id,
     rowKey,
     user_id,
+    user_name: raw.user_name ? String(raw.user_name) : undefined,
     route_id,
 
     pickup_location_id: raw.pickup_location_id != null ? toId(raw.pickup_location_id) : undefined,
     dropoff_location_id: raw.dropoff_location_id != null ? toId(raw.dropoff_location_id) : undefined,
-    pickup_location: raw.pickup_location ? String(raw.pickup_location) : undefined,
-    dropoff_location: raw.dropoff_location ? String(raw.dropoff_location) : undefined,
+
+    pickup_location: raw.pickup_location_name ?? (raw.pickup_location ? String(raw.pickup_location) : undefined),
+    dropoff_location: raw.dropoff_location_name ?? (raw.dropoff_location ? String(raw.dropoff_location) : undefined),
 
     start_date: String(raw.start_date ?? ''),
     end_date: String(raw.end_date ?? ''),
@@ -177,7 +182,7 @@ export default function BookingsManagement() {
   const router = useRouter()
 
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'inactive' | 'cancelled'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'completed' | 'cancelled'>('all')
 
   const [bookings, setBookings] = useState<Booking[]>([])
   const [routes, setRoutes] = useState<RouteOption[]>([])
@@ -190,7 +195,7 @@ export default function BookingsManagement() {
 
   const getStatusClass = (status: BookingStatus) => {
     if (status === 'Active') return 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30'
-    if (status === 'Inactive') return 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30'
+    if (status === 'Completed') return 'bg-slate-500/10 text-slate-700 border-slate-500/30'
     return 'bg-red-500/10 text-red-700 border-red-500/30'
   }
 
@@ -207,17 +212,6 @@ export default function BookingsManagement() {
     setError(null)
 
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        router.replace('/auth/signin')
-        return
-      }
-
-      // const headers: HeadersInit = {
-      //   'Content-Type': 'application/json',
-      //   credentials: 'include',
-      // }
-
       const [bookingsRes, routesRes, pickupsRes, schoolsRes] = await Promise.all([
         apiFetch('/bookings', { credentials: 'include' }),
         apiFetch('/routes', { credentials: 'include' }),
@@ -246,6 +240,13 @@ export default function BookingsManagement() {
       setPickupLocations(pickupArr)
       setSchoolLocations(schoolArr)
     } catch (e: any) {
+      // ✅ If cookie session expired, apiFetch will throw. Redirect cleanly.
+      const msg = String(e?.message || '')
+      if (msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('missing') || msg.includes('401')) {
+        router.replace('/auth/signin')
+        return
+      }
+
       console.error(e)
       setBookings([])
       setRoutes([])
@@ -292,6 +293,12 @@ export default function BookingsManagement() {
     return '—'
   }
 
+  // ✅ show username only (fallback if backend didn’t include it)
+  const userDisplayName = (b: Booking) => {
+    const n = String(b.user_name ?? '').trim()
+    return n || `User #${b.user_id}`
+  }
+
   const filteredBookings = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
 
@@ -299,8 +306,7 @@ export default function BookingsManagement() {
       const r = routeById.get(b.route_id)
 
       const routeName = routeLabel(r).toLowerCase()
-      const name = userLabel(b.user_id).toLowerCase()
-
+      const name = userDisplayName(b).toLowerCase()
       const pickup = pickupName(b).toLowerCase()
       const dropoff = dropoffName(b).toLowerCase()
 
@@ -320,8 +326,8 @@ export default function BookingsManagement() {
           ? true
           : activeTab === 'active'
           ? b.status === 'Active'
-          : activeTab === 'inactive'
-          ? b.status === 'Inactive'
+          : activeTab === 'completed'
+          ? b.status === 'Completed'
           : b.status === 'Cancelled'
 
       return matchesSearch && matchesTab
@@ -331,12 +337,12 @@ export default function BookingsManagement() {
   const stats = useMemo(() => {
     const total = bookings.length
     const active = bookings.filter(b => b.status === 'Active').length
-    const inactive = bookings.filter(b => b.status === 'Inactive').length
+    const completed = bookings.filter(b => b.status === 'Completed').length
     const cancelled = bookings.filter(b => b.status === 'Cancelled').length
     const seats = bookings.reduce((sum, b) => sum + (Number.isFinite(b.seats_booked) ? b.seats_booked : 0), 0)
     const uniqueUsers = new Set(bookings.map(b => b.user_id)).size
     const uniqueRoutes = new Set(bookings.map(b => b.route_id)).size
-    return { total, active, inactive, cancelled, seats, uniqueUsers, uniqueRoutes }
+    return { total, active, completed, cancelled, seats, uniqueUsers, uniqueRoutes }
   }, [bookings])
 
   const exportCsv = async () => {
@@ -347,7 +353,7 @@ export default function BookingsManagement() {
       const rows = filteredBookings.map(b => {
         const r = routeById.get(b.route_id)
         return {
-          user: userLabel(b.user_id),
+          user: userDisplayName(b),
           route: routeLabel(r),
           pickup_location: pickupName(b),
           dropoff_location: dropoffName(b),
@@ -405,9 +411,8 @@ export default function BookingsManagement() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="text-2xl font-bold">{loading ? '—' : stats.active}</div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <PauseCircle className="w-3.5 h-3.5" /> Inactive:{' '}
-              <span className="font-medium text-foreground">{loading ? '—' : stats.inactive}</span>
+            <p className="text-xs text-muted-foreground mt-1">
+              Completed: <span className="font-medium text-foreground">{loading ? '—' : stats.completed}</span>
             </p>
           </CardContent>
         </Card>
@@ -478,8 +483,8 @@ export default function BookingsManagement() {
               <TabsTrigger value="active" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
                 Active
               </TabsTrigger>
-              <TabsTrigger value="inactive" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
-                Inactive
+              <TabsTrigger value="completed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
+                Completed
               </TabsTrigger>
               <TabsTrigger value="cancelled" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
                 Cancelled
@@ -519,14 +524,11 @@ export default function BookingsManagement() {
 
                         return (
                           <tr
-                            key={b.rowKey} // ✅ FIX: guaranteed unique
+                            key={b.rowKey}
                             className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                           >
                             <td className="py-4 px-6">
-                              <div>
-                                <p className="font-medium text-foreground">{userLabel(b.user_id)}</p>
-                                <p className="text-xs text-muted-foreground">User #{b.user_id}</p>
-                              </div>
+                              <p className="font-medium text-foreground">{userDisplayName(b)}</p>
                             </td>
 
                             <td className="py-4 px-6">
