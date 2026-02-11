@@ -50,7 +50,6 @@ class Route(db.Model):
     name = db.Column(db.String(100), nullable=False)
     starting_point = db.Column(db.String(200), nullable=False)
     ending_point = db.Column(db.String(200), nullable=False)
-    # ✅ ADD THESE THREE NEW COLUMNS
     starting_point_gps = db.Column(db.String(150))  
     ending_point_gps = db.Column(db.String(150))    
     route_radius_km = db.Column(db.Float, default=5.0)
@@ -88,8 +87,6 @@ class SchoolLocation(db.Model):
 
     # Relationships
     route = db.relationship('Route', back_populates='school_locations')
-    # Don't cascade delete bookings when location is deleted
-    # This allows you to handle it differently (e.g., cancel bookings or reassign)
     bookings = db.relationship(
         'Booking',
         back_populates='dropoff_location',
@@ -107,7 +104,6 @@ class PickupLocation(db.Model):
 
     # Relationships
     route = db.relationship('Route', back_populates='pickup_locations')
-    # Don't cascade delete bookings when location is deleted
     bookings = db.relationship(
         'Booking',
         back_populates='pickup_location',
@@ -183,7 +179,7 @@ class Trip(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     booking_id = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)
 
-    service_time = db.Column(db.String(20), nullable=False)  # e.g., "morning" or "afternoon"
+    service_time = db.Column(db.String(20), nullable=False)
     status = db.Column(db.String(50), nullable=False)
     trip_date = db.Column(db.Date, nullable=False)
 

@@ -15,7 +15,6 @@ def admin_required(fn):
         return fn(*args, **kwargs)
     return wrapper
 
-# create a new school location
 class CreateSchoolLocation(Resource):
     @admin_required
     def post(self):
@@ -45,7 +44,7 @@ class CreateSchoolLocation(Resource):
                 "gps_coordinates": new_location.gps_coordinates
             }
         }, 201
-# get all school locations     
+  
 class GetAllSchoolLocations(Resource):
     @jwt_required()
     def get(self):
@@ -61,7 +60,7 @@ class GetAllSchoolLocations(Resource):
             })
 
         return results, 200
-# get one school location by id
+
 class GetSchoolLocation(Resource):
     @jwt_required()
     def get(self, location_id):
@@ -77,7 +76,7 @@ class GetSchoolLocation(Resource):
             "gps_coordinates": location.gps_coordinates
         }, 200
 
-# update a school location by id
+
 class UpdateSchoolLocation(Resource):
     @admin_required
     def put(self, location_id):
@@ -102,7 +101,7 @@ class UpdateSchoolLocation(Resource):
                 "gps_coordinates": location.gps_coordinates
             }
         }, 200
-# delete a school location by id
+
 class DeleteSchoolLocation(Resource):
     @admin_required
     def delete(self, location_id):

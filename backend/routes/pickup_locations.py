@@ -19,14 +19,8 @@ def admin_required(fn):
 
 
 class PickupLocationList(Resource):
-    """Handle GET all and POST for pickup locations"""
     @jwt_required()
     def get(self):
-        """
-        Get all pickup locations
-        Optional query params:
-        - route_id: filter by route
-        """
         try:
             route_id = request.args.get('route_id', type=int)
             
@@ -52,15 +46,6 @@ class PickupLocationList(Resource):
             return {'error': str(e)}, 500
     @admin_required
     def post(self):
-        """
-        Create a new pickup location
-        Expected JSON:
-        {
-            "route_id": 1,
-            "name": "Main Street Stop",
-            "gps_coordinates": "-1.2921,36.8219"
-        }
-        """
         try:
             data = request.get_json()
             
@@ -104,10 +89,8 @@ class PickupLocationList(Resource):
 
 
 class PickupLocationDetail(Resource):
-    """Handle GET, PUT, PATCH, DELETE for a specific pickup location"""
     @jwt_required()
     def get(self, id):
-        """Get a specific pickup location by ID"""
         try:
             pickup_location = PickupLocation.query.get(id)
             
@@ -129,23 +112,12 @@ class PickupLocationDetail(Resource):
             return {'error': str(e)}, 500
     @admin_required
     def put(self, id):
-        """Update a pickup location (full update)"""
         return self._update(id)
     @admin_required
     def patch(self, id):
-        """Update a pickup location (partial update)"""
         return self._update(id)
     @admin_required
     def _update(self, id):
-        """
-        Update a pickup location
-        Expected JSON (all fields optional):
-        {
-            "name": "Updated Name",
-            "gps_coordinates": "-1.2921,36.8219",
-            "route_id": 2
-        }
-        """
         try:
             pickup_location = PickupLocation.query.get(id)
             
@@ -153,8 +125,7 @@ class PickupLocationDetail(Resource):
                 return {'error': 'Pickup location not found'}, 404
             
             data = request.get_json()
-            
-            # Update route_id if provided
+
             if 'route_id' in data:
                 route = Route.query.get(data['route_id'])
                 if not route:
@@ -189,17 +160,13 @@ class PickupLocationDetail(Resource):
             return {'error': str(e)}, 500
     @admin_required
     def delete(self, id):
-        """
-        Delete a pickup location
-        Note: This will fail if there are active bookings using this location
-        """
+
         try:
             pickup_location = PickupLocation.query.get(id)
             
             if not pickup_location:
                 return {'error': 'Pickup location not found'}, 404
-            
-            # Check if location has active bookings
+
             if pickup_location.bookings:
                 return {
                     'error': 'Cannot delete pickup location with active bookings',
@@ -220,10 +187,8 @@ class PickupLocationDetail(Resource):
 
 
 class PickupLocationByRoute(Resource):
-    """Get all pickup locations for a specific route"""
     @jwt_required()
     def get(self, route_id):
-        """Get all pickup locations for a specific route"""
         try:
             # Verify route exists
             route = Route.query.get(route_id)
@@ -252,26 +217,9 @@ class PickupLocationByRoute(Resource):
 
 
 class PickupLocationBulk(Resource):
-    """Bulk create pickup locations"""
     @admin_required
     def post(self):
-        """
-        Create multiple pickup locations at once
-        Expected JSON:
-        {
-            "route_id": 1,
-            "locations": [
-                {
-                    "name": "Stop 1",
-                    "gps_coordinates": "-1.2921,36.8219"
-                },
-                {
-                    "name": "Stop 2",
-                    "gps_coordinates": "-1.2931,36.8229"
-                }
-            ]
-        }
-        """
+
         try:
             data = request.get_json()
             

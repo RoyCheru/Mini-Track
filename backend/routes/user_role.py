@@ -5,7 +5,7 @@ from models import db, UserRole
 
 
 class UserRoleList(Resource):
-    # get all user roles
+
     def get(self):
         roles = UserRole.query.all()
 
@@ -17,7 +17,7 @@ class UserRoleList(Resource):
             })
 
         return result, 200
-    # create a new user role
+ 
     def post(self):
         data = request.get_json()
         name = data.get("name")
@@ -40,7 +40,7 @@ class UserRoleList(Resource):
             }
         }, 201
 
-# get, update, delete a user role by id
+
 class UserRoleDetail(Resource):
     def get(self, role_id):
         role = UserRole.query.get(role_id)

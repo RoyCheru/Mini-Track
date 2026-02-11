@@ -15,7 +15,6 @@ class Login(Resource):
         user = User.query.filter_by(email=email).first()
 
         if user and check_password_hash(user.password_hash, password):
-            # session["user_id"] = user.id
             access_token = create_access_token(identity={"id": user.id, "role_id": user.role_id})
             response = make_response({
                 "message": "Login successful",
@@ -58,7 +57,7 @@ class Signup(Resource):
             phone_number=phone_number,
             residence=residence,
             password_hash=hashed_password,
-            role_id= 3 # default to parent role
+            role_id= 3 
         )
         db.session.add(new_user)
         db.session.commit()
@@ -75,7 +74,6 @@ class Signup(Resource):
     
 class Logout(Resource):
     def post(self):
-        # session.pop("user_id", None)
         response = make_response({"message": "Logged out"}, 200)
         unset_jwt_cookies(response)
         return response

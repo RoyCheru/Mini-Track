@@ -22,15 +22,10 @@ class CreateDriver(Resource):
     @admin_required
     def post(self):
         data = request.get_json()
-        # admin_id = session.get("user_id")
-
-        # admin = User.query.get(admin_id)
-        # if not admin or admin.role_id != 1:  
-        #     return {"error": "Unauthorized"}, 403
 
         name = data.get("name")
         email = data.get("email")
-        password = data.get("password") # the driver will later change this
+        password = data.get("password")
         phone_number = data.get("phone_number")
 
         if not name or not email or not password:
@@ -65,10 +60,7 @@ class CreateDriver(Resource):
 class GetDrivers(Resource):
     @admin_required
     def get(self):
-        # admin = User.query.get(session.get("user_id"))
-        # if not admin or admin.role_id != 1:
-        #     return {"error": "Unauthorized"}, 403
-
+   
         drivers = User.query.filter_by(role_id=2).all()
 
         results = []
@@ -116,9 +108,7 @@ class GetUser(Resource):
 
 class UpdateUser(Resource):
     def put(self, user_id):
-        # current_user_id = session.get("user_id")
-        # if current_user_id != id:
-        #     return {"error": "Not logged in"}, 403
+      
         data = request.get_json()
         user = User.query.get(user_id)
         if not user:
@@ -144,10 +134,6 @@ class UpdateUser(Resource):
 class DeleteUser(Resource):
     @admin_required
     def delete(self, user_id):
-        # admin = User.query.get(session.get("user_id"))
-        # if not admin or admin.role_id != 1:
-        #     return {"error": "Unauthorized"}, 403
-
         user = User.query.get(user_id)
         if not user:
             return {"error": "User not found"}, 404
@@ -157,7 +143,7 @@ class DeleteUser(Resource):
 
         return {"message": "User deleted"}
 
-# route for creating admin users
+
 class CreateAdmin(Resource):
     def post(self):
         data = request.get_json()
