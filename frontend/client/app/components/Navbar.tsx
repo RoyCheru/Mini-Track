@@ -13,7 +13,6 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 border-b border-brand-100/60 bg-white/80 backdrop-blur">
       <div className="container-max flex h-16 items-center justify-between">
         <Link href={ROUTES.home} className="flex items-center gap-2">
-          {/* CHANGED ONLY THIS PART (uses guaranteed Tailwind blue) */}
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-700 shadow-md ring-2 ring-blue-300/40">
             <BusFront className="h-5 w-5 text-white drop-shadow-sm" />
           </span>
