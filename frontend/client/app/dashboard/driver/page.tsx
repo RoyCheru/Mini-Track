@@ -27,7 +27,6 @@ import {
 
 import ScheduleView from './components/ScheduleView'
 import RouteMap from './components/RouteMap'
-// import TripManagement from './components/TripManagement'
 import VehicleStatus from './components/VehicleStatus'
 import DriverPassengers from './components/DriverPassengers'
 
@@ -95,7 +94,6 @@ function shortPlace(v: string) {
   return s ? s.split(',')[0] : '—'
 }
 
-// ✅ Display helper: evening shows School -> Home (swap)
 function displayLeg(trip: { pickup_location: string; dropoff_location: string; service_type: ServiceType }) {
   const pickup = safeString(trip.pickup_location, '—')
   const dropoff = safeString(trip.dropoff_location, '—')
@@ -103,9 +101,6 @@ function displayLeg(trip: { pickup_location: string; dropoff_location: string; s
   return { from: pickup, to: dropoff }
 }
 
-// function authHeaders(token: string | null) {
-//   return token ? { Authorization: `Bearer ${token}` } : {}
-// }
 
 export default function DriverDashboardPage() {
   const router = useRouter()
@@ -121,7 +116,6 @@ export default function DriverDashboardPage() {
   const [username, setUsername] = useState<string | null>(null)
   const [loggingOut, setLoggingOut] = useState(false)
 
-  // ✅ ensures Start Trip button is consistent in dashboard + passengers + schedule cards
   const [startingTripId, setStartingTripId] = useState<number | null>(null)
 
   const tripsRef = useRef<DriverTrip[]>([])
@@ -162,7 +156,6 @@ export default function DriverDashboardPage() {
     setLoggingOut(true)
 
     try {
-      // const token = localStorage.getItem('token')
       await apiFetch('/logout', {
         method: 'POST',
         credentials: "include"
@@ -170,7 +163,6 @@ export default function DriverDashboardPage() {
     } catch (err) {
       console.error('Logout error:', err)
     } finally {
-      // localStorage.removeItem('token')
       localStorage.removeItem('username')
       localStorage.removeItem('vehicle_id')
       localStorage.removeItem('user_id')
@@ -270,7 +262,6 @@ export default function DriverDashboardPage() {
 
       const data = await res.json();
       setUsername(data.name);
-      // // setUsername(localStorage.getItem('username'))
       const vehicleIdRaw = data.vehicles?.id ?? localStorage.getItem('vehicle_id') ?? undefined
       localStorage.setItem('vehicle_id', String(vehicleIdRaw ?? ''))
       console.log(vehicleIdRaw)
@@ -313,7 +304,6 @@ export default function DriverDashboardPage() {
 
   useEffect(() => {
     reloadAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const todayTrips = useMemo(() => trips, [trips])
@@ -343,7 +333,6 @@ export default function DriverDashboardPage() {
     setTrips(prev => prev.map(t => (t.id === tripId ? { ...t, status: 'picked_up' } : t)))
 
     try {
-      // const token = localStorage.getItem('token')
       await apiFetch(`/trips/${tripId}/pickup`, {
         method: 'PATCH',
         credentials: 'include',
@@ -368,7 +357,6 @@ export default function DriverDashboardPage() {
     setTrips(prev => prev.map(t => (t.id === tripId ? { ...t, status: 'completed' } : t)))
 
     try {
-      // const token = localStorage.getItem('token')
       await apiFetch(`/trips/${tripId}/dropoff`, {
         method: 'PATCH',
         credentials: 'include',
@@ -411,7 +399,6 @@ export default function DriverDashboardPage() {
         </div>
       )}
 
-      {/* Header */}
       <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3">
@@ -421,9 +408,9 @@ export default function DriverDashboardPage() {
               </Button>
 
               <div className="relative">
-                <div className="absolute -left-3 top-0 h-full w-1 bg-gradient-to-b from-blue-400 to-blue-300 rounded-full" />
+                <div className="absolute -left-3 top-0 h-full w-1 bg-linear-to-b from-blue-400 to-blue-300 rounded-full" />
                 <div className="pl-2">
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+                  <h1 className="text-2xl font-bold bg-linear-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
                     Driver Dashboard
                   </h1>
                   <p className="text-sm text-blue-700/70 mt-0.5">
@@ -448,7 +435,6 @@ export default function DriverDashboardPage() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
           <div className="absolute right-0 top-16 h-full w-64 bg-card border-l shadow-lg" onClick={e => e.stopPropagation()}>
@@ -506,7 +492,6 @@ export default function DriverDashboardPage() {
         </div>
       )}
 
-      {/* Main */}
       <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {loading ? (
           <div className="flex items-center justify-center min-h-[400px]">
@@ -517,7 +502,6 @@ export default function DriverDashboardPage() {
           </div>
         ) : (
           <>
-            {/* Overview */}
             <div className="mb-8">
               <Card className="border-slate-200 bg-white shadow-sm">
                 <CardContent className="p-6">
@@ -552,7 +536,6 @@ export default function DriverDashboardPage() {
               </Card>
             </div>
 
-            {/* Tabs */}
             <div className="mb-8">
               <Tabs value={activeTab} onValueChange={v => setActiveTab(v as TabKey)} className="w-full">
                 <TabsList className="w-full grid grid-cols-3 bg-slate-50 border border-slate-200 rounded-xl p-1">
@@ -572,7 +555,6 @@ export default function DriverDashboardPage() {
 
                 <TabsContent value="dashboard" className="mt-6">
                   <div className="space-y-8">
-                    {/* ✅ Removed TripManagement. Simple Current Trip card instead */}
                     {currentTrip ? (
                       <Card className="border-slate-200 bg-white shadow-sm">
                         <CardContent className="pt-6">
