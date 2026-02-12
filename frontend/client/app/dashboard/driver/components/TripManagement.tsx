@@ -55,14 +55,13 @@ export default function TripManagement({
   onMarkAllAbsent,
 }: {
   trip: Trip
-  passengers?: Passenger[] // ✅ allow undefined
+  passengers?: Passenger[]
   loadingPassengers: boolean
   onRefreshPassengers: () => void
   onCompleteTrip: () => void
   onMarkPassenger: (passengerId: number, status: PassengerStatus) => void
   onMarkAllAbsent: () => void
 }) {
-  // ✅ normalize to safe array
   const passengerList = Array.isArray(passengers) ? passengers : []
   const hasPassengerList = passengerList.length > 0
 
