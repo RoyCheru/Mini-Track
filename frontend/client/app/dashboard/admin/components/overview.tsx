@@ -41,9 +41,8 @@ type Vehicle = {
   status?: 'Active' | 'Inactive' | string
 }
 
-// ✅ Backend-safe booking + stable key
+
 type Booking = {
-  // backend may send id OR booking_id OR something else
   id?: string | number
   booking_id?: string | number
 
@@ -53,12 +52,9 @@ type Booking = {
   amount?: number
   status?: string
   time?: string
-
-  // ✅ guaranteed unique key used for React list rendering
   key: string
 }
 
-// If status is missing, assume "Active" so cards don’t show 0
 const isActiveOrMissing = (status: any) => {
   if (status === undefined || status === null || status === '') return true
   return String(status).toLowerCase() === 'active'
@@ -77,7 +73,6 @@ const toArray = (x: any) => {
 
 const safeStr = (v: any) => String(v ?? '')
 
-// ✅ Normalize bookings so keys never break
 const normalizeBookings = (raw: any[]): Booking[] => {
   return raw.map((b: any, index: number) => {
     const rawId = b?.id ?? b?.booking_id ?? b?.bookingId ?? b?.uuid
@@ -115,7 +110,6 @@ export default function OverviewSection() {
       setError(null)
 
       try {
-        // const token = localStorage.getItem('token')
 
      const res = await apiFetch("/me", {
           credentials: "include",
@@ -146,7 +140,6 @@ export default function OverviewSection() {
         setRoutes(toArray(routesJson))
         setVehicles(toArray(vehiclesJson))
 
-        // Optional bookings: if endpoint exists use it; otherwise keep empty list.
         try {
           const bookingsRes = await apiFetch('/bookings', { credentials: 'include' })
           if (bookingsRes.ok) {
@@ -187,7 +180,6 @@ export default function OverviewSection() {
     [vehicles]
   )
 
-  // Creative backend-derived KPIs (no revenue/occupancy/satisfaction)
   const totalFleetCapacity = useMemo(
     () => vehicles.reduce((sum, v) => sum + (Number((v as any).capacity) || 0), 0),
     [vehicles]
@@ -206,7 +198,7 @@ export default function OverviewSection() {
   const fleetUtilization = useMemo(() => {
     const total = vehicles.length || 0
     if (!total) return 0
-    // drivers assigned to vehicles / total vehicles
+
     const assigned = vehicles.filter(v => safeStr((v as any).user_id).trim() !== '').length
     return Math.round((assigned / total) * 100)
   }, [vehicles])
@@ -248,9 +240,8 @@ export default function OverviewSection() {
 
   return (
     <div className="space-y-6">
-      {/* Metrics (4 cards only - no revenue/occupancy/satisfaction) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-border/50">
+        <Card className="bg-linear-to-br from-blue-500/10 to-blue-500/5 border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
               <div>
@@ -263,7 +254,7 @@ export default function OverviewSection() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-border/50">
+        <Card className="bg-linear-to-br from-emerald-500/10 to-emerald-500/5 border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
               <div>
@@ -276,7 +267,7 @@ export default function OverviewSection() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-border/50">
+        <Card className="bg-linear-to-br from-orange-500/10 to-orange-500/5 border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
               <div>
@@ -289,7 +280,7 @@ export default function OverviewSection() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-border/50">
+        <Card className="bg-linear-to-br from-purple-500/10 to-purple-500/5 border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
               <div>
@@ -302,10 +293,7 @@ export default function OverviewSection() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Replaced bottom section: backend-derived Operational Snapshot */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Operational Snapshot */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-border/50">
             <CardHeader>
@@ -353,8 +341,6 @@ export default function OverviewSection() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Latest Vehicles (from DB) */}
           <Card className="border-border/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -394,8 +380,6 @@ export default function OverviewSection() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Right column: Latest Drivers (from DB) */}
         <div className="space-y-6">
           <Card className="border-border/50">
             <CardHeader>
@@ -419,8 +403,6 @@ export default function OverviewSection() {
               )}
             </CardContent>
           </Card>
-
-          {/* Optional: recent bookings if endpoint exists */}
           <Card className="border-border/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -435,7 +417,7 @@ export default function OverviewSection() {
               ) : (
                 recentBookings.slice(0, 5).map(b => (
                   <div
-                    key={b.key} // ✅ FIXED: always unique
+                    key={b.key}
                     className="p-3 rounded-lg bg-muted/30 border border-border/50"
                   >
                     <div className="flex items-center justify-between">

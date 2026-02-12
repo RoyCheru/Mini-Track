@@ -63,7 +63,6 @@ export default function VehicleStatus({ vehicle }: { vehicle: VehicleInfo }) {
           </div>
         </div>
 
-        {/* Optional fields; show only if backend provides them */}
         {(vehicle.fuel_level || vehicle.next_service) && (
           <div className="rounded-lg border p-3">
             <p className="text-xs text-slate-500">Maintenance</p>

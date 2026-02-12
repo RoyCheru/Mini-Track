@@ -33,7 +33,6 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* CENTERED QUICK LINKS */}
           <div className="flex flex-col items-center">
             <h4 className="font-bold">Quick Links</h4>
             <ul className="mt-4 space-y-3 text-sm text-slate-300 text-center">

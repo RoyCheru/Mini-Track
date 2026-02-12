@@ -19,7 +19,6 @@ export default function Hero() {
       </div>
 
       <div className="container-max grid gap-10 py-12 md:grid-cols-2 md:items-center">
-        {/* LEFT */}
         <div>
           <span className="inline-flex items-center rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-brand-800 ring-1 ring-brand-200 backdrop-blur">
             Safe & Affordable School Transport
@@ -50,7 +49,6 @@ export default function Hero() {
             </Link>
           </div>
 
-          {/* compact proof row */}
           <div className="mt-7 grid grid-cols-3 gap-3">
             <div className="rounded-2xl bg-white/75 p-4 ring-1 ring-brand-200 backdrop-blur">
               <div className="text-2xl font-extrabold text-brand-800">500+</div>
@@ -67,7 +65,6 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* RIGHT: Only feature cards (no live tracking panel) */}
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             {FEATURES.map(({ title, desc, Icon }) => (
@@ -88,7 +85,7 @@ export default function Hero() {
             ))}
           </div>
 
-          <div className="h-1 w-full rounded-full bg-gradient-to-r from-brand-300 via-brand-600/60 to-brand-200 opacity-70" />
+          <div className="h-1 w-full rounded-full bg-linear-to-r from-brand-300 via-brand-600/60 to-brand-200 opacity-70" />
         </div>
       </div>
     </section>

@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label'
 
 type Route = {
   id: number
-  name: string // 🔧 if backend uses a different field, change here
+  name: string
 }
 
 type PickupLocation = {
@@ -201,7 +201,6 @@ export default function PickupLocationsManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <Card className="border-border/50">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -276,7 +275,6 @@ export default function PickupLocationsManagement() {
         </CardHeader>
       </Card>
 
-      {/* Search */}
       <Card className="border-border/50">
         <CardContent className="pt-6">
           <div className="relative">
@@ -291,7 +289,6 @@ export default function PickupLocationsManagement() {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card className="border-border/50 overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -350,7 +347,6 @@ export default function PickupLocationsManagement() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>

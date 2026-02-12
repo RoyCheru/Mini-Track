@@ -28,9 +28,7 @@ export default function SignInPage() {
     fetchRoles();
   }, []);
 
-  // Try to resolve driver's vehicle id WITHOUT backend changes (best effort).
   async function resolveVehicleIdForDriver(userId: number): Promise<number | null> {
-    // 1) If backend supports filtering: /vehicles?user_id=3
     try {
       const res = await apiFetch(`/vehicles?user_id=${userId}`);
       const json = await res.json().catch(() => ({}));
@@ -40,8 +38,6 @@ export default function SignInPage() {
         if (v?.id) return Number(v.id);
       }
     } catch (_) {}
-
-    // 2) If backend supports listing all vehicles: /vehicles
     try {
       const res = await apiFetch("/vehicles");
       const json = await res.json().catch(() => ({}));
@@ -93,11 +89,8 @@ export default function SignInPage() {
         return;
       }
 
-      // Save auth
-      // if (data?.access_token) localStorage.setItem("token", data.access_token);
       if (data?.user?.name) localStorage.setItem("username", data.user.name);
 
-      // Save user id if present (helps resolve vehicle_id)
       const userId =
         Number(data?.user?.id ?? data?.user_id ?? data?.id ?? NaN);
 
@@ -107,13 +100,11 @@ export default function SignInPage() {
         localStorage.removeItem("user_id");
       }
 
-      // Resolve vehicle_id for driver (best effort)
       const roleName = String(data?.user?.role ?? "").toLowerCase();
 
       if (roleName === "driver") {
-        localStorage.removeItem("vehicle_id"); // clear old values
+        localStorage.removeItem("vehicle_id");
 
-        // if backend already returns vehicle_id somewhere, use it first
         const directVehicleId =
           Number(data?.vehicle_id ?? data?.user?.vehicle_id ?? NaN);
 
@@ -125,7 +116,6 @@ export default function SignInPage() {
         }
       }
 
-      // redirect
       if (roleName === "admin") {
         window.location.href = "/dashboard/admin";
       } else if (roleName === "parent") {
@@ -142,7 +132,7 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-start justify-center pt-10 px-4 bg-gradient-to-br from-blue-50 via-white to-gray-50">
+    <div className="min-h-screen flex items-start justify-center pt-10 px-4 bg-linear-to-br from-blue-50 via-white to-gray-50">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-100">
         <div className="p-6 text-center border-b border-gray-100">
           <div className="flex justify-center mb-2">

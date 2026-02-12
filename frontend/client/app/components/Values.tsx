@@ -47,7 +47,6 @@ export default function Values() {
                      transition-all hover:-translate-y-1 hover:shadow-lg hover:ring-brand-200
                      flex flex-col"
         >
-          {/* Icon + Tag */}
           <div className="flex items-start justify-between">
             <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-100 ring-1 ring-brand-200">
               <Icon className="h-6 w-6 text-brand-800" />
@@ -58,7 +57,6 @@ export default function Values() {
             </span>
           </div>
 
-          {/* Text */}
           <h3 className="mt-5 text-lg font-extrabold tracking-tight text-slate-900">
             {title}
           </h3>
@@ -67,10 +65,8 @@ export default function Values() {
             {desc}
           </p>
 
-          {/* Divider */}
-          <div className="mt-5 h-px bg-gradient-to-r from-transparent via-brand-200/60 to-transparent" />
+          <div className="mt-5 h-px bg-linear-to-r from-transparent via-brand-200/60 to-transparent" />
 
-          {/* Actions pinned to bottom — ORIGINAL BUTTON STYLE */}
           <div className="mt-auto pt-5 flex items-center justify-between">
             <Link
               href={href}

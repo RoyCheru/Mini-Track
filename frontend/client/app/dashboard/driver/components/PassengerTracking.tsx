@@ -68,7 +68,6 @@ export default function PassengerTracking({
           </Badge>
         </div>
 
-        {/* ✅ Start Trip button (Passengers page) */}
         {onStartTrip && (
           <div className="flex justify-end">
             <Button
