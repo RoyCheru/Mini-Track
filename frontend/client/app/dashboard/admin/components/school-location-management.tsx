@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label'
 
 type Route = {
   id: number
-  name: string // 🔧 if backend uses different field, change here
+  name: string
 }
 
 type SchoolLocation = {
