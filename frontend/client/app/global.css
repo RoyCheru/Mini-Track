@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@config "../tailwind.config.cjs";
+
 @plugin "tailwindcss-animate";
 
 @import "leaflet/dist/leaflet.css";
