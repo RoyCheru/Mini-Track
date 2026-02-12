@@ -28,8 +28,6 @@ type Driver = {
 export default function DriverManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [drivers, setDrivers] = useState<Driver[]>([])
-
-  // Add dialog
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState({
     name: '',
@@ -38,7 +36,6 @@ export default function DriverManagement() {
     password: '',
   })
 
-  // Edit dialog
   const [editOpen, setEditOpen] = useState(false)
   const [editing, setEditing] = useState<Driver | null>(null)
   const [editForm, setEditForm] = useState({
@@ -50,8 +47,6 @@ export default function DriverManagement() {
   })
 
   const fetchDrivers = async () => {
-    // const token = localStorage.getItem('token')
-
     try {
       const res = await apiFetch('/drivers', { credentials: 'include' })
 
@@ -80,9 +75,6 @@ export default function DriverManagement() {
 
   const handleAdd = async () => {
     if (!addForm.name || !addForm.email || !addForm.phone_number || !addForm.password) return
-
-    // const token = localStorage.getItem('token')
-
     const payload = {
       name: addForm.name,
       email: addForm.email,
@@ -132,10 +124,8 @@ export default function DriverManagement() {
     if (!editing) return
     if (!editForm.name || !editForm.email || !editForm.phone_number) return
 
-    // const token = localStorage.getItem('token')
-
     const payload: any = {
-      id: editing.id, // many backends ignore this; harmless if allowed
+      id: editing.id,
       name: editForm.name,
       email: editForm.email,
       phone_number: editForm.phone_number,
@@ -160,7 +150,6 @@ export default function DriverManagement() {
         return
       }
 
-      // Refresh from backend (source of truth)
       await fetchDrivers()
 
       setEditOpen(false)
@@ -196,7 +185,6 @@ export default function DriverManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <Card className="border-border/50">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -264,7 +252,6 @@ export default function DriverManagement() {
         </CardHeader>
       </Card>
 
-      {/* Search */}
       <Card className="border-border/50">
         <CardContent className="pt-6">
           <div className="relative">
@@ -279,7 +266,6 @@ export default function DriverManagement() {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card className="border-border/50 overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -288,7 +274,6 @@ export default function DriverManagement() {
                 <tr>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Name</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Contact</th>
-                  {/* Status header removed */}
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Actions</th>
                 </tr>
               </thead>
@@ -323,8 +308,6 @@ export default function DriverManagement() {
                       </div>
                     </td>
 
-                    {/* Status cell removed */}
-
                     <td className="py-4 px-6">
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => openEdit(driver)}>
@@ -351,7 +334,6 @@ export default function DriverManagement() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
@@ -394,8 +376,6 @@ export default function DriverManagement() {
                 className="mt-1"
               />
             </div>
-
-            {/* Status input removed */}
 
             <Button className="w-full mt-6" onClick={handleSaveEdit}>
               Save Changes
