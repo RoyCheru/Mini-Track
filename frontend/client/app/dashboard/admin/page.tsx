@@ -8,14 +8,13 @@ import { apiFetch } from '@/lib/api'
 import { TrendingUp, Settings, Zap, LogOut } from 'lucide-react'
 
 import OverviewSection from './components/overview'
-// import AnalyticsSection from './components/analytics'
 import BookingsManagement from './components/bookings-management'
 
 import DriverManagement from './components/driver-management'
 import RouteManagement from './components/route-management'
 import VehicleManagement from './components/bus-management'
 import SchoolLocationManagement from './components/school-location-management'
-import PickupLocationsManagement from './components/pickup-locations-management' // ✅ ADD
+import PickupLocationsManagement from './components/pickup-locations-management'
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -51,8 +50,6 @@ export default function AdminDashboardPage() {
     setLoggingOut(true)
 
     try {
-      // const token = localStorage.getItem('token')
-
       await apiFetch("/logout", {
         method: "POST",
         credentials: "include",
@@ -60,7 +57,6 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error('Logout error:', err)
     } finally {
-      // localStorage.removeItem('token')
       localStorage.removeItem('username')
 
       setLoggingOut(false)
@@ -70,7 +66,6 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-background via-background to-muted/20">
-      {/* Header */}
       <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4">
@@ -96,7 +91,6 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Main */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto bg-card border border-border/50">
@@ -116,14 +110,11 @@ export default function AdminDashboardPage() {
 
           <TabsContent value="overview" className="space-y-6">
             <OverviewSection />
-            {/* <AnalyticsSection /> */}
           </TabsContent>
 
           <TabsContent value="management" className="space-y-6">
             <DriverManagement />
             <RouteManagement />
-
-            {/* ✅ School + Pickup side-by-side on Management tab */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <SchoolLocationManagement />
               <PickupLocationsManagement />
