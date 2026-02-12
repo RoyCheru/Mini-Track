@@ -23,7 +23,6 @@ type Route = {
   starting_point: string
   ending_point: string
   status: 'Active' | 'Inactive'
-  // ✅ Geofence fields
   starting_point_gps?: string | null
   ending_point_gps?: string | null
   route_radius_km?: number
@@ -39,7 +38,6 @@ export default function RouteManagement() {
     name: '',
     starting_point: '',
     ending_point: '',
-    // ✅ Geofence fields
     starting_point_gps: '',
     ending_point_gps: '',
     route_radius_km: 5.0,
@@ -52,7 +50,6 @@ export default function RouteManagement() {
     starting_point: '',
     ending_point: '',
     status: 'Active' as Route['status'],
-    // ✅ Geofence fields
     starting_point_gps: '',
     ending_point_gps: '',
     route_radius_km: 5.0,
@@ -109,7 +106,6 @@ export default function RouteManagement() {
       return
     }
 
-    // ✅ Validate GPS format if provided
     if (addForm.starting_point_gps) {
       const parts = addForm.starting_point_gps.split(',')
       if (parts.length !== 2 || isNaN(parseFloat(parts[0])) || isNaN(parseFloat(parts[1]))) {
@@ -126,12 +122,10 @@ export default function RouteManagement() {
       }
     }
 
-    // ✅ Include geofence data in payload
     const payload = { 
       name: addForm.name,
       starting_point: addForm.starting_point,
       ending_point: addForm.ending_point,
-      // Convert empty strings to null for optional fields
       starting_point_gps: addForm.starting_point_gps.trim() || null,
       ending_point_gps: addForm.ending_point_gps.trim() || null,
       route_radius_km: addForm.route_radius_km,
@@ -148,7 +142,6 @@ export default function RouteManagement() {
       fetchRoutes()
     }
 
-    // Reset form
     setAddForm({ 
       name: '', 
       starting_point: '', 
@@ -167,7 +160,6 @@ export default function RouteManagement() {
       starting_point: route.starting_point,
       ending_point: route.ending_point,
       status: route.status,
-      // ✅ Include geofence data
       starting_point_gps: route.starting_point_gps || '',
       ending_point_gps: route.ending_point_gps || '',
       route_radius_km: route.route_radius_km || 5.0,
@@ -182,7 +174,6 @@ export default function RouteManagement() {
       return
     }
 
-    // ✅ Validate GPS if provided
     if (editForm.starting_point_gps) {
       const parts = editForm.starting_point_gps.split(',')
       if (parts.length !== 2 || isNaN(parseFloat(parts[0])) || isNaN(parseFloat(parts[1]))) {
@@ -203,7 +194,6 @@ export default function RouteManagement() {
       name: editForm.name,
       starting_point: editForm.starting_point,
       ending_point: editForm.ending_point,
-      // ✅ Include geofence data
       starting_point_gps: editForm.starting_point_gps.trim() || null,
       ending_point_gps: editForm.ending_point_gps.trim() || null,
       route_radius_km: editForm.route_radius_km,
@@ -239,7 +229,6 @@ export default function RouteManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <Card className="border-border/50">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -261,7 +250,6 @@ export default function RouteManagement() {
                 </DialogHeader>
 
                 <div className="space-y-4">
-                  {/* Route Name */}
                   <div>
                     <Label>Route Name *</Label>
                     <Input 
@@ -272,7 +260,6 @@ export default function RouteManagement() {
                     />
                   </div>
 
-                  {/* ✅ Starting Point Section */}
                   <div className="space-y-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <h4 className="font-semibold text-blue-900 flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
@@ -301,7 +288,6 @@ export default function RouteManagement() {
                     </div>
                   </div>
 
-                  {/* ✅ Ending Point Section */}
                   <div className="space-y-2 p-4 bg-red-50 rounded-lg border border-red-200">
                     <h4 className="font-semibold text-red-900 flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
@@ -330,7 +316,6 @@ export default function RouteManagement() {
                     </div>
                   </div>
 
-                  {/* ✅ Route Corridor Radius */}
                   <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
                     <Label className="font-semibold text-amber-900">Route Corridor Radius (km)</Label>
                     <Input 
@@ -348,7 +333,6 @@ export default function RouteManagement() {
                     </p>
                   </div>
 
-                  {/* ✅ Info Alert */}
                   <Alert className="bg-blue-50 border-blue-200">
                     <Info className="h-5 w-5 text-blue-600" />
                     <AlertDescription className="ml-2 text-blue-900">
@@ -370,7 +354,6 @@ export default function RouteManagement() {
         </CardHeader>
       </Card>
 
-      {/* Search */}
       <Card className="border-border/50">
         <CardContent className="pt-6">
           <div className="relative">
@@ -385,7 +368,6 @@ export default function RouteManagement() {
         </CardContent>
       </Card>
 
-      {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
         {filteredRoutes.map(route => (
           <Card key={route.id} className="border-border/50 hover:border-border transition-colors">
@@ -406,18 +388,15 @@ export default function RouteManagement() {
               <div className="bg-muted/30 p-3 rounded-lg">
                 <p className="text-xs text-muted-foreground">Starting Point</p>
                 <p className="font-semibold text-foreground mt-1">{route.starting_point}</p>
-                {/* ✅ Show GPS if exists */}
                 {route.starting_point_gps && (
                   <p className="text-xs text-muted-foreground mt-1 font-mono">
                     📍 {route.starting_point_gps}
                   </p>
                 )}
               </div>
-
               <div className="bg-muted/30 p-3 rounded-lg">
                 <p className="text-xs text-muted-foreground">Ending Point</p>
                 <p className="font-semibold text-foreground mt-1">{route.ending_point}</p>
-                {/* ✅ Show GPS if exists */}
                 {route.ending_point_gps && (
                   <p className="text-xs text-muted-foreground mt-1 font-mono">
                     📍 {route.ending_point_gps}
@@ -425,7 +404,6 @@ export default function RouteManagement() {
                 )}
               </div>
 
-              {/* ✅ Show Geofence Status */}
               {route.starting_point_gps && route.ending_point_gps && (
                 <div className="bg-green-50 p-3 rounded-lg border border-green-200">
                   <div className="flex items-center gap-2">
@@ -463,7 +441,6 @@ export default function RouteManagement() {
         )}
       </div>
 
-      {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -481,7 +458,6 @@ export default function RouteManagement() {
               />
             </div>
 
-            {/* ✅ Starting Point Section */}
             <div className="space-y-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <h4 className="font-semibold text-blue-900 flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
@@ -509,7 +485,6 @@ export default function RouteManagement() {
               </div>
             </div>
 
-            {/* ✅ Ending Point Section */}
             <div className="space-y-2 p-4 bg-red-50 rounded-lg border border-red-200">
               <h4 className="font-semibold text-red-900 flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
@@ -537,7 +512,6 @@ export default function RouteManagement() {
               </div>
             </div>
 
-            {/* ✅ Route Corridor Radius */}
             <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
               <Label className="font-semibold text-amber-900">Route Corridor Radius (km)</Label>
               <Input 
