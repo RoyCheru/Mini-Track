@@ -47,7 +47,6 @@ export default function HowItWorksPage() {
           })}
         </div>
 
-        {/* Centered single CTA */}
         <div className="mt-14 flex justify-center">
           <Link
             href={ROUTES.signup}
