@@ -10,28 +10,25 @@ import { Button } from '@/components/ui/button'
 import { Navigation, Phone, MessageSquare, MapPin, Clock as ClockIcon, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 
-// Helper function to get current user ID
 function getCurrentUserId(): number | null {
   if (typeof window === 'undefined') return null
-  
+
   const userId = localStorage.getItem('user_id')
   return userId ? parseInt(userId, 10) : null
 }
 
-// ================= MAP IMPORTS =================
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false })
 const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false })
 const Marker = dynamic(() => import('react-leaflet').then(m => m.Marker), { ssr: false })
 const Popup = dynamic(() => import('react-leaflet').then(m => m.Popup), { ssr: false })
 const Polyline = dynamic(() => import('react-leaflet').then(m => m.Polyline), { ssr: false })
 
-// ================= LEAFLET SETUP =================
 let L: typeof LeafletTypes | null = null
 
 if (typeof window !== 'undefined') {
   import('leaflet').then((leaflet) => {
     L = leaflet.default
-    
+
     delete (L.Icon.Default.prototype as any)._getIconUrl
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -41,10 +38,9 @@ if (typeof window !== 'undefined') {
   })
 }
 
-// ================= ICON CREATION FUNCTIONS =================
 const createCustomIcon = (color: string) => {
   if (typeof window === 'undefined' || !L) return undefined
-  
+
   return new L.Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
@@ -59,7 +55,7 @@ const createCustomIcon = (color: string) => {
 
 const createBusIcon = () => {
   if (typeof window === 'undefined' || !L) return undefined
-  
+
   return new L.Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="48" height="48">
@@ -83,11 +79,10 @@ const createBusIcon = () => {
   })
 }
 
-// ================= MAP BOUNDS UPDATER COMPONENT =================
-function MapBoundsUpdater({ route, mapRef, routeKey }: { 
-  route: [number, number][], 
+function MapBoundsUpdater({ route, mapRef, routeKey }: {
+  route: [number, number][],
   mapRef: React.MutableRefObject<any>,
-  routeKey: number 
+  routeKey: number
 }) {
   useEffect(() => {
     const getMapInstance = () => {
@@ -126,7 +121,6 @@ function MapBoundsUpdater({ route, mapRef, routeKey }: {
   return null
 }
 
-// ================= TYPES =================
 type Booking = {
   booking_id: number
   user_id: number
@@ -158,16 +152,15 @@ interface Props {
   initialBookingId?: number | null
 }
 
-// ================= HELPER FUNCTIONS =================
 function parseGPS(gps: string): [number, number] | null {
   if (!gps) return null
-  
+
   const parts = gps.split(',').map(s => parseFloat(s.trim()))
-  
+
   if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
     return [parts[0], parts[1]]
   }
-  
+
   return null
 }
 
@@ -175,11 +168,11 @@ function calculateDistance(point1: [number, number], point2: [number, number]): 
   const R = 6371
   const dLat = (point2[0] - point1[0]) * Math.PI / 180
   const dLon = (point2[1] - point1[1]) * Math.PI / 180
-  
+
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(point1[0] * Math.PI / 180) * Math.cos(point2[0] * Math.PI / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  
+
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return R * c
 }
@@ -187,11 +180,11 @@ function calculateDistance(point1: [number, number], point2: [number, number]): 
 function estimateETA(distance: number, speedKmh: number = 30): string {
   const hours = distance / speedKmh
   const minutes = Math.round(hours * 60)
-  
+
   if (minutes < 60) {
     return `${minutes} mins`
   }
-  
+
   const hrs = Math.floor(minutes / 60)
   const mins = minutes % 60
   return `${hrs}h ${mins}m`
@@ -199,13 +192,13 @@ function estimateETA(distance: number, speedKmh: number = 30): string {
 
 function getActualLocations(booking: Booking) {
   const currentHour = new Date().getHours()
-  
+
   const isMorningTime = currentHour >= 6 && currentHour < 12
   const isEveningTime = currentHour >= 12 && currentHour < 20
-  
+
   let shouldSwap = false
   let timeSlot = 'off-hours'
-  
+
   if (booking.service_type === 'morning') {
     shouldSwap = false
     timeSlot = 'morning'
@@ -221,7 +214,7 @@ function getActualLocations(booking: Booking) {
       timeSlot = 'evening'
     }
   }
-  
+
   return {
     actualPickup: shouldSwap ? booking.dropoff_location_gps : booking.pickup_location_gps,
     actualPickupName: shouldSwap ? booking.dropoff_location_name : booking.pickup_location_name,
@@ -233,7 +226,6 @@ function getActualLocations(booking: Booking) {
   }
 }
 
-// ================= MAIN COMPONENT =================
 export default function TrackingSection({ initialBookingId }: Props) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
@@ -244,7 +236,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
   const [error, setError] = useState<string>('')
   const [mapKey, setMapKey] = useState(0)
   const mapRef = useRef<any>(null)
-  
+
   const [pickupIcon, setPickupIcon] = useState<any>(undefined)
   const [dropoffIcon, setDropoffIcon] = useState<any>(undefined)
   const [busIcon, setBusIcon] = useState<any>(undefined)
@@ -253,7 +245,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
     if (typeof window !== 'undefined') {
       import('leaflet').then((leaflet) => {
         const L = leaflet.default
-        
+
         setTimeout(() => {
           try {
             setPickupIcon(createCustomIcon('#10b981'))
@@ -267,38 +259,35 @@ export default function TrackingSection({ initialBookingId }: Props) {
     }
   }, [])
 
-  // ✅ Fetch today's trip status for selected booking
   const fetchTripStatus = async (bookingId: number) => {
     try {
       const today = new Date().toISOString().split('T')[0]
-      
+
       console.log('🔍 Fetching trip status for booking:', bookingId, 'on date:', today)
-      
-      // Get trips for this booking
+
       const res = await apiFetch(`/bookings/${bookingId}`)
       const data = await res.json()
-      
+
       console.log('📦 Backend response:', data)
-      
+
       if (data.trips && Array.isArray(data.trips)) {
         console.log('✅ Found trips array:', data.trips.length, 'trips')
-        
-        // Find today's trip
+
         const todayTrip = data.trips.find((trip: Trip) => {
           console.log('🔎 Checking trip:', trip.trip_id, 'date:', trip.trip_date, 'status:', trip.status)
           return trip.trip_date === today && trip.status !== 'cancelled'
         })
-        
+
         if (todayTrip) {
           console.log('✅ Found today\'s trip! Status:', todayTrip.status)
         } else {
           console.log('⚠️ No trip found for today')
         }
-        
+
         setCurrentTrip(todayTrip || null)
         return todayTrip
       }
-      
+
       console.log('❌ No trips array in response')
       return null
     } catch (err) {
@@ -312,25 +301,25 @@ export default function TrackingSection({ initialBookingId }: Props) {
       try {
         setLoading(true)
         setError('')
-        
+
         const userId = getCurrentUserId()
-        
+
         if (!userId) {
           setError('User not authenticated. Please log in.')
           setLoading(false)
           return
         }
-        
+
         const res = await apiFetch(`/bookings?user_id=${userId}`)
-        
+
         if (!res.ok) {
           throw new Error(`Failed to fetch bookings: ${res.status}`)
         }
-        
+
         const data = await res.json()
-        
+
         let bookingsList: Booking[] = []
-        
+
         if (Array.isArray(data)) {
           bookingsList = data
         } else if (data.bookings && Array.isArray(data.bookings)) {
@@ -338,31 +327,42 @@ export default function TrackingSection({ initialBookingId }: Props) {
         } else if (data.data && Array.isArray(data.data)) {
           bookingsList = data.data
         }
-        
-        const activeBookings = bookingsList.filter((b: Booking) => 
-          b.status === 'active' && 
-          b.pickup_location_gps && 
+
+       
+        const trackableBookings = bookingsList.filter((b: Booking) =>
+          (b.status === 'active' || b.status === 'completed') &&
+          b.pickup_location_gps &&
           b.dropoff_location_gps
         )
-        
-        if (activeBookings.length === 0) {
-          setError('No active bookings found with valid GPS coordinates')
+
+        if (bookingsList.length === 0) {
+          setBookings([])
+          setSelectedBooking(null)
+          setCurrentTrip(null)
+          setError('')
+          return
         }
-        
-        setBookings(activeBookings)
-        
-        // Handle initial booking ID from props
+
+        if (trackableBookings.length === 0) {
+          setBookings([])
+          setSelectedBooking(null)
+          setCurrentTrip(null)
+          setError('No bookings found with valid GPS coordinates')
+          return
+        }
+
+        setBookings(trackableBookings)
+
         let selectedB: Booking | null = null
-        if (initialBookingId && activeBookings.length > 0) {
-          const matchingBooking = activeBookings.find(b => b.booking_id === initialBookingId)
-          selectedB = matchingBooking || activeBookings[0]
-        } else if (activeBookings.length > 0) {
-          selectedB = activeBookings[0]
+        if (initialBookingId && trackableBookings.length > 0) {
+          const matchingBooking = trackableBookings.find(b => b.booking_id === initialBookingId)
+          selectedB = matchingBooking || trackableBookings[0]
+        } else if (trackableBookings.length > 0) {
+          selectedB = trackableBookings[0]
         }
-        
+
         if (selectedB) {
           setSelectedBooking(selectedB)
-          // ✅ Fetch trip status for selected booking
           await fetchTripStatus(selectedB.booking_id)
         }
       } catch (err) {
@@ -374,18 +374,16 @@ export default function TrackingSection({ initialBookingId }: Props) {
     }
 
     fetchBookings()
-    
-    // ✅ Poll trip status every 10 seconds
+
     const interval = setInterval(async () => {
       if (selectedBooking) {
         await fetchTripStatus(selectedBooking.booking_id)
       }
-    }, 10000) // 10 seconds
-    
+    }, 10000) 
+
     return () => clearInterval(interval)
   }, [initialBookingId])
 
-  // ✅ Re-fetch trip status when booking changes
   useEffect(() => {
     if (selectedBooking) {
       fetchTripStatus(selectedBooking.booking_id)
@@ -409,7 +407,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
     async function fetchRoute() {
       try {
         const url = `https://router.project-osrm.org/route/v1/driving/${pickup![1]},${pickup![0]};${dropoff![1]},${dropoff![0]}?overview=full&geometries=geojson`
-        
+
         const res = await fetch(url)
         const data = await res.json()
 
@@ -434,21 +432,18 @@ export default function TrackingSection({ initialBookingId }: Props) {
     fetchRoute()
   }, [selectedBooking])
 
-  // ✅ Only animate bus when trip is actually in progress
   useEffect(() => {
     console.log('🚌 Bus animation effect triggered')
     console.log('📍 Route length:', route.length)
     console.log('📊 Current trip status:', currentTrip?.status)
-    
+
     if (!route.length) {
       console.log('⚠️ No route, skipping animation')
       return
     }
 
-    // Only animate if trip status is 'picked_up'
     if (currentTrip?.status !== 'picked_up') {
       console.log('🛑 Trip not in progress, bus staying at start position')
-      // If not in progress, keep bus at starting position
       setBusPosition(route[0])
       return
     }
@@ -470,7 +465,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
       console.log('🧹 Cleaning up bus animation interval')
       clearInterval(interval)
     }
-  }, [route, currentTrip?.status]) // ✅ Added currentTrip?.status dependency
+  }, [route, currentTrip?.status]) 
 
   if (loading) {
     return (
@@ -510,16 +505,14 @@ export default function TrackingSection({ initialBookingId }: Props) {
     )
   }
 
-  // ✅ Check if trip is trackable (driver started trip)
   const isTripInProgress = currentTrip?.status === 'picked_up'
   const isTripCompleted = currentTrip?.status === 'completed'
   const isTripScheduled = currentTrip?.status === 'scheduled' || !currentTrip
 
-  // Get actual locations for display
-  const { 
-    actualPickup, 
-    actualPickupName, 
-    actualDropoff, 
+  const {
+    actualPickup,
+    actualPickupName,
+    actualDropoff,
     actualDropoffName,
     isReversed,
     currentTimeSlot,
@@ -552,13 +545,12 @@ export default function TrackingSection({ initialBookingId }: Props) {
     return isReversed ? 'School → Home' : 'Home → School'
   }
 
-  const initialCenter: [number, number] = pickup && dropoff 
+  const initialCenter: [number, number] = pickup && dropoff
     ? [(pickup[0] + dropoff[0]) / 2, (pickup[1] + dropoff[1]) / 2]
     : [-1.286389, 36.817223]
 
   return (
     <div className="space-y-6">
-      {/* Booking Selector */}
       {bookings.length > 1 && (
         <Card className="border-0 shadow-lg">
           <CardHeader>
@@ -581,7 +573,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
         </Card>
       )}
 
-      {/* ✅ Trip Status Alert */}
+    
       {isTripScheduled && (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-6">
@@ -590,7 +582,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
               <div>
                 <h3 className="font-semibold text-amber-900 mb-1">Trip Not Started Yet</h3>
                 <p className="text-sm text-amber-800">
-                  The driver hasn't started the trip yet. Live tracking will appear once the driver clicks "Start Trip".
+                  The driver hasn't picked your child. Live tracking will appear once the driver picks them.
                 </p>
               </div>
             </div>
@@ -614,10 +606,9 @@ export default function TrackingSection({ initialBookingId }: Props) {
         </Card>
       )}
 
-      {/* ✅ Only show map when trip is in progress */}
+     
       {isTripInProgress && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* MAP */}
           <div className="lg:col-span-2">
             <Card className="border-0 shadow-xl">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
@@ -660,13 +651,13 @@ export default function TrackingSection({ initialBookingId }: Props) {
                     {route.length > 0 && <MapBoundsUpdater route={route} mapRef={mapRef} routeKey={mapKey} />}
 
                     {route.length > 0 && (
-                      <Polyline 
-                        positions={route} 
-                        pathOptions={{ 
-                          color: isReversed ? 'rgb(136, 158, 35)' : '#3b82f6', 
+                      <Polyline
+                        positions={route}
+                        pathOptions={{
+                          color: isReversed ? 'rgb(136, 158, 35)' : '#3b82f6',
                           weight: 6,
                           opacity: 0.8
-                        }} 
+                        }}
                       />
                     )}
 
@@ -711,7 +702,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
             </Card>
           </div>
 
-          {/* SIDE INFO */}
+          
           <div className="space-y-4">
             <Card className="border-2 border-primary/20">
               <CardHeader className="pb-3 bg-gradient-to-br from-primary/5 to-primary/10">
@@ -723,7 +714,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
-                {/* Direction Indicator */}
+              
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Direction</p>
                   <p className="font-bold text-lg">{getDirectionLabel()}</p>
@@ -734,13 +725,13 @@ export default function TrackingSection({ initialBookingId }: Props) {
                   )}
                 </div>
 
-                {/* Route Info */}
+                
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Route</p>
                   <p className="font-semibold">{selectedBooking?.route_name}</p>
                 </div>
 
-                {/* Current Pickup */}
+               
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full bg-green-600"></div>
@@ -751,7 +742,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
                   <p className="font-medium text-sm text-foreground">{actualPickupName}</p>
                 </div>
 
-                {/* Current Dropoff */}
+               
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full bg-red-600"></div>
@@ -762,7 +753,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
                   <p className="font-medium text-sm text-foreground">{actualDropoffName}</p>
                 </div>
 
-                {/* Distance & ETA */}
+                
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Distance</p>
@@ -774,7 +765,7 @@ export default function TrackingSection({ initialBookingId }: Props) {
                   </div>
                 </div>
 
-                {/* Info Box */}
+               
                 {isReversed && (
                   <div className="pt-3 border-t">
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -793,14 +784,14 @@ export default function TrackingSection({ initialBookingId }: Props) {
               </CardContent>
             </Card>
 
-            {/* Contact Actions */}
+           
             <Card>
               <CardContent className="pt-6 space-y-3">
                 <Button variant="outline" className="w-full gap-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors">
                   <Phone className="w-4 h-4" />
                   Call Driver
                 </Button>
-                
+
                 <Button variant="outline" className="w-full gap-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors">
                   <MessageSquare className="w-4 h-4" />
                   Send Message
