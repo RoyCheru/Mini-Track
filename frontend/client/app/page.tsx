@@ -11,10 +11,8 @@ import Stats from "@/app/components/Stats"
 export default function HomePage() {
   return (
     <div>
-      {/* 1) Top Banner */}
       <Hero />
 
-      {/* 2) Featured (like “Our Bestsellers”) */}
       <section className="container-max py-16">
         <div className="text-center">
           <h2 className="text-4xl font-extrabold tracking-tight">
@@ -30,8 +28,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 3) Promo Band */}
-      <section className="border-y border-brand-100/60 bg-gradient-to-r from-brand-100/70 via-brand-50 to-white">
+      <section className="border-y border-brand-100/60 bg-linear-to-r from-brand-100/70 via-brand-50 to-white">
         <div className="container-max grid gap-10 py-16 md:grid-cols-2 md:items-center">
           <div>
             <h3 className="text-4xl font-extrabold leading-[1.05] tracking-tight text-slate-900">
@@ -64,7 +61,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 4) Story Block (Problem vs Solution) */}
       <section className="container-max py-16">
         <div className="text-center">
           <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">
@@ -84,8 +80,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 5) Final CTA Band */}
-      <section className="border-t border-brand-100/60 bg-gradient-to-b from-brand-50/60 via-white to-white">
+      <section className="border-t border-brand-100/60 bg-linear-to-b from-brand-50/60 via-white to-white">
         <div className="container-max py-16">
           <div className="text-center">
             <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">
