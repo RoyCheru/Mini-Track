@@ -29,7 +29,7 @@ type Id = number | string
 type VehicleApi = {
   id: Id
   route_id: Id
-  user_id: Id // driver id
+  user_id: Id
   license_plate: string
   model: string
   capacity: number
@@ -106,18 +106,15 @@ export default function VehicleManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // dialogs
   const [addOpen, setAddOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
-  // add form
   const [newLicensePlate, setNewLicensePlate] = useState('')
   const [newModel, setNewModel] = useState('')
   const [newCapacity, setNewCapacity] = useState<number>(14)
   const [newRouteId, setNewRouteId] = useState<string>('')
   const [newDriverId, setNewDriverId] = useState<string>('')
 
-  // edit form
   const [editId, setEditId] = useState<string>('')
   const [editLicensePlate, setEditLicensePlate] = useState('')
   const [editModel, setEditModel] = useState('')
@@ -162,7 +159,6 @@ export default function VehicleManagement() {
 
   useEffect(() => {
     fetchAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const routeById = useMemo(() => {
@@ -415,7 +411,6 @@ export default function VehicleManagement() {
                   <th className="text-left py-4 px-6 font-semibold">Route</th>
                   <th className="text-left py-4 px-6 font-semibold">Driver</th>
                   <th className="text-left py-4 px-6 font-semibold">Capacity</th>
-                  {/* Status header removed */}
                   <th className="text-right py-4 px-6 font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -462,9 +457,6 @@ export default function VehicleManagement() {
                             {v.capacity}
                           </Badge>
                         </td>
-
-                        {/* Status cell removed */}
-
                         <td className="py-4 px-6">
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" size="icon" className="bg-transparent" onClick={() => openEdit(v)}>
@@ -496,8 +488,6 @@ export default function VehicleManagement() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
