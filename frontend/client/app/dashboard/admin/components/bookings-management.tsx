@@ -11,8 +11,6 @@ import { apiFetch } from '@/lib/api'
 import { Search, Calendar, Download, Car, CheckCircle2, XCircle } from 'lucide-react'
 
 type Id = number | string
-
-// ✅ Supports both old + new backend shapes
 type BookingApi = {
   id?: Id
   booking_id?: Id
@@ -240,7 +238,6 @@ export default function BookingsManagement() {
       setPickupLocations(pickupArr)
       setSchoolLocations(schoolArr)
     } catch (e: any) {
-      // ✅ If cookie session expired, apiFetch will throw. Redirect cleanly.
       const msg = String(e?.message || '')
       if (msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('missing') || msg.includes('401')) {
         router.replace('/auth/signin')
@@ -260,7 +257,6 @@ export default function BookingsManagement() {
 
   useEffect(() => {
     fetchAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const routeById = useMemo(() => {
@@ -293,7 +289,6 @@ export default function BookingsManagement() {
     return '—'
   }
 
-  // ✅ show username only (fallback if backend didn’t include it)
   const userDisplayName = (b: Booking) => {
     const n = String(b.user_name ?? '').trim()
     return n || `User #${b.user_id}`
