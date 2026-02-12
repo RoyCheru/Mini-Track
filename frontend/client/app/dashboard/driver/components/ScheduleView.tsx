@@ -32,7 +32,6 @@ function shortPlace(v: string) {
   return s.split(',')[0]
 }
 
-// ✅ Display helper: evening trips reverse
 function displayLeg(trip: Pick<ScheduleTrip, 'pickup_location' | 'dropoff_location' | 'service_type'>) {
   const pickup = String(trip.pickup_location || '').trim()
   const dropoff = String(trip.dropoff_location || '').trim()
