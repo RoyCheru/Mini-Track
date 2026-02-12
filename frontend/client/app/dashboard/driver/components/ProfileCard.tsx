@@ -14,7 +14,7 @@ export default function ProfileCard({ name, license, phone, rating, totalTrips }
     <Card className="border-border/50 bg-card shadow-sm">
       <CardHeader className="pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+          <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
             <span className="text-white text-lg font-semibold">{name.charAt(0)}</span>
           </div>
 
