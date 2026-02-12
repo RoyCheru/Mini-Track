@@ -1,5 +1,5 @@
 import FAQAccordion from "@/app/components/FAQAccordion"
-import CTASection from "@/app/components/CTASection"
+// import CTASection from "@/app/components/CTASection"
 
 export default function FAQsPage() {
   return (
@@ -17,7 +17,7 @@ export default function FAQsPage() {
         </div>
 
         <div className="mt-12">
-          <CTASection />
+          {/* <CTASection /> */}
         </div>
       </div>
     </div>
