@@ -98,9 +98,8 @@ PostgreSQL Database
 ### **Frontend**
 
 * Next.js
-* NextAuth.js (Authentication)
 * Tailwind CSS
-* Google Maps API / Leaflet.js
+* Leaflet.js
 
 ### **Backend**
 
@@ -267,5 +266,6 @@ They include:
 * Heeba Hassan
 
 ---
+
 
 
