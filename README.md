@@ -89,7 +89,7 @@ PostgreSQL Database
 
 * Flask REST API
 * PostgreSQL Database
-* Optional ORM (SQLAlchemy)
+* ORM (SQLAlchemy)
 
 ---
 
@@ -266,6 +266,7 @@ They include:
 * Heeba Hassan
 
 ---
+
 
 
 
