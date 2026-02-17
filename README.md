@@ -255,17 +255,6 @@ Potential system expansions:
 
 ---
 
-## **Project Team**
-
-Developed by a team of five web developers as part of an academic project.
-They include: 
-* Fortune Ngili
-* Dan Rotich
-* Roy Cheruiyot
-* Kibet Chumo
-* Heeba Hassan
-
----
 
 
 

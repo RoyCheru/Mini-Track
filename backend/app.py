@@ -17,14 +17,15 @@ from routes.vehicle import VehicleList, VehicleDetail
 from routes.route import RouteList, RouteDetail
 from routes.pickup_locations import PickupLocationList, PickupLocationDetail,PickupLocationByRoute, PickupLocationBulk
 
+import os
 
 def create_app():
 
     app = Flask(__name__)
     
-    app.config['SQLALCHEMY_DATABASE_URI'] = ("postgresql+psycopg2://roy:roy12345@localhost:5432/mini_track_db")
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL","postgresql+psycopg2://roy:roy12345@localhost:5432/mini_track_db")
     
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False 
     
     app.secret_key = "super-secret-key"
     app.config["JWT_SECRET_KEY"] = "super-secret-key"
@@ -43,7 +44,7 @@ def create_app():
     CORS(
         app,
         supports_credentials=True,
-        origins=["http://localhost:3000"],
+        origins=["http://localhost:3000", "http://mini-track-production.up.railway.app"],
         methods=["GET", "POST", "PUT","PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization"]
     )
