@@ -44,7 +44,7 @@ def create_app():
     CORS(
         app,
         supports_credentials=True,
-        origins=["http://localhost:3000", "http://mini-track-production.up.railway.app"],
+        origins=["http://localhost:3000", "https://mini-track-two.vercel.app"],
         methods=["GET", "POST", "PUT","PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization"]
     )
