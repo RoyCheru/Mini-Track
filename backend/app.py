@@ -29,12 +29,14 @@ def create_app():
     
     is_prod = os.getenv("FLASK_ENV") == "production" or os.getenv("RAILWAY_ENVIRONMENT") is not None
     
-    app.secret_key = "super-secret-key"
-    app.config["JWT_SECRET_KEY"] = "super-secret-key"
+    # Set secret keys for development and production
+    # "dev-secret" is a safer fallback for development, but should be overridden in production with a strong, unique value
+    app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
+    app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "dev-secret")
+
     
     app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
     app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token_cookie"
-    app.config["JWT_COOKIE_SECURE"] = False
     app.config["JWT_COOKIE_CSRF_PROTECT"] = False
     app.config["JWT_COOKIE_SAMESITE"] = "None" if is_prod else "Lax"
     app.config["JWT_COOKIE_SECURE"] = True if is_prod else False
