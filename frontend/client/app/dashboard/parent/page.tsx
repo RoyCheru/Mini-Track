@@ -20,7 +20,7 @@ import BookingFlow from './components/booking-flow'
 import BookingHistory, { Booking } from './components/booking-history'
 import TrackingSection from './components/tracking-section'
 
-const BASE_URL = 'http://127.0.0.1:5555'
+// const BASE_URL = 'http://127.0.0.1:5555'
 
 // Helper function to get current user ID
 function getCurrentUserId(): number | null {
@@ -46,7 +46,7 @@ function todayISO(): string {
 // ✅ NEW: fetch trips for a booking via /bookings/:id (backend already returns trips there)
 async function fetchBookingTrips(bookingId: number): Promise<Trip[]> {
   try {
-    const res = await fetch(`${BASE_URL}/bookings/${bookingId}`, {
+    const res = await apiFetch(`/bookings/${bookingId}`, {
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
@@ -153,7 +153,7 @@ export default function ParentDashboardPage() {
         return
       }
 
-      const res = await fetch(`${BASE_URL}/bookings?user_id=${userId}`, {
+      const res = await apiFetch(`/bookings?user_id=${userId}`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +185,7 @@ export default function ParentDashboardPage() {
   // ---------------- LOGOUT ----------------
   const handleLogout = async () => {
     try {
-      await fetch(`${BASE_URL}/logout`, {
+      await apiFetch('/logout', {
         method: 'POST',
         credentials: 'include',
       })
