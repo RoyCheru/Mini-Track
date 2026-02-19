@@ -82,11 +82,17 @@ class Me(Resource):
     @jwt_required()
     def get(self):
         identity = get_jwt_identity()
-        user = User.query.get(identity["id"])
+
+        # identity might be {"id": 1} OR just 1 (or "1")
+        user_id = identity.get("id") if isinstance(identity, dict) else identity
+
+        user = User.query.get(user_id)
+        if not user:
+            return {"error": "Unauthorized"}, 401
 
         return {
             "id": user.id,
             "name": user.name,
             "email": user.email,
-            "role": user.role.name
-        }
+            "role": user.role.name if user.role else None
+        }, 200
