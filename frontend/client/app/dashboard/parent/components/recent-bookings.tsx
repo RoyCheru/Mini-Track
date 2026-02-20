@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { apiFetch } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Clock, ArrowRight, Calendar } from 'lucide-react'
 
-const BASE_URL = 'http://127.0.0.1:5555'
+// const BASE_URL = 'http://127.0.0.1:5555'
 
 // Helper function to get current user ID
 function getCurrentUserId(): number | null {
@@ -88,7 +89,7 @@ export default function RecentBookings() {
           return
         }
 
-        const res = await fetch(`${BASE_URL}/bookings?user_id=${userId}`, {
+        const res = await apiFetch(`/bookings?user_id=${userId}`, {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',

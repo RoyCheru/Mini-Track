@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { apiFetch } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,7 +22,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const BASE_URL = 'http://127.0.0.1:5555'
+// const BASE_URL = 'http://127.0.0.1:5555'
 
 // Helper function to get current user ID
 function getCurrentUserId(): number | null {
@@ -141,7 +142,7 @@ export default function BookingHistory({ onTrack }: Props) {
         return
       }
 
-      const res = await fetch(`${BASE_URL}/bookings?user_id=${userId}`, {
+      const res = await apiFetch(`/bookings?user_id=${userId}`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
@@ -157,7 +158,7 @@ export default function BookingHistory({ onTrack }: Props) {
       const bookingsWithTrips = await Promise.all(
         data.map(async (booking) => {
           try {
-            const tripRes = await fetch(`${BASE_URL}/bookings/${booking.booking_id}`, {
+            const tripRes = await apiFetch(`/bookings/${booking.booking_id}`, {
               credentials: 'include',
               headers: {
                 'Content-Type': 'application/json',
@@ -207,7 +208,7 @@ export default function BookingHistory({ onTrack }: Props) {
 
     setCancellingId(booking.booking_id)
     try {
-      const res = await fetch(`${BASE_URL}/bookings/${booking.booking_id}`, {
+      const res = await apiFetch(`/bookings/${booking.booking_id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: {

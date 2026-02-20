@@ -1,51 +1,80 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Lock, Mail, User, ChevronRight, ChevronDown } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  User,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { apiFetch } from "@/lib/api";
+
+type Role = { id: number; name: string };
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
-  const [selectedRole, setSelectedRole] = useState<{ id: number; name: string } | null>(null);
+
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+
+  // Friendly UI error states
+  const [formError, setFormError] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+
+  const closeDropdown = () => setShowRoleDropdown(false);
 
   useEffect(() => {
     const fetchRoles = async () => {
+      setRolesError(null);
       try {
         const res = await apiFetch("/user_roles");
-        const data = await res.json();
+        const data = await res.json().catch(() => []);
         setRoles(Array.isArray(data) ? data : []);
-      } catch (e) {
+      } catch (e: any) {
         console.error("Failed to fetch roles:", e);
         setRoles([]);
+        setRolesError(
+          e?.message || "Could not load roles. Please refresh the page.",
+        );
       }
     };
 
     fetchRoles();
   }, []);
 
-  async function resolveVehicleIdForDriver(userId: number): Promise<number | null> {
+  async function resolveVehicleIdForDriver(
+    userId: number,
+  ): Promise<number | null> {
     try {
       const res = await apiFetch(`/vehicles?user_id=${userId}`);
       const json = await res.json().catch(() => ({}));
-      if (res.ok) {
-        const list = Array.isArray(json) ? json : Array.isArray(json?.vehicles) ? json.vehicles : [];
-        const v = list.find((x: any) => Number(x?.user_id) === Number(userId));
-        if (v?.id) return Number(v.id);
-      }
+      const list = Array.isArray(json)
+        ? json
+        : Array.isArray(json?.vehicles)
+          ? json.vehicles
+          : [];
+      const v = list.find((x: any) => Number(x?.user_id) === Number(userId));
+      if (v?.id) return Number(v.id);
     } catch (_) {}
+
     try {
       const res = await apiFetch("/vehicles");
       const json = await res.json().catch(() => ({}));
-      if (res.ok) {
-        const list = Array.isArray(json) ? json : Array.isArray(json?.vehicles) ? json.vehicles : [];
-        const v = list.find((x: any) => Number(x?.user_id) === Number(userId));
-        if (v?.id) return Number(v.id);
-      }
+      const list = Array.isArray(json)
+        ? json
+        : Array.isArray(json?.vehicles)
+          ? json.vehicles
+          : [];
+      const v = list.find((x: any) => Number(x?.user_id) === Number(userId));
+      if (v?.id) return Number(v.id);
     } catch (_) {}
 
     return null;
@@ -53,61 +82,52 @@ export default function SignInPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+
+    // reset errors
+    setFormError(null);
+    setRoleError(null);
+    closeDropdown();
 
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
 
-    const password = formData.get("password");
-    const email = formData.get("email");
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
 
     if (!selectedRole?.id) {
-      alert("Please select a role");
-      setIsLoading(false);
+      setRoleError("Please select your role to continue.");
+      setFormError("Please fix the highlighted field.");
       return;
     }
 
-    const payload = {
-      email,
-      password,
-      role_id: selectedRole.id,
-    };
+    setIsLoading(true);
+
+    const payload = { email, password, role_id: selectedRole.id };
 
     try {
+      // apiFetch throws on non-OK responses
       const res = await apiFetch("/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => ({}));
-      console.log("login:", data);
-
-      if (!res.ok) {
-        alert(data?.error || data?.message || "Login failed");
-        return;
-      }
 
       if (data?.user?.name) localStorage.setItem("username", data.user.name);
 
-      const userId =
-        Number(data?.user?.id ?? data?.user_id ?? data?.id ?? NaN);
-
-      if (Number.isFinite(userId)) {
+      const userId = Number(data?.user?.id ?? data?.user_id ?? data?.id ?? NaN);
+      if (Number.isFinite(userId))
         localStorage.setItem("user_id", String(userId));
-      } else {
-        localStorage.removeItem("user_id");
-      }
+      else localStorage.removeItem("user_id");
 
       const roleName = String(data?.user?.role ?? "").toLowerCase();
 
       if (roleName === "driver") {
         localStorage.removeItem("vehicle_id");
 
-        const directVehicleId =
-          Number(data?.vehicle_id ?? data?.user?.vehicle_id ?? NaN);
-
+        const directVehicleId = Number(
+          data?.vehicle_id ?? data?.user?.vehicle_id ?? NaN,
+        );
         if (Number.isFinite(directVehicleId)) {
           localStorage.setItem("vehicle_id", String(directVehicleId));
         } else if (Number.isFinite(userId)) {
@@ -116,16 +136,13 @@ export default function SignInPage() {
         }
       }
 
-      if (roleName === "admin") {
-        window.location.href = "/dashboard/admin";
-      } else if (roleName === "parent") {
+      if (roleName === "admin") window.location.href = "/dashboard/admin";
+      else if (roleName === "parent")
         window.location.href = "/dashboard/parent";
-      } else {
-        window.location.href = "/dashboard/driver";
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Server error");
+      else window.location.href = "/dashboard/driver";
+    } catch (err: any) {
+      console.error(err);
+      setFormError(err?.message || "Network/server error. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +164,9 @@ export default function SignInPage() {
             </div>
           </div>
 
-          <p className="text-gray-500 text-sm mt-1">Kid&apos;s Transportation Tracker</p>
+          <p className="text-gray-500 text-sm mt-1">
+            Kid&apos;s Transportation Tracker
+          </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-3">Sign In</h2>
           <p className="text-gray-600 text-sm mt-2">
@@ -156,9 +175,26 @@ export default function SignInPage() {
         </div>
 
         <div className="p-8">
+          {/* Main error banner */}
+          {formError && (
+            <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="font-medium">Couldn’t sign you in</div>
+              <div className="mt-1">{formError}</div>
+            </div>
+          )}
+
+          {/* Roles fetch warning (non-blocking) */}
+          {rolesError && (
+            <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {rolesError}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email
+              </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
                 <input
@@ -166,18 +202,27 @@ export default function SignInPage() {
                   name="email"
                   placeholder="you@email.com"
                   required
+                  onChange={() => setFormError(null)}
                   className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Role
+              </label>
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-                  className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-50 border border-gray-300 rounded-lg hover:border-gray-400 transition-colors text-left"
+                  onClick={() => {
+                    setShowRoleDropdown((v) => !v);
+                    setRoleError(null);
+                    setFormError(null);
+                  }}
+                  className={`w-full flex items-center justify-between px-4 py-3.5 bg-gray-50 border rounded-lg hover:border-gray-400 transition-colors text-left ${
+                    roleError ? "border-red-400" : "border-gray-300"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <User className="w-5 h-5 text-gray-400" />
@@ -192,24 +237,38 @@ export default function SignInPage() {
                   />
                 </button>
 
+                {roleError && (
+                  <p className="mt-2 text-xs text-red-600">{roleError}</p>
+                )}
+
                 {showRoleDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden">
-                    {roles.map((role) => (
-                      <button
-                        key={role.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedRole(role);
-                          setShowRoleDropdown(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors ${
-                          selectedRole?.id === role.id ? "bg-blue-50 text-blue-600" : "text-gray-700"
-                        }`}
-                      >
-                        <User className="w-4 h-4" />
-                        {role.name}
-                      </button>
-                    ))}
+                    {roles.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-gray-500">
+                        No roles available.
+                      </div>
+                    ) : (
+                      roles.map((role) => (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedRole(role);
+                            setShowRoleDropdown(false);
+                            setRoleError(null);
+                            setFormError(null);
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors ${
+                            selectedRole?.id === role.id
+                              ? "bg-blue-50 text-blue-600"
+                              : "text-gray-700"
+                          }`}
+                        >
+                          <User className="w-4 h-4" />
+                          {role.name}
+                        </button>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
@@ -217,7 +276,9 @@ export default function SignInPage() {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">Password</label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
                 <Link
                   href="/auth/forgot-password"
                   className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
@@ -233,14 +294,20 @@ export default function SignInPage() {
                   name="password"
                   placeholder="••••••••"
                   required
+                  onChange={() => setFormError(null)}
                   className="w-full pl-11 pr-12 py-3.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               </div>
             </div>
