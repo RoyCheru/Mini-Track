@@ -12,7 +12,7 @@ class Login(Resource):
         password = data.get("password")
         role_id = data.get("role_id")
 
-        user = User.query.filter_by(email=email).first()
+        user = User.query.filter_by(email=email, role_id=role_id).first()
 
         if user and check_password_hash(user.password_hash, password):
             access_token = create_access_token(identity={"id": user.id, "role_id": user.role_id})
