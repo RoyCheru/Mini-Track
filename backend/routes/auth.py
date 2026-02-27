@@ -68,7 +68,8 @@ class Signup(Resource):
                 "id": new_user.id,
                 "name": new_user.name,
                 "email": new_user.email,
-                "role_id": new_user.role_id
+                "role_id": new_user.role_id,
+                "role": new_user.role.name if new_user.role else None
             }
         }, 201
     

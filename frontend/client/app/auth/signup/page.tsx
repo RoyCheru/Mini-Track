@@ -70,15 +70,13 @@ export default function SignUpPage() {
       const data = await res.json().catch(() => ({}));
 
       if (data?.user?.name) localStorage.setItem("username", data.user.name);
-      const roleName = String(data?.user?.role ?? "").toLowerCase();
+      // const roleName = String(data?.user?.role ?? "").toLowerCase();
 
       // redirect to signin
       // window.location.href = "/auth/signin";
-      // or auto-login and redirect to dashboard
-      if (roleName === "admin") window.location.href = "/dashboard/admin";
-      else if (roleName === "parent")
-        window.location.href = "/dashboard/parent";
-      else window.location.href = "/dashboard/driver";
+      // only parent signups and redirects to dashboard
+      window.location.href = "parent/dashboard";
+      
     } catch (err: any) {
       console.error(err);
       setFormError(err?.message || "Network/server error. Please try again.");
