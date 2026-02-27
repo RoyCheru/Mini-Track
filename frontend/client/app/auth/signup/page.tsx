@@ -75,7 +75,7 @@ export default function SignUpPage() {
       // redirect to signin
       // window.location.href = "/auth/signin";
       // only parent signups and redirects to dashboard
-      window.location.href = "parent/dashboard";
+      window.location.href = "/dashboard/parent";
       
     } catch (err: any) {
       console.error(err);
